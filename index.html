@@ -487,7 +487,16 @@
         root.innerHTML = layoutAuth({ loading: true });
         return;
       }
-      root.innerHTML = state.user && state.roomId ? layoutApp() : layoutAuth();
+      if (state.user && state.roomId) {
+        if (root.querySelector(".app")) {
+          updateApp();
+          return;
+        }
+        root.innerHTML = layoutApp();
+        bind();
+        return;
+      }
+      root.innerHTML = layoutAuth();
       bind();
     }
 
@@ -552,6 +561,7 @@
                 <button class="ghost icon" data-action="share" title="Share">...</button>
               </div>
             </div>
+            ${layoutHostPlayer(isHost)}
             <nav class="nav" aria-label="Main">
               ${navButton("queue", "Queue")}
               ${navButton("add", "Add")}
@@ -560,21 +570,48 @@
             </nav>
             <button class="ghost" data-action="leave">Leave Room</button>
           </aside>
-          <main class="main">
-            <div class="topbar">
-              <div>
-                <span class="badge ${isHost ? "host" : ""}">${isHost ? "Host controls enabled" : "Guest mode"}</span>
-                <h2>${escapeHtml(tabTitle())}</h2>
-              </div>
-              <div class="badge">${state.queue.length} queued</div>
-            </div>
-            ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
-            ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
-            ${state.tab === "queue" ? viewQueue(now, isHost) : ""}
-            ${state.tab === "add" ? viewAdd() : ""}
-            ${state.tab === "people" ? viewPeople() : ""}
-            ${state.tab === "settings" ? viewSettings(isHost) : ""}
-          </main>
+          <main class="main" data-main>${layoutMain()}</main>
+        </div>`;
+    }
+
+    function layoutMain() {
+      const isHost = isCurrentHost();
+      const now = state.room?.now || null;
+      return `
+        <div class="topbar">
+          <div>
+            <span class="badge ${isHost ? "host" : ""}">${isHost ? "Host controls enabled" : "Guest mode"}</span>
+            <h2>${escapeHtml(tabTitle())}</h2>
+          </div>
+          <div class="badge">${state.queue.length} queued</div>
+        </div>
+        ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
+        ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
+        ${state.tab === "queue" ? viewQueue(now, isHost) : ""}
+        ${state.tab === "add" ? viewAdd() : ""}
+        ${state.tab === "people" ? viewPeople() : ""}
+        ${state.tab === "settings" ? viewSettings(isHost) : ""}`;
+    }
+
+    function layoutHostPlayer(isHost) {
+      return `<div data-host-player>${hostPlayerContent(isHost)}</div>`;
+    }
+
+    function hostPlayerContent(isHost) {
+      const now = state.room?.now || null;
+      if (!isHost) return "";
+      if (!now?.youtubeId) {
+        return `<div class="card"><strong>Host Player</strong><br><small>Start a playable YouTube song to keep music running here.</small></div>`;
+      }
+      return `
+        <div class="card" data-video-id="${escapeAttr(now.youtubeId)}">
+          <strong>Host Player</strong>
+          <iframe
+            class="player"
+            title="${escapeAttr(`${now.artist || "Party Beats"} - ${now.title || "Now playing"}`)}"
+            src="https://www.youtube.com/embed/${escapeAttr(now.youtubeId)}?autoplay=1&playsinline=1&rel=0"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowfullscreen></iframe>
         </div>`;
     }
 
@@ -602,16 +639,9 @@
                 <button data-action="skip" ${isHost ? "" : "disabled"}>${now ? "Skip" : "Start"}</button>
               </div>
             </div>
-            ${now?.youtubeId ? `
-              <iframe
-                class="player"
-                title="${escapeAttr(`${now.artist || "Party Beats"} - ${now.title || "Now playing"}`)}"
-                src="https://www.youtube.com/embed/${escapeAttr(now.youtubeId)}?autoplay=1&playsinline=1&rel=0"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowfullscreen></iframe>
-            ` : now ? `
-              <div class="empty" style="margin-top: 14px;">This song has no playable YouTube link. Add a YouTube URL to play audio here.</div>
-            ` : ""}
+            ${now?.youtubeId && isHost ? `<div class="empty" style="margin-top: 14px;">The host player is active in the sidebar, so music keeps playing while you use the app.</div>` : ""}
+            ${now?.youtubeId && !isHost ? `<div class="empty" style="margin-top: 14px;">The host device is playing this track.</div>` : ""}
+            ${now && !now.youtubeId ? `<div class="empty" style="margin-top: 14px;">This song has no playable YouTube link.</div>` : ""}
           </section>
           <section class="card">
             <h3>Recently Played</h3>
@@ -721,21 +751,43 @@
         </div>`;
     }
 
-    function bind() {
-      root.querySelectorAll("[data-action]").forEach((el) => {
+    function updateApp() {
+      const main = root.querySelector("[data-main]");
+      if (main) {
+        main.innerHTML = layoutMain();
+        bind(main);
+      }
+
+      root.querySelectorAll("[data-tab]").forEach((el) => {
+        el.classList.toggle("active", el.dataset.tab === state.tab);
+      });
+
+      const hostPlayer = root.querySelector("[data-host-player]");
+      if (hostPlayer) {
+        const nextVideoId = isCurrentHost() ? (state.room?.now?.youtubeId || "") : "";
+        const currentVideoId = hostPlayer.querySelector("[data-video-id]")?.dataset.videoId || "";
+        const hasPlaceholder = !!hostPlayer.querySelector(".card:not([data-video-id])");
+        if (nextVideoId !== currentVideoId || (!nextVideoId && !hasPlaceholder)) {
+          hostPlayer.innerHTML = hostPlayerContent(isCurrentHost());
+        }
+      }
+    }
+
+    function bind(scope = root) {
+      scope.querySelectorAll("[data-action]").forEach((el) => {
         el.addEventListener("click", handleAction);
       });
-      root.querySelectorAll("[data-tab]").forEach((el) => {
+      scope.querySelectorAll("[data-tab]").forEach((el) => {
         el.addEventListener("click", () => {
           state.tab = el.dataset.tab;
           clearNotice();
-          render();
+          updateApp();
         });
       });
-      root.querySelectorAll("[data-field]").forEach((el) => {
+      scope.querySelectorAll("[data-field]").forEach((el) => {
         el.addEventListener("input", handleField);
       });
-      root.querySelectorAll("[data-setting]").forEach((el) => {
+      scope.querySelectorAll("[data-setting]").forEach((el) => {
         el.addEventListener("change", () => updateSetting(el.dataset.setting, el.checked));
       });
     }
