@@ -166,11 +166,48 @@
     }
     .main { min-width: 0; max-width: 100%; padding: 20px; overflow-x: hidden; }
     .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 15;
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
-      margin-bottom: 18px;
+      align-items: center;
+      gap: 12px;
+      margin: -20px -20px 18px;
+      padding: calc(14px + env(safe-area-inset-top)) 20px 12px;
+      background: rgba(9, 13, 19, .92);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+    .top-room { display: grid; gap: 4px; }
+    .top-room small { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; }
+    .top-room .room-code { min-height: 34px; font-size: 18px; letter-spacing: 3px; padding: 0 10px; }
+    .host-player-hidden {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      left: -9999px;
+      top: auto;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .queue-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .queue-tabs button {
+      min-height: 40px;
+      color: var(--muted);
+      background: #172131;
+      border: 1px solid var(--line);
+    }
+    .queue-tabs button.active {
+      color: #06130f;
+      background: var(--accent);
+      border-color: var(--accent);
     }
     .top-actions { display: flex; align-items: flex-start; gap: 8px; }
     .menu-wrap { position: relative; }
@@ -373,29 +410,6 @@
     .join-popup h3 { margin-bottom: 4px; }
     .join-popup .member { border-top: 0; padding-bottom: 0; }
 
-
-    .host-player-hidden {
-      position: fixed;
-      left: -10000px;
-      top: 0;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
-      overflow: hidden;
-    }
-    .host-player-hidden .player-stage {
-      width: 320px;
-      height: 180px;
-      margin: 0;
-    }
-    .host-controls {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .host-controls button { width: 100%; }
-
     @media (max-width: 820px) {
       .auth { grid-template-columns: 1fr; align-content: center; }
       .hero-copy p { font-size: 16px; }
@@ -422,6 +436,7 @@
       }
       .nav button { justify-content: center; padding: 0 6px; font-size: 13px; }
       .main { padding: 14px; }
+      .topbar { margin: -14px -14px 14px; padding: calc(12px + env(safe-area-inset-top)) 14px 10px; }
       .topbar { display: grid; }
       .grid { grid-template-columns: 1fr; }
       .split { grid-template-columns: 1fr; }
@@ -451,42 +466,6 @@
       }
       .join-popup { bottom: 84px; }
     }
-
-
-    @media (min-width: 821px) {
-      .app {
-        display: grid;
-        grid-template-columns: 280px minmax(0, 1fr);
-        padding-bottom: 0;
-      }
-      .sidebar {
-        position: sticky;
-        top: 0;
-        height: 100svh;
-        border-right: 1px solid var(--line);
-        border-bottom: 0;
-      }
-      .sidebar .nav {
-        position: static;
-        display: grid;
-        grid-template-columns: 1fr;
-        padding: 0;
-        background: transparent;
-        border-top: 0;
-        backdrop-filter: none;
-      }
-      .grid { grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); }
-      .split { grid-template-columns: 1fr 1fr; }
-      .now { grid-template-columns: 78px minmax(0, 1fr) auto; }
-      .now .actions { grid-column: auto; justify-content: flex-end; }
-      .song { grid-template-columns: 34px 52px minmax(0, 1fr) auto; }
-      .song .actions {
-        grid-column: auto;
-        display: flex;
-        justify-content: flex-end;
-      }
-    }
-
   </style>
 </head>
 <body>
@@ -514,6 +493,7 @@
       deleteDoc,
       doc,
       getDoc,
+      getDocs,
       increment,
       limit,
       onSnapshot,
@@ -521,6 +501,7 @@
       query,
       serverTimestamp,
       setDoc,
+      Timestamp,
       updateDoc,
       writeBatch
     } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
@@ -535,7 +516,7 @@
       measurementId: "G-2MZ6CRLCRK"
     };
 
-    const APP_VERSION = "2026.05.12.03";
+    const APP_VERSION = "2026.05.12.06";
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const seedSongs = [
       ["The Weeknd", "Blinding Lights", "3:20", "fHI8X4OXluQ"],
@@ -606,6 +587,7 @@
       room: null,
       member: null,
       tab: initialTab,
+      queueView: sessionStorage.getItem("partyBeatsQueueView") || "now",
       queue: [],
       members: [],
       joinRequests: [],
@@ -617,7 +599,8 @@
       unsub: [],
       joinRequestsUnsub: null,
       menuOpen: false,
-      aboutOpen: false
+      aboutOpen: false,
+      transferOpen: false
     };
 
     const bootFallback = setTimeout(() => {
@@ -762,14 +745,6 @@
                 <small>${escapeHtml(state.member?.name || state.nickname)} ${isHost ? "Host" : "Guest"}</small>
               </div>
             </div>
-            <div class="stack">
-              <small>Room</small>
-              <div class="room-code">${escapeHtml(state.roomId)}</div>
-              <div class="row">
-                <button class="secondary grow" data-action="copy-link">Copy Link</button>
-                <button class="ghost icon" data-action="share" title="Share">...</button>
-              </div>
-            </div>
             ${layoutHostPlayer(isHost)}
             <nav class="nav" aria-label="Main">
               ${navButton("queue", "Queue")}
@@ -781,6 +756,7 @@
           </aside>
           <main class="main" data-main>${layoutMain()}</main>
           <div data-join-popup>${layoutFloatingJoinPopup()}</div>
+          <div data-transfer-modal>${layoutTransferHostModal()}</div>
           <div data-about-modal>${layoutAboutModal()}</div>
         </div>`;
     }
@@ -790,9 +766,9 @@
       const now = state.room?.now || null;
       return `
         <div class="topbar">
-          <div>
-            <span class="badge ${isHost ? "host" : ""}">${isHost ? "Host controls enabled" : "Guest mode"}</span>
-            <h2>${escapeHtml(tabTitle())}</h2>
+          <div class="top-room">
+            <small>Room ID</small>
+            <div class="room-code">${escapeHtml(state.roomId)}</div>
           </div>
           <div class="top-actions">
             <div class="badge">${state.queue.length} queued</div>
@@ -800,11 +776,17 @@
               <button class="ghost menu-button" data-action="menu-toggle" aria-label="Open menu" aria-expanded="${state.menuOpen ? "true" : "false"}">&#8942;</button>
               ${state.menuOpen ? `
                 <div class="overflow-menu" role="menu">
-                  <button data-action="menu-share" role="menuitem">Share</button>
+                  <button data-action="menu-share-room-id" role="menuitem">Share Room ID</button>
+                  <button data-action="menu-share" role="menuitem">Share Room Link</button>
+                  <button data-action="menu-transfer-host" role="menuitem">Transfer Host</button>
                   <button data-action="menu-about" role="menuitem">About</button>
                 </div>` : ""}
             </div>
           </div>
+        </div>
+        <div style="margin-bottom: 14px;">
+          <span class="badge ${isHost ? "host" : ""}">${isHost ? "Host controls enabled" : "Guest mode"}</span>
+          <h2>${escapeHtml(tabTitle())}</h2>
         </div>
         ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
         ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
@@ -812,6 +794,34 @@
         ${state.tab === "add" ? viewAdd() : ""}
         ${state.tab === "people" ? viewPeople() : ""}
         ${state.tab === "settings" ? viewSettings(isHost) : ""}`;
+    }
+
+
+    function layoutTransferHostModal() {
+      if (!state.transferOpen) return "";
+      if (!isCurrentHost()) return "";
+      const googleMembers = state.members.filter((member) =>
+        member.id !== state.user?.uid && !member.guest && member.authProvider === "google"
+      );
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Transfer host">
+          <section class="modal stack">
+            <div>
+              <h3>Transfer Host</h3>
+              <p class="fine">Choose a Google-authenticated member to become the new host.</p>
+            </div>
+            ${googleMembers.length ? googleMembers.map((member) => `
+              <div class="member">
+                <div class="row">
+                  <div class="avatar">${escapeHtml(initials(member.name))}</div>
+                  <div><strong>${escapeHtml(member.name || "Member")}</strong><br><small>${escapeHtml(member.email || "Google authenticated")}</small></div>
+                </div>
+                <button data-action="transfer-host" data-id="${escapeAttr(member.id)}">Make Host</button>
+              </div>
+            `).join("") : `<div class="empty">No eligible Google-authenticated members are currently in this room.</div>`}
+            <button class="ghost" data-action="close-transfer-host">Cancel</button>
+          </section>
+        </div>`;
     }
 
     function layoutAboutModal() {
@@ -859,9 +869,9 @@
 
     function hostPlayerContent(isHost) {
       const now = state.room?.now || null;
-      if (!isHost) return "";
+      if (!isHost || !now?.youtubeId) return "";
       return `
-        <div class="host-player-hidden" data-video-id="${escapeAttr(now?.youtubeId || "")}" aria-hidden="true">
+        <div class="host-player-hidden" data-video-id="${escapeAttr(now.youtubeId)}" aria-hidden="true">
           <div class="player-stage">
             <div class="player-slot" data-player-slot="a"><div id="yt-target-a"></div></div>
             <div class="player-slot player-hidden" data-player-slot="b"><div id="yt-target-b"></div></div>
@@ -878,38 +888,64 @@
     }
 
     function viewQueue(now, isHost) {
+      const activeView = ["now", "upnext", "recents"].includes(state.queueView) ? state.queueView : "now";
       return `
-        <div class="grid">
-          <section class="card">
-            <h3>Now Playing</h3>
-            <div class="now">
-              <div class="cover">PB</div>
-              <div>
-                <div class="song-title">${escapeHtml(now ? `${now.artist} - ${now.title}` : "No song playing")}</div>
-                <small>${escapeHtml(now ? `${now.duration || "3:30"} from ${now.addedBy || "the room"}` : "The host can start the next queued song.")}</small>
-                <div class="meter"><i></i></div>
-              </div>
-              <div class="actions host-controls">
-                <button class="secondary" data-action="previous" ${isHost && state.history.length ? "" : "disabled"}>Previous</button>
-                <button data-action="skip" ${isHost && (now || state.queue.length) ? "" : "disabled"}>${now ? "Next" : "Start"}</button>
-              </div>
-            </div>
-            ${now?.youtubeId && isHost ? `<div class="empty" style="margin-top: 14px;">Playback is running hidden on this host device. Use Previous and Next to control the queue.</div>` : ""}
-            ${now?.youtubeId && !isHost ? `<div class="empty" style="margin-top: 14px;">The host device is playing this track.</div>` : ""}
-            ${now && !now.youtubeId ? `<div class="empty" style="margin-top: 14px;">This song has no playable YouTube link.</div>` : ""}
-          </section>
-          <section class="card">
-            <h3>Recently Played</h3>
-            ${state.history.length ? state.history.map(song => `
-              <div class="history-row">
-                <div><strong>${escapeHtml(song.title)}</strong><br><small>${escapeHtml(song.artist || "Unknown artist")}</small></div>
-                <small>${escapeHtml(song.addedBy || "")}</small>
-              </div>`).join("") : `<div class="empty">Played songs will show up here.</div>`}
-          </section>
+        <div class="queue-tabs" role="tablist" aria-label="Queue sections">
+          ${queueTabButton("now", "Now Playing", activeView)}
+          ${queueTabButton("upnext", "Up Next", activeView)}
+          ${queueTabButton("recents", "Recents", activeView)}
         </div>
-        <section class="card" style="margin-top: 16px;">
+        ${activeView === "now" ? viewNowPlaying(now, isHost) : ""}
+        ${activeView === "upnext" ? viewUpNext(isHost) : ""}
+        ${activeView === "recents" ? viewRecents() : ""}`;
+    }
+
+    function queueTabButton(view, label, activeView) {
+      return `<button class="${activeView === view ? "active" : ""}" data-queue-view="${view}" role="tab" aria-selected="${activeView === view ? "true" : "false"}">${label}</button>`;
+    }
+
+    function viewNowPlaying(now, isHost) {
+      const roomFinished = isHost && !now && !state.queue.length;
+      return `
+        <section class="card">
+          <h3>Now Playing</h3>
+          <div class="now">
+            <div class="cover">PB</div>
+            <div>
+              <div class="song-title">${escapeHtml(now ? `${now.artist} - ${now.title}` : "No song playing")}</div>
+              <small>${escapeHtml(now ? `${now.duration || "3:30"} from ${now.addedBy || "the room"}` : "The host can start the next queued song.")}</small>
+              <div class="meter"><i></i></div>
+            </div>
+            <div class="actions">
+              <button class="secondary" data-action="previous" ${isHost ? "" : "disabled"}>Previous</button>
+              <button class="secondary" data-action="pause" ${isHost && now?.youtubeId ? "" : "disabled"}>Pause</button>
+              <button data-action="skip" ${isHost ? "" : "disabled"}>Next</button>
+            </div>
+          </div>
+          ${now?.youtubeId && isHost ? `<div class="empty" style="margin-top: 14px;">The host player is hidden and controlled from this screen.</div>` : ""}
+          ${now?.youtubeId && !isHost ? `<div class="empty" style="margin-top: 14px;">The host device is playing this track.</div>` : ""}
+          ${now && !now.youtubeId ? `<div class="empty" style="margin-top: 14px;">This song has no playable YouTube link.</div>` : ""}
+          ${roomFinished ? `<div class="empty" style="margin-top: 14px;">The room is done playing music.</div><button class="danger" data-action="delete-room" style="width: 100%; margin-top: 12px;">End Room</button>` : ""}
+        </section>`;
+    }
+
+    function viewUpNext(isHost) {
+      return `
+        <section class="card">
           <h3>Up Next</h3>
           ${state.queue.length ? state.queue.map((song, index) => layoutSong(song, index, isHost)).join("") : `<div class="empty">No songs yet. Add the first track.</div>`}
+        </section>`;
+    }
+
+    function viewRecents() {
+      return `
+        <section class="card">
+          <h3>Recents</h3>
+          ${state.history.length ? state.history.map(song => `
+            <div class="history-row">
+              <div><strong>${escapeHtml(song.title)}</strong><br><small>${escapeHtml(song.artist || "Unknown artist")}</small></div>
+              <small>${escapeHtml(song.addedBy || "")}</small>
+            </div>`).join("") : `<div class="empty">Played songs will show up here.</div>`}
         </section>`;
     }
 
@@ -1056,8 +1092,8 @@
       if (hostPlayer) {
         const nextVideoId = isCurrentHost() ? (state.room?.now?.youtubeId || "") : "";
         const currentVideoId = hostPlayer.querySelector("[data-video-id]")?.dataset.videoId || "";
-        const hasPlayerShell = !!hostPlayer.querySelector("[data-video-id]");
-        if (nextVideoId !== currentVideoId || (!nextVideoId && !hasPlayerShell)) {
+        const hasPlaceholder = !!hostPlayer.querySelector(".card:not([data-video-id])");
+        if (nextVideoId !== currentVideoId || (!nextVideoId && !hasPlaceholder)) {
           destroyHostPlayers();
           hostPlayer.innerHTML = hostPlayerContent(isCurrentHost());
         }
@@ -1068,6 +1104,12 @@
       if (joinPopup) {
         joinPopup.innerHTML = layoutFloatingJoinPopup();
         bind(joinPopup);
+      }
+
+      const transferModal = root.querySelector("[data-transfer-modal]");
+      if (transferModal) {
+        transferModal.innerHTML = layoutTransferHostModal();
+        bind(transferModal);
       }
 
       const aboutModal = root.querySelector("[data-about-modal]");
@@ -1256,6 +1298,14 @@
           updateApp();
         });
       });
+      scope.querySelectorAll("[data-queue-view]").forEach((el) => {
+        el.addEventListener("click", () => {
+          state.queueView = el.dataset.queueView;
+          sessionStorage.setItem("partyBeatsQueueView", state.queueView);
+          clearNotice();
+          updateApp();
+        });
+      });
       scope.querySelectorAll("[data-field]").forEach((el) => {
         el.addEventListener("input", handleField);
       });
@@ -1275,14 +1325,19 @@
         if (action === "signout") await logOut();
         if (action === "create") await createRoom();
         if (action === "join") await joinRoom();
-        if (action === "leave") leaveRoom();
+        if (action === "leave") await leaveOrEndRoom();
         if (action === "copy-link") await copyLink();
         if (action === "share") await shareRoom();
         if (action === "menu-toggle") toggleMenu();
+        if (action === "menu-share-room-id") await shareRoomIdFromMenu();
         if (action === "menu-share") await shareFromMenu();
         if (action === "menu-about") showAbout();
+        if (action === "menu-transfer-host") showTransferHost();
+        if (action === "close-transfer-host") closeTransferHost();
+        if (action === "transfer-host") await transferHost(el.dataset.id);
         if (action === "close-about") closeAbout();
         if (action === "previous") await playPrevious();
+        if (action === "pause") togglePause();
         if (action === "skip") await playNext();
         if (action === "add-song") await addSongFromInput();
         if (action === "search-youtube") searchYouTube();
@@ -1363,6 +1418,11 @@
     }
 
     async function logOut() {
+      if (state.roomId && isCurrentHost()) {
+        await deleteEntireRoom();
+      } else if (state.roomId) {
+        leaveRoom();
+      }
       localStorage.removeItem("partyBeatsUser");
       localStorage.removeItem("partyBeatsAuthMode");
       state.authMode = "";
@@ -1433,7 +1493,8 @@
         settings: defaultSettings(),
         now: null,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        expiresAt: roomExpiryTimestamp()
       });
       await upsertMember(code, name);
       await enterRoom(code);
@@ -1496,6 +1557,7 @@
       state.roomId = code;
       state.pendingRoom = code;
       localStorage.setItem("partyBeatsRoom", code);
+      await updateRoomActivity(code);
       rememberTab();
       updateUrl();
       state.unsub.forEach((stop) => stop());
@@ -1548,6 +1610,7 @@
         email: state.user.email || "",
         photoURL: state.user.photoURL || "",
         guest: isGuestUser(),
+        authProvider: isGuestUser() ? "anonymous" : "google",
         joinedAt: serverTimestamp(),
         lastSeen: serverTimestamp(),
         online: true
@@ -1563,6 +1626,7 @@
         id: requestId,
         name: request.name || "Guest",
         guest: true,
+        authProvider: "anonymous",
         approvedBy: state.user.uid,
         joinedAt: serverTimestamp(),
         lastSeen: serverTimestamp(),
@@ -1690,6 +1754,7 @@
         order: Date.now(),
         createdAt: serverTimestamp()
       });
+      await updateRoomActivity();
       state.message = "Added to the queue.";
       state.tab = "queue";
       render();
@@ -1707,26 +1772,7 @@
         });
       }
       if (next) batch.delete(doc(db, "rooms", state.roomId, "queue", next.id));
-      batch.update(roomRef(state.roomId), { now: next ? stripId(next) : null, updatedAt: serverTimestamp() });
-      await batch.commit();
-    }
-
-    async function playPrevious() {
-      requireHost();
-      const previous = state.history[0] || null;
-      if (!previous) throw new Error("No previous song is available yet.");
-      const current = state.room?.now || null;
-      const batch = writeBatch(db);
-      if (current) {
-        const firstOrder = Number(state.queue[0]?.order || Date.now());
-        batch.set(doc(collection(db, "rooms", state.roomId, "queue")), {
-          ...stripId(current),
-          order: firstOrder - 1,
-          returnedAt: serverTimestamp()
-        });
-      }
-      batch.delete(doc(db, "rooms", state.roomId, "history", previous.id));
-      batch.update(roomRef(state.roomId), { now: stripId(previous), updatedAt: serverTimestamp() });
+      batch.update(roomRef(state.roomId), { now: next ? stripId(next) : null, updatedAt: serverTimestamp(), expiresAt: roomExpiryTimestamp() });
       await batch.commit();
     }
 
@@ -1735,6 +1781,7 @@
       await updateDoc(doc(db, "rooms", state.roomId, "queue", id), {
         [`reactions.${kind}`]: increment(1)
       });
+      await updateRoomActivity();
     }
 
     async function removeSong(id) {
@@ -1742,6 +1789,7 @@
       const canRemove = isCurrentHost() || state.room?.settings?.guestRemove;
       if (!canRemove) throw new Error("Only the host can remove songs.");
       await deleteDoc(doc(db, "rooms", state.roomId, "queue", id));
+      await updateRoomActivity();
     }
 
     async function moveSong(id, direction) {
@@ -1757,20 +1805,106 @@
       batch.update(doc(db, "rooms", state.roomId, "queue", a.id), { order: b.order });
       batch.update(doc(db, "rooms", state.roomId, "queue", b.id), { order: a.order });
       await batch.commit();
+      await updateRoomActivity();
     }
 
     async function updateSetting(key, value) {
       if (!state.roomId || !isCurrentHost()) return;
       await updateDoc(roomRef(state.roomId), {
         [`settings.${key}`]: value,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        expiresAt: roomExpiryTimestamp()
       });
     }
 
     async function endRoom() {
       requireHost();
-      await deleteDoc(roomRef(state.roomId));
+      await deleteEntireRoom();
+    }
+
+    async function deleteCollectionDocs(collectionRef) {
+      const snap = await getDocs(collectionRef);
+      if (snap.empty) return;
+      const batch = writeBatch(db);
+      snap.docs.forEach((item) => batch.delete(item.ref));
+      await batch.commit();
+    }
+
+
+    async function leaveOrEndRoom() {
+      if (state.roomId && isCurrentHost()) {
+        await deleteEntireRoom();
+        return;
+      }
       leaveRoom();
+    }
+
+    async function deleteCollectionDocs(pathParts) {
+      const snap = await getDocs(collection(db, ...pathParts));
+      if (!snap.size) return;
+
+      let batch = writeBatch(db);
+      let count = 0;
+
+      for (const docSnap of snap.docs) {
+        batch.delete(docSnap.ref);
+        count += 1;
+
+        if (count >= 450) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      if (count > 0) await batch.commit();
+    }
+
+    async function deleteEntireRoom() {
+      requireHost();
+      const code = state.roomId;
+      if (!code) return;
+
+      await deleteCollectionDocs(["rooms", code, "queue"]);
+      await deleteCollectionDocs(["rooms", code, "history"]);
+      await deleteCollectionDocs(["rooms", code, "members"]);
+      await deleteCollectionDocs(["rooms", code, "joinRequests"]);
+      await deleteCollectionDocs(["rooms", code, "presence"]);
+      await deleteDoc(roomRef(code));
+
+      leaveRoom();
+    }
+
+    function showTransferHost() {
+      if (!isCurrentHost()) return;
+      state.menuOpen = false;
+      state.transferOpen = true;
+      updateApp();
+    }
+
+    function closeTransferHost() {
+      state.transferOpen = false;
+      updateApp();
+    }
+
+    async function transferHost(memberId) {
+      requireHost();
+      const nextHost = state.members.find((member) => member.id === memberId);
+      if (!nextHost) throw new Error("That member is no longer in this room.");
+      if (nextHost.guest || nextHost.authProvider !== "google") {
+        throw new Error("Host can only be transferred to a Google-authenticated member.");
+      }
+
+      await updateDoc(roomRef(state.roomId), {
+        hostId: nextHost.id,
+        hostName: nextHost.name || "Host",
+        updatedAt: serverTimestamp(),
+        expiresAt: sevenDaysFromNow()
+      });
+
+      state.transferOpen = false;
+      state.message = `${nextHost.name || "Selected member"} is now the host.`;
+      updateApp();
     }
 
     function leaveRoom(updateUrl = true) {
@@ -1826,6 +1960,22 @@
       await shareRoom();
     }
 
+    async function shareRoomIdFromMenu() {
+      state.menuOpen = false;
+      updateApp();
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: "Party Beats Room ID", text: `Join Party Beats room ${state.roomId}` });
+          return;
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+        }
+      }
+      await navigator.clipboard?.writeText(state.roomId);
+      state.message = "Room ID copied.";
+      render();
+    }
+
     function showAbout() {
       state.menuOpen = false;
       state.aboutOpen = true;
@@ -1837,7 +1987,55 @@
       updateApp();
     }
 
-    function defaultSettings() {
+    
+    function togglePause() {
+      try {
+        if (!hostPlayback.active) return;
+        const playerState = hostPlayback.active.getPlayerState?.();
+
+        if (playerState === window.YT?.PlayerState?.PLAYING) {
+          hostPlayback.active.pauseVideo();
+          state.message = "Playback paused.";
+        } else {
+          hostPlayback.active.playVideo();
+          state.message = "Playback resumed.";
+        }
+
+        updateApp();
+      } catch {}
+    }
+
+    async function playPrevious() {
+      requireHost();
+
+      if (!state.history.length) {
+        state.error = "No previous song available.";
+        updateApp();
+        return;
+      }
+
+      const previous = state.history[0];
+      const current = state.room?.now;
+      const batch = writeBatch(db);
+
+      if (current) {
+        batch.set(doc(collection(db, "rooms", state.roomId, "queue")), {
+          ...current,
+          order: Date.now(),
+          createdAt: serverTimestamp()
+        });
+      }
+
+      batch.update(roomRef(state.roomId), {
+        now: stripId(previous),
+        updatedAt: serverTimestamp(),
+        expiresAt: roomExpiryTimestamp()
+      });
+
+      await batch.commit();
+    }
+
+function defaultSettings() {
       return {
         cooldown: true,
         guestReorder: false,
