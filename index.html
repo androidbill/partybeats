@@ -25,7 +25,7 @@
     }
 
     * { box-sizing: border-box; }
-    html, body { min-height: 100%; }
+    html, body { min-height: 100%; max-width: 100%; overflow-x: hidden; }
     body {
       margin: 0;
       color: var(--text);
@@ -113,6 +113,8 @@
       min-height: 100svh;
       display: grid;
       grid-template-columns: 280px minmax(0, 1fr);
+      max-width: 100%;
+      overflow-x: hidden;
     }
     .sidebar {
       position: sticky;
@@ -162,7 +164,7 @@
       background: var(--panel-2);
       border-color: var(--line);
     }
-    .main { padding: 20px; }
+    .main { min-width: 0; max-width: 100%; padding: 20px; overflow-x: hidden; }
     .topbar {
       display: flex;
       justify-content: space-between;
@@ -230,6 +232,8 @@
     .badge.host { color: #2b1800; background: var(--gold); border-color: var(--gold); }
     .grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); gap: 16px; }
     .card {
+      min-width: 0;
+      max-width: 100%;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -287,7 +291,8 @@
       border-top: 1px solid var(--line);
     }
     .song:first-child { border-top: 0; }
-    .song-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 850; }
+    .song > div { min-width: 0; }
+    .song-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; font-weight: 850; }
     .mini-cover {
       width: 52px;
       height: 52px;
@@ -298,8 +303,8 @@
       background: linear-gradient(135deg, #64d8ff, #f6b543);
       font-weight: 1000;
     }
-    .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-    .actions button { min-height: 34px; padding: 0 9px; font-size: 12px; }
+    .actions { min-width: 0; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .actions button { min-width: 0; min-height: 34px; padding: 0 9px; font-size: 12px; }
     .result, .member, .history-row {
       display: flex;
       justify-content: space-between;
@@ -402,8 +407,25 @@
       .now .actions { grid-column: 1 / -1; justify-content: stretch; }
       .now .actions button { flex: 1; }
       .song { grid-template-columns: 26px 44px minmax(0, 1fr); }
-      .song .actions { grid-column: 1 / -1; justify-content: stretch; }
-      .song .actions button { flex: 1; }
+      .song-title {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      .song .actions {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+        justify-content: stretch;
+      }
+      .song .actions button {
+        width: 100%;
+        padding: 0 5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .join-popup { bottom: 84px; }
     }
   </style>
@@ -454,7 +476,7 @@
       measurementId: "G-2MZ6CRLCRK"
     };
 
-    const APP_VERSION = "2026.05.12.01";
+    const APP_VERSION = "2026.05.12.02";
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const seedSongs = [
       ["The Weeknd", "Blinding Lights", "3:20", "fHI8X4OXluQ"],
@@ -850,9 +872,9 @@
           <div class="actions">
             <button class="secondary" data-action="react" data-id="${escapeAttr(song.id)}" data-kind="like">Like ${song.reactions?.like || 0}</button>
             <button class="secondary" data-action="react" data-id="${escapeAttr(song.id)}" data-kind="fire">Fire ${song.reactions?.fire || 0}</button>
-            <button class="ghost" data-action="move-up" data-id="${escapeAttr(song.id)}" ${canMove ? "" : "disabled"}>Up</button>
-            <button class="ghost" data-action="move-down" data-id="${escapeAttr(song.id)}" ${canMove ? "" : "disabled"}>Down</button>
-            <button class="danger" data-action="remove" data-id="${escapeAttr(song.id)}" ${canRemove ? "" : "disabled"}>Remove</button>
+            ${canMove ? `<button class="ghost" data-action="move-up" data-id="${escapeAttr(song.id)}">Up</button>` : ""}
+            ${canMove ? `<button class="ghost" data-action="move-down" data-id="${escapeAttr(song.id)}">Down</button>` : ""}
+            ${canRemove ? `<button class="danger" data-action="remove" data-id="${escapeAttr(song.id)}">Remove</button>` : ""}
           </div>
         </div>`;
     }
