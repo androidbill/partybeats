@@ -1276,7 +1276,7 @@
     async function addSongFromInput() {
       const query = (state.songQuery || "").trim();
       if (!query) throw new Error("Type a song or paste a link first.");
-      const song = parseSong(query);
+      const song = await enrichYouTubeSong(parseSong(query));
       if (!song.youtubeId) throw new Error("Paste a YouTube video link to add a playable song, or use Search YouTube first.");
       await addSong(song);
       state.songQuery = "";
@@ -1307,7 +1307,7 @@
     async function importClipboardLink() {
       const text = await navigator.clipboard?.readText();
       if (!text) throw new Error("Clipboard is empty or blocked by the browser.");
-      const song = parseSong(text.trim());
+      const song = await enrichYouTubeSong(parseSong(text.trim()));
       if (!song.youtubeId) throw new Error("The clipboard does not contain a YouTube video link.");
       state.songQuery = text.trim();
       state.suggestions = [];
@@ -1449,11 +1449,11 @@
       if (youtubeId) {
         return {
           artist: "YouTube",
-          title: cleaned,
+          title: "YouTube video",
           duration: "Video",
           source: "youtube",
           youtubeId,
-          url: cleaned
+          url: canonicalYouTubeUrl(youtubeId)
         };
       }
       const split = cleaned.split(" - ");
@@ -1476,6 +1476,45 @@
         return "";
       }
       return "";
+    }
+
+    async function enrichYouTubeSong(song) {
+      if (!song.youtubeId) return song;
+      try {
+        const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(canonicalYouTubeUrl(song.youtubeId))}&format=json`);
+        if (!response.ok) throw new Error("No title");
+        const data = await response.json();
+        const title = cleanYouTubeTitle(data.title || "");
+        return {
+          ...song,
+          artist: title.artist || "YouTube",
+          title: title.title || data.title || song.title,
+          url: canonicalYouTubeUrl(song.youtubeId)
+        };
+      } catch {
+        return {
+          ...song,
+          title: song.title === "YouTube video" ? canonicalYouTubeUrl(song.youtubeId) : song.title,
+          url: canonicalYouTubeUrl(song.youtubeId)
+        };
+      }
+    }
+
+    function cleanYouTubeTitle(value) {
+      let title = String(value || "")
+        .replace(/\s*\[[^\]]*(official|lyrics?|audio|video|visualizer|hd|4k)[^\]]*\]\s*/ig, " ")
+        .replace(/\s*\((official|lyrics?|audio|video|visualizer|hd|4k)[^)]*\)\s*/ig, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const split = title.split(/\s+-\s+/);
+      if (split.length >= 2) {
+        return { artist: split[0].trim(), title: split.slice(1).join(" - ").trim() };
+      }
+      return { artist: "YouTube", title };
+    }
+
+    function canonicalYouTubeUrl(id) {
+      return `https://www.youtube.com/watch?v=${id}`;
     }
 
     function validYouTubeId(value) {
