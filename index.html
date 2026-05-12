@@ -323,6 +323,7 @@
       initializeAuth,
       onAuthStateChanged,
       setPersistence,
+      signInWithPopup,
       signInWithRedirect,
       getRedirectResult,
       signOut
@@ -721,7 +722,17 @@
       sessionStorage.setItem("partyBeatsReturningFromGoogle", "1");
       sessionStorage.setItem("partyBeatsReturnUrl", location.href);
       await authReady;
-      await signInWithRedirect(auth, provider);
+      try {
+        const result = await signInWithPopup(auth, provider);
+        if (result?.user) acceptUser(result.user);
+      } catch (error) {
+        if (["auth/popup-blocked", "auth/cancelled-popup-request"].includes(error.code)) {
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        sessionStorage.removeItem("partyBeatsReturningFromGoogle");
+        throw new Error(friendlyAuthError(error));
+      }
     }
 
     function startLocalTest() {
