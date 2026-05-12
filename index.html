@@ -249,6 +249,21 @@
       border-top: 1px solid var(--line);
     }
     .result:first-child, .member:first-child, .history-row:first-child { border-top: 0; }
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .suggestions button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: #172131;
+      border-radius: 999px;
+      padding: 0 11px;
+      font-size: 12px;
+      font-weight: 800;
+    }
     .avatar {
       width: 38px;
       height: 38px;
@@ -371,6 +386,24 @@
       ["Rihanna", "We Found Love", "3:36", "tg00YEETFzg"],
       ["Daft Punk", "One More Time", "5:20", "FGBhQbmPwH8"]
     ];
+    const suggestionSeeds = [
+      "The Weeknd Blinding Lights",
+      "Dua Lipa Levitating",
+      "Earth Wind and Fire September",
+      "Rihanna We Found Love",
+      "Daft Punk One More Time",
+      "Beyonce CUFF IT",
+      "Bruno Mars Uptown Funk",
+      "Whitney Houston I Wanna Dance With Somebody",
+      "ABBA Dancing Queen",
+      "Calvin Harris Feel So Close",
+      "Avicii Wake Me Up",
+      "Black Eyed Peas I Gotta Feeling",
+      "Pitbull Give Me Everything",
+      "Mark Ronson Uptown Funk",
+      "Taylor Swift Shake It Off",
+      "Lady Gaga Just Dance"
+    ];
 
     const app = initializeApp(firebaseConfig);
     let auth;
@@ -403,6 +436,8 @@
       queue: [],
       members: [],
       history: [],
+      songQuery: "",
+      suggestions: [],
       message: "",
       error: "",
       unsub: []
@@ -619,13 +654,15 @@
         <section class="card stack">
           <h3>Search or Paste a Song</h3>
           <label>Song, artist, YouTube link, or Spotify link
-            <input data-field="songQuery" placeholder="Paste a YouTube link, or type a song to search">
+            <input data-field="songQuery" value="${escapeAttr(state.songQuery || "")}" placeholder="Paste a YouTube link, or type a song to search">
           </label>
+          <div class="suggestions" data-suggestions>${layoutSuggestions()}</div>
           <div class="split">
             <button data-action="add-song">Add YouTube Link</button>
             <button class="secondary" data-action="search-youtube">Search YouTube</button>
           </div>
-          <p class="fine">Paste a YouTube video link to add a playable track. Text search opens YouTube so you can pick a video and paste its link back here.</p>
+          <button class="ghost" data-action="import-clipboard">Import copied YouTube link</button>
+          <p class="fine">Type to get quick suggestions. Search opens YouTube; after you copy a video link there, return here and import it from your clipboard.</p>
         </section>
         <section class="card" style="margin-top: 16px;">
           <h3>Quick Adds</h3>
@@ -635,6 +672,12 @@
               <button class="secondary" data-action="quick-add" data-artist="${escapeAttr(song[0])}" data-title="${escapeAttr(song[1])}" data-duration="${escapeAttr(song[2])}" data-youtube-id="${escapeAttr(song[3])}">Add</button>
             </div>`).join("")}
         </section>`;
+    }
+
+    function layoutSuggestions() {
+      return state.suggestions.map((suggestion) =>
+        `<button data-action="use-suggestion" data-query="${escapeAttr(suggestion)}">${escapeHtml(suggestion)}</button>`
+      ).join("");
     }
 
     function viewPeople() {
@@ -713,6 +756,8 @@
         if (action === "skip") await playNext();
         if (action === "add-song") await addSongFromInput();
         if (action === "search-youtube") searchYouTube();
+        if (action === "use-suggestion") useSuggestion(el.dataset.query);
+        if (action === "import-clipboard") await importClipboardLink();
         if (action === "quick-add") await addSong({ artist: el.dataset.artist, title: el.dataset.title, duration: el.dataset.duration, youtubeId: el.dataset.youtubeId, source: "youtube" });
         if (action === "react") await reactToSong(el.dataset.id, el.dataset.kind);
         if (action === "remove") await removeSong(el.dataset.id);
@@ -733,7 +778,11 @@
         localStorage.setItem("partyBeatsName", state.nickname);
       }
       if (field === "pendingRoom") state.pendingRoom = cleanRoom(event.currentTarget.value);
-      if (field === "songQuery") state.songQuery = event.currentTarget.value;
+      if (field === "songQuery") {
+        state.songQuery = event.currentTarget.value;
+        state.suggestions = getSuggestions(state.songQuery);
+        renderSuggestions();
+      }
       if (field === "crossfade") updateSetting("crossfade", Number(event.currentTarget.value));
     }
 
@@ -904,7 +953,33 @@
     function searchYouTube() {
       const query = (state.songQuery || "").trim();
       if (!query) throw new Error("Type a song or artist to search.");
+      saveRecentSearch(query);
       window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, "_blank", "noopener");
+    }
+
+    function useSuggestion(query) {
+      state.songQuery = query || "";
+      state.suggestions = getSuggestions(state.songQuery);
+      render();
+    }
+
+    function renderSuggestions() {
+      const container = root.querySelector("[data-suggestions]");
+      if (!container) return;
+      container.innerHTML = layoutSuggestions();
+      container.querySelectorAll("[data-action='use-suggestion']").forEach((el) => {
+        el.addEventListener("click", handleAction);
+      });
+    }
+
+    async function importClipboardLink() {
+      const text = await navigator.clipboard?.readText();
+      if (!text) throw new Error("Clipboard is empty or blocked by the browser.");
+      const song = parseSong(text.trim());
+      if (!song.youtubeId) throw new Error("The clipboard does not contain a YouTube video link.");
+      state.songQuery = text.trim();
+      state.suggestions = [];
+      await addSong(song);
     }
 
     async function addSong(song) {
@@ -1069,6 +1144,39 @@
     function validYouTubeId(value) {
       const id = String(value || "").trim();
       return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : "";
+    }
+
+    function getSuggestions(query) {
+      const text = String(query || "").trim().toLowerCase();
+      if (text.length < 2 || extractYouTubeId(text)) return [];
+      const recent = readRecentSearches();
+      const candidates = [...recent, ...suggestionSeeds];
+      const seen = new Set();
+      return candidates
+        .filter((item) => {
+          const normalized = item.toLowerCase();
+          const match = normalized.includes(text) || text.split(/\s+/).every((part) => normalized.includes(part));
+          if (!match || seen.has(normalized)) return false;
+          seen.add(normalized);
+          return true;
+        })
+        .slice(0, 6);
+    }
+
+    function saveRecentSearch(query) {
+      const value = String(query || "").trim();
+      if (!value || extractYouTubeId(value)) return;
+      const recent = [value, ...readRecentSearches().filter((item) => item.toLowerCase() !== value.toLowerCase())].slice(0, 10);
+      localStorage.setItem("partyBeatsRecentSearches", JSON.stringify(recent));
+    }
+
+    function readRecentSearches() {
+      try {
+        const recent = JSON.parse(localStorage.getItem("partyBeatsRecentSearches") || "[]");
+        return Array.isArray(recent) ? recent.filter(Boolean) : [];
+      } catch {
+        return [];
+      }
     }
 
     function requireUser() {
