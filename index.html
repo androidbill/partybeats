@@ -210,6 +210,14 @@
     }
     .meter { height: 7px; border-radius: 99px; background: #263347; overflow: hidden; margin-top: 10px; }
     .meter i { display: block; height: 100%; width: 42%; background: linear-gradient(90deg, var(--accent), var(--gold)); }
+    .player {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 0;
+      border-radius: 8px;
+      background: #05080d;
+      margin-top: 14px;
+    }
     .song {
       display: grid;
       grid-template-columns: 34px 52px minmax(0, 1fr) auto;
@@ -357,12 +365,11 @@
 
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const seedSongs = [
-      ["The Weeknd", "Blinding Lights", "3:20"],
-      ["Dua Lipa", "Levitating", "3:23"],
-      ["Earth, Wind & Fire", "September", "3:35"],
-      ["Rihanna", "We Found Love", "3:36"],
-      ["Daft Punk", "One More Time", "5:20"],
-      ["Beyonce", "CUFF IT", "3:45"]
+      ["The Weeknd", "Blinding Lights", "3:20", "fHI8X4OXluQ"],
+      ["Dua Lipa", "Levitating", "3:23", "TUVcZfQe-Kw"],
+      ["Earth, Wind & Fire", "September", "3:35", "Gs069dndIYk"],
+      ["Rihanna", "We Found Love", "3:36", "tg00YEETFzg"],
+      ["Daft Punk", "One More Time", "5:20", "FGBhQbmPwH8"]
     ];
 
     const app = initializeApp(firebaseConfig);
@@ -560,6 +567,16 @@
                 <button data-action="skip" ${isHost ? "" : "disabled"}>${now ? "Skip" : "Start"}</button>
               </div>
             </div>
+            ${now?.youtubeId ? `
+              <iframe
+                class="player"
+                title="${escapeAttr(`${now.artist || "Party Beats"} - ${now.title || "Now playing"}`)}"
+                src="https://www.youtube.com/embed/${escapeAttr(now.youtubeId)}?autoplay=1&playsinline=1&rel=0"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowfullscreen></iframe>
+            ` : now ? `
+              <div class="empty" style="margin-top: 14px;">This song has no playable YouTube link. Add a YouTube URL to play audio here.</div>
+            ` : ""}
           </section>
           <section class="card">
             <h3>Recently Played</h3>
@@ -602,17 +619,20 @@
         <section class="card stack">
           <h3>Search or Paste a Song</h3>
           <label>Song, artist, YouTube link, or Spotify link
-            <input data-field="songQuery" placeholder="Dua Lipa Levitating">
+            <input data-field="songQuery" placeholder="Paste a YouTube link, or type a song to search">
           </label>
-          <button data-action="add-song">Add to Queue</button>
-          <p class="fine">This clean rebuild stores the request now. The next layer can wire YouTube/Spotify search against real APIs.</p>
+          <div class="split">
+            <button data-action="add-song">Add YouTube Link</button>
+            <button class="secondary" data-action="search-youtube">Search YouTube</button>
+          </div>
+          <p class="fine">Paste a YouTube video link to add a playable track. Text search opens YouTube so you can pick a video and paste its link back here.</p>
         </section>
         <section class="card" style="margin-top: 16px;">
           <h3>Quick Adds</h3>
           ${seedSongs.map(song => `
             <div class="result">
-              <div><strong>${escapeHtml(song[0])} - ${escapeHtml(song[1])}</strong><br><small>${escapeHtml(song[2])}</small></div>
-              <button class="secondary" data-action="quick-add" data-artist="${escapeAttr(song[0])}" data-title="${escapeAttr(song[1])}" data-duration="${escapeAttr(song[2])}">Add</button>
+              <div><strong>${escapeHtml(song[0])} - ${escapeHtml(song[1])}</strong><br><small>${escapeHtml(song[2])} • playable</small></div>
+              <button class="secondary" data-action="quick-add" data-artist="${escapeAttr(song[0])}" data-title="${escapeAttr(song[1])}" data-duration="${escapeAttr(song[2])}" data-youtube-id="${escapeAttr(song[3])}">Add</button>
             </div>`).join("")}
         </section>`;
     }
@@ -692,7 +712,8 @@
         if (action === "share") await shareRoom();
         if (action === "skip") await playNext();
         if (action === "add-song") await addSongFromInput();
-        if (action === "quick-add") await addSong({ artist: el.dataset.artist, title: el.dataset.title, duration: el.dataset.duration });
+        if (action === "search-youtube") searchYouTube();
+        if (action === "quick-add") await addSong({ artist: el.dataset.artist, title: el.dataset.title, duration: el.dataset.duration, youtubeId: el.dataset.youtubeId, source: "youtube" });
         if (action === "react") await reactToSong(el.dataset.id, el.dataset.kind);
         if (action === "remove") await removeSong(el.dataset.id);
         if (action === "move-up") await moveSong(el.dataset.id, -1);
@@ -874,8 +895,16 @@
     async function addSongFromInput() {
       const query = (state.songQuery || "").trim();
       if (!query) throw new Error("Type a song or paste a link first.");
-      await addSong(parseSong(query));
+      const song = parseSong(query);
+      if (!song.youtubeId) throw new Error("Paste a YouTube video link to add a playable song, or use Search YouTube first.");
+      await addSong(song);
       state.songQuery = "";
+    }
+
+    function searchYouTube() {
+      const query = (state.songQuery || "").trim();
+      if (!query) throw new Error("Type a song or artist to search.");
+      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, "_blank", "noopener");
     }
 
     async function addSong(song) {
@@ -887,6 +916,8 @@
         title: song.title || "Untitled song",
         duration: song.duration || "3:30",
         source: song.source || "request",
+        youtubeId: song.youtubeId || "",
+        url: song.url || "",
         addedBy: name,
         addedById: state.user.uid,
         reactions: { like: 0, fire: 0 },
@@ -1002,10 +1033,42 @@
 
     function parseSong(query) {
       const cleaned = query.replace(/\s+/g, " ").trim();
+      const youtubeId = extractYouTubeId(cleaned);
+      if (youtubeId) {
+        return {
+          artist: "YouTube",
+          title: cleaned,
+          duration: "Video",
+          source: "youtube",
+          youtubeId,
+          url: cleaned
+        };
+      }
       const split = cleaned.split(" - ");
       if (split.length >= 2) return { artist: split[0], title: split.slice(1).join(" - "), source: "typed" };
       if (/https?:\/\//i.test(cleaned)) return { artist: "Link request", title: cleaned, source: "link" };
       return { artist: "Requested", title: cleaned, source: "typed" };
+    }
+
+    function extractYouTubeId(value) {
+      try {
+        const url = new URL(value);
+        if (url.hostname.includes("youtu.be")) return validYouTubeId(url.pathname.slice(1));
+        if (url.hostname.includes("youtube.com")) {
+          if (url.pathname.startsWith("/watch")) return validYouTubeId(url.searchParams.get("v"));
+          if (url.pathname.startsWith("/shorts/") || url.pathname.startsWith("/embed/")) {
+            return validYouTubeId(url.pathname.split("/")[2]);
+          }
+        }
+      } catch {
+        return "";
+      }
+      return "";
+    }
+
+    function validYouTubeId(value) {
+      const id = String(value || "").trim();
+      return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : "";
     }
 
     function requireUser() {
