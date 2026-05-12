@@ -346,6 +346,7 @@
       initializeAuth,
       onAuthStateChanged,
       setPersistence,
+      signInAnonymously,
       signInWithPopup,
       signInWithRedirect,
       getRedirectResult,
@@ -429,18 +430,22 @@
       user: null,
       nickname: localStorage.getItem("partyBeatsName") || "",
       pendingRoom: initialRoom,
+      authMode: localStorage.getItem("partyBeatsAuthMode") || "",
+      pendingJoin: null,
       roomId: "",
       room: null,
       member: null,
       tab: "queue",
       queue: [],
       members: [],
+      joinRequests: [],
       history: [],
       songQuery: "",
       suggestions: [],
       message: "",
       error: "",
-      unsub: []
+      unsub: [],
+      joinRequestsUnsub: null
     };
 
     const bootFallback = setTimeout(() => {
@@ -487,6 +492,11 @@
         root.innerHTML = layoutAuth({ loading: true });
         return;
       }
+      if (state.pendingJoin) {
+        root.innerHTML = layoutJoinPending();
+        bind();
+        return;
+      }
       if (state.user && state.roomId) {
         if (root.querySelector(".app")) {
           updateApp();
@@ -501,8 +511,9 @@
     }
 
     function layoutAuth(options = {}) {
-      const step = !state.user ? "Step 1: Sign in with Google" : "Step 2: Choose your party setup";
-      const displayName = state.user?.displayName || state.user?.email || "";
+      const guestMode = isGuestUser();
+      const step = !state.user ? "Step 1: Sign in or join as guest" : "Step 2: Choose your party setup";
+      const displayName = guestMode ? "Guest" : (state.user?.displayName || state.user?.email || "");
       return `
         <main class="shell auth">
           <section class="hero-copy">
@@ -513,13 +524,14 @@
           <section class="panel stack" aria-label="Party Beats setup">
             <div>
               <h2>${escapeHtml(step)}</h2>
-              ${state.user ? `<p class="fine">Signed in as ${escapeHtml(displayName)}.</p>` : `<p class="fine">Google sign-in keeps room members accountable and gives each guest their own queue identity.</p>`}
+              ${state.user ? `<p class="fine">${guestMode ? "Joining as guest. Nickname and room code are required." : `Signed in as ${escapeHtml(displayName)}.`}</p>` : `<p class="fine">Hosts use Google. Guests can join without a Google account, with host approval.</p>`}
             </div>
             ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
             ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
             ${options.loading ? `<button disabled>Loading...</button>` : ""}
             ${!options.loading && !state.user ? `
               <button data-action="signin" ${state.busy ? "disabled" : ""}>${state.busy ? "Opening Google..." : "Continue with Google"}</button>
+              <button class="secondary" data-action="guest-auth" ${state.busy ? "disabled" : ""}>Join as Guest</button>
               ${isLocalTestHost() ? `<button class="ghost" data-action="local-test">Test locally without Google</button>` : ""}
             ` : ""}
             ${state.user ? `
@@ -527,7 +539,7 @@
                 <input data-field="nickname" autocomplete="nickname" maxlength="28" value="${escapeAttr(state.nickname)}" placeholder="What should the room call you?">
               </label>
               <div class="split">
-                <button data-action="create" ${state.busy ? "disabled" : ""}>Create Room</button>
+                <button data-action="create" ${state.busy || guestMode ? "disabled" : ""}>Create Room</button>
                 <button class="secondary" data-action="join" ${state.busy ? "disabled" : ""}>Join Room</button>
               </div>
               <label>Room code
@@ -535,7 +547,27 @@
               </label>
               <button class="ghost" data-action="signout">Sign out</button>
             ` : ""}
-            <p class="fine">Room codes are random 6-character alphanumeric codes. Host-only controls stay locked for guests.</p>
+            <p class="fine">${guestMode ? "Guest requests are sent to the host for approval before joining." : "Room codes are random 6-character alphanumeric codes. Host-only controls stay locked for guests."}</p>
+          </section>
+        </main>`;
+    }
+
+    function layoutJoinPending() {
+      return `
+        <main class="shell auth">
+          <section class="hero-copy">
+            <div class="brand-mark">PB</div>
+            <h1>Party<br>Beats</h1>
+            <p>Your request has been sent to the host.</p>
+          </section>
+          <section class="panel stack" aria-label="Waiting for host approval">
+            <div>
+              <h2>Waiting for host</h2>
+              <p class="fine">${escapeHtml(state.pendingJoin.name)} wants to join room ${escapeHtml(state.pendingJoin.roomId)}.</p>
+            </div>
+            ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
+            ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
+            <button class="ghost" data-action="cancel-join">Cancel request</button>
           </section>
         </main>`;
     }
@@ -587,6 +619,7 @@
         </div>
         ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
         ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
+        ${isHost && state.joinRequests.length ? layoutJoinRequestPrompt() : ""}
         ${state.tab === "queue" ? viewQueue(now, isHost) : ""}
         ${state.tab === "add" ? viewAdd() : ""}
         ${state.tab === "people" ? viewPeople() : ""}
@@ -711,7 +744,24 @@
     }
 
     function viewPeople() {
+      const isHost = isCurrentHost();
       return `
+        ${isHost && state.joinRequests.length ? `
+          <section class="card">
+            <h3>Join Requests</h3>
+            ${state.joinRequests.map((request) => `
+              <div class="member">
+                <div class="row">
+                  <div class="avatar">${escapeHtml(initials(request.name))}</div>
+                  <div><strong>${escapeHtml(request.name || "Guest")}</strong><br><small>Guest wants to join</small></div>
+                </div>
+                <div class="actions">
+                  <button data-action="approve-guest" data-id="${escapeAttr(request.id)}">Allow</button>
+                  <button class="danger" data-action="deny-guest" data-id="${escapeAttr(request.id)}">Deny</button>
+                </div>
+              </div>`).join("")}
+          </section>
+        ` : ""}
         <section class="card">
           <h3>Room Members</h3>
           ${state.members.length ? state.members.map(member => `
@@ -722,6 +772,24 @@
               </div>
               <span class="badge">${member.online === false ? "Away" : "Here"}</span>
             </div>`).join("") : `<div class="empty">Members appear as they join.</div>`}
+        </section>`;
+    }
+
+    function layoutJoinRequestPrompt() {
+      return `
+        <section class="card">
+          <h3>Guest Waiting</h3>
+          ${state.joinRequests.slice(0, 3).map((request) => `
+            <div class="member">
+              <div class="row">
+                <div class="avatar">${escapeHtml(initials(request.name))}</div>
+                <div><strong>${escapeHtml(request.name || "Guest")}</strong><br><small>Wants to join this room</small></div>
+              </div>
+              <div class="actions">
+                <button data-action="approve-guest" data-id="${escapeAttr(request.id)}">Allow</button>
+                <button class="danger" data-action="deny-guest" data-id="${escapeAttr(request.id)}">Deny</button>
+              </div>
+            </div>`).join("")}
         </section>`;
     }
 
@@ -798,6 +866,7 @@
       clearNotice();
       try {
         if (action === "signin") await signIn();
+        if (action === "guest-auth") await signInAsGuest();
         if (action === "local-test") startLocalTest();
         if (action === "signout") await logOut();
         if (action === "create") await createRoom();
@@ -816,6 +885,9 @@
         if (action === "move-up") await moveSong(el.dataset.id, -1);
         if (action === "move-down") await moveSong(el.dataset.id, 1);
         if (action === "delete-room") await endRoom();
+        if (action === "approve-guest") await approveGuest(el.dataset.id);
+        if (action === "deny-guest") await denyGuest(el.dataset.id);
+        if (action === "cancel-join") await cancelJoinRequest();
       } catch (error) {
         state.busy = false;
         state.error = error.message || "Something went wrong.";
@@ -840,6 +912,8 @@
 
     async function signIn() {
       state.busy = true;
+      state.authMode = "google";
+      localStorage.setItem("partyBeatsAuthMode", "google");
       render();
       sessionStorage.setItem("partyBeatsReturningFromGoogle", "1");
       sessionStorage.setItem("partyBeatsReturnUrl", location.href);
@@ -857,6 +931,16 @@
       }
     }
 
+    async function signInAsGuest() {
+      state.busy = true;
+      state.authMode = "guest";
+      localStorage.setItem("partyBeatsAuthMode", "guest");
+      render();
+      await authReady;
+      const result = await signInAnonymously(auth);
+      acceptUser(result.user);
+    }
+
     function startLocalTest() {
       if (!isLocalTestHost()) return;
       acceptUser({
@@ -871,6 +955,9 @@
 
     async function logOut() {
       localStorage.removeItem("partyBeatsUser");
+      localStorage.removeItem("partyBeatsAuthMode");
+      state.authMode = "";
+      state.pendingJoin = null;
       state.user = null;
       state.roomId = "";
       state.room = null;
@@ -882,6 +969,10 @@
       sessionStorage.removeItem("partyBeatsReturningFromGoogle");
       cacheUser(user);
       state.user = user;
+      if (user.isAnonymous && !state.authMode) {
+        state.authMode = "guest";
+        localStorage.setItem("partyBeatsAuthMode", "guest");
+      }
       state.booted = true;
       state.busy = false;
       if (!state.nickname) state.nickname = user.displayName || "";
@@ -895,7 +986,8 @@
         uid: user.uid,
         displayName: user.displayName || "",
         email: user.email || "",
-        photoURL: user.photoURL || ""
+        photoURL: user.photoURL || "",
+        isAnonymous: !!user.isAnonymous
       }));
     }
 
@@ -915,6 +1007,7 @@
 
     async function createRoom() {
       requireUser();
+      if (isGuestUser()) throw new Error("Guests can join rooms, but only Google users can create rooms.");
       const name = requireNickname();
       state.busy = true;
       render();
@@ -944,8 +1037,48 @@
       if (code.length !== 6) throw new Error("Enter a 6-character room code.");
       const snapshot = await getDoc(roomRef(code));
       if (!snapshot.exists()) throw new Error("Room not found. Check the code and try again.");
+      if (isGuestUser()) {
+        await requestGuestApproval(code, name);
+        return;
+      }
       await upsertMember(code, name);
       await enterRoom(code);
+    }
+
+    async function requestGuestApproval(code, name) {
+      const requestRef = doc(db, "rooms", code, "joinRequests", state.user.uid);
+      await setDoc(requestRef, {
+        id: state.user.uid,
+        name,
+        status: "pending",
+        requestedAt: serverTimestamp()
+      }, { merge: true });
+      state.pendingJoin = { roomId: code, name };
+      state.message = "Request sent. Waiting for the host to allow you in.";
+      state.error = "";
+      state.unsub.forEach((stop) => stop());
+      state.unsub = [
+        onSnapshot(requestRef, async (snap) => {
+          if (!snap.exists()) {
+            state.pendingJoin = null;
+            state.error = "The host removed your join request.";
+            render();
+            return;
+          }
+          const request = snap.data();
+          if (request.status === "approved") {
+            state.pendingJoin = null;
+            await enterRoom(code);
+            return;
+          }
+          if (request.status === "denied") {
+            state.pendingJoin = null;
+            state.error = "The host denied your request to join.";
+            render();
+          }
+        })
+      ];
+      render();
     }
 
     async function enterRoom(code) {
@@ -962,6 +1095,7 @@
             return;
           }
           state.room = { id: snap.id, ...snap.data() };
+          syncJoinRequests(code);
           render();
         }),
         onSnapshot(query(collection(db, "rooms", code, "queue"), orderBy("order", "asc"), limit(100)), (snap) => {
@@ -981,16 +1115,70 @@
       render();
     }
 
+    function syncJoinRequests(code) {
+      if (!isCurrentHost()) {
+        if (state.joinRequestsUnsub) state.joinRequestsUnsub();
+        state.joinRequestsUnsub = null;
+        state.joinRequests = [];
+        return;
+      }
+      if (state.joinRequestsUnsub) return;
+      state.joinRequestsUnsub = onSnapshot(query(collection(db, "rooms", code, "joinRequests"), orderBy("requestedAt", "asc")), (snap) => {
+        state.joinRequests = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((request) => request.status === "pending");
+        render();
+      });
+    }
+
     async function upsertMember(code, name) {
       await setDoc(doc(db, "rooms", code, "members", state.user.uid), {
         id: state.user.uid,
         name,
         email: state.user.email || "",
         photoURL: state.user.photoURL || "",
+        guest: isGuestUser(),
         joinedAt: serverTimestamp(),
         lastSeen: serverTimestamp(),
         online: true
       }, { merge: true });
+    }
+
+    async function approveGuest(requestId) {
+      requireHost();
+      const request = state.joinRequests.find((item) => item.id === requestId);
+      if (!request) throw new Error("Join request was not found.");
+      const batch = writeBatch(db);
+      batch.set(doc(db, "rooms", state.roomId, "members", requestId), {
+        id: requestId,
+        name: request.name || "Guest",
+        guest: true,
+        approvedBy: state.user.uid,
+        joinedAt: serverTimestamp(),
+        lastSeen: serverTimestamp(),
+        online: true
+      }, { merge: true });
+      batch.update(doc(db, "rooms", state.roomId, "joinRequests", requestId), {
+        status: "approved",
+        reviewedAt: serverTimestamp(),
+        reviewedBy: state.user.uid
+      });
+      await batch.commit();
+    }
+
+    async function denyGuest(requestId) {
+      requireHost();
+      await updateDoc(doc(db, "rooms", state.roomId, "joinRequests", requestId), {
+        status: "denied",
+        reviewedAt: serverTimestamp(),
+        reviewedBy: state.user.uid
+      });
+    }
+
+    async function cancelJoinRequest() {
+      if (!state.pendingJoin) return;
+      await deleteDoc(doc(db, "rooms", state.pendingJoin.roomId, "joinRequests", state.user.uid));
+      state.pendingJoin = null;
+      state.message = "";
+      render();
     }
 
     async function addSongFromInput() {
@@ -1117,12 +1305,15 @@
 
     function leaveRoom(updateUrl = true) {
       state.unsub.forEach((stop) => stop());
+      if (state.joinRequestsUnsub) state.joinRequestsUnsub();
+      state.joinRequestsUnsub = null;
       state.unsub = [];
       state.roomId = "";
       state.room = null;
       state.member = null;
       state.queue = [];
       state.members = [];
+      state.joinRequests = [];
       state.history = [];
       state.tab = "queue";
       if (updateUrl) history.replaceState(null, "", location.pathname);
@@ -1254,6 +1445,10 @@
 
     function isCurrentHost() {
       return !!state.user && state.room?.hostId === state.user.uid;
+    }
+
+    function isGuestUser() {
+      return state.authMode === "guest" || !!state.user?.isAnonymous;
     }
 
     function roomRef(code) {
