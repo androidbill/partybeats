@@ -1,0 +1,1 @@
+{"name":"Party Beats","short_name":"Party Beats","description":"Collaborative party music queue. Everyone adds. One device plays.","start_url":"./index.html","scope":"./","display":"standalone","background_color":"#05040a","theme_color":"#120021","orientation":"portrait","icons":[{"src":"./icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
