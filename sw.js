@@ -1,4 +1,4 @@
-const CACHE_NAME = 'party-beats-2026.05.12.06';
+const CACHE_NAME = 'party-beats-2026.05.12.07';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg'];
 
 self.addEventListener('install', event => {
