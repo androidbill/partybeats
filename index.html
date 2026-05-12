@@ -293,6 +293,20 @@
       text-align: center;
       color: var(--muted);
     }
+    .join-popup {
+      position: fixed;
+      z-index: 30;
+      right: 18px;
+      bottom: 18px;
+      width: min(360px, calc(100vw - 36px));
+      background: var(--panel);
+      border: 1px solid rgba(246, 181, 67, .55);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .join-popup h3 { margin-bottom: 4px; }
+    .join-popup .member { border-top: 0; padding-bottom: 0; }
 
     @media (max-width: 820px) {
       .auth { grid-template-columns: 1fr; align-content: center; }
@@ -330,6 +344,7 @@
       .song { grid-template-columns: 26px 44px minmax(0, 1fr); }
       .song .actions { grid-column: 1 / -1; justify-content: stretch; }
       .song .actions button { flex: 1; }
+      .join-popup { bottom: 84px; }
     }
   </style>
 </head>
@@ -603,6 +618,7 @@
             <button class="ghost" data-action="leave">Leave Room</button>
           </aside>
           <main class="main" data-main>${layoutMain()}</main>
+          <div data-join-popup>${layoutFloatingJoinPopup()}</div>
         </div>`;
     }
 
@@ -619,11 +635,31 @@
         </div>
         ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
         ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
-        ${isHost && state.joinRequests.length ? layoutJoinRequestPrompt() : ""}
         ${state.tab === "queue" ? viewQueue(now, isHost) : ""}
         ${state.tab === "add" ? viewAdd() : ""}
         ${state.tab === "people" ? viewPeople() : ""}
         ${state.tab === "settings" ? viewSettings(isHost) : ""}`;
+    }
+
+    function layoutFloatingJoinPopup() {
+      if (!isCurrentHost() || !state.joinRequests.length) return "";
+      const request = state.joinRequests[0];
+      const more = state.joinRequests.length > 1 ? ` +${state.joinRequests.length - 1} more waiting` : "";
+      return `
+        <aside class="join-popup" role="dialog" aria-live="assertive" aria-label="Guest join request">
+          <h3>Guest wants to join</h3>
+          <small>${escapeHtml(more || "Approve or deny this request.")}</small>
+          <div class="member">
+            <div class="row">
+              <div class="avatar">${escapeHtml(initials(request.name))}</div>
+              <div><strong>${escapeHtml(request.name || "Guest")}</strong><br><small>Waiting for host confirmation</small></div>
+            </div>
+            <div class="actions">
+              <button data-action="approve-guest" data-id="${escapeAttr(request.id)}">Allow</button>
+              <button class="danger" data-action="deny-guest" data-id="${escapeAttr(request.id)}">Deny</button>
+            </div>
+          </div>
+        </aside>`;
     }
 
     function layoutHostPlayer(isHost) {
@@ -838,6 +874,12 @@
         if (nextVideoId !== currentVideoId || (!nextVideoId && !hasPlaceholder)) {
           hostPlayer.innerHTML = hostPlayerContent(isCurrentHost());
         }
+      }
+
+      const joinPopup = root.querySelector("[data-join-popup]");
+      if (joinPopup) {
+        joinPopup.innerHTML = layoutFloatingJoinPopup();
+        bind(joinPopup);
       }
     }
 

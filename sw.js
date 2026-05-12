@@ -1,4 +1,4 @@
-const CACHE_NAME = "party-beats-pwa-v11";
+const CACHE_NAME = "party-beats-pwa-v12";
 const CORE_ASSETS = [
   "./",
   "./index.html",
