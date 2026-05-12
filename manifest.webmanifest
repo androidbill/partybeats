@@ -1,0 +1,19 @@
+{
+  "name": "Party Beats",
+  "short_name": "Party Beats",
+  "description": "A collaborative party music room where guests sign in, add songs, react, and the host controls playback.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090d13",
+  "theme_color": "#101827",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

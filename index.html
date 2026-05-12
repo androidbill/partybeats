@@ -1,0 +1,1081 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <meta name="description" content="Party Beats lets guests join a room, add songs, react, and share the queue.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <title>Party Beats</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090d13;
+      --panel: #111824;
+      --panel-2: #172131;
+      --line: #263347;
+      --text: #f6f8fb;
+      --muted: #aab5c4;
+      --accent: #00c2a8;
+      --accent-2: #ff3d7f;
+      --gold: #f6b543;
+      --danger: #ff647c;
+      --shadow: 0 20px 60px rgba(0, 0, 0, .36);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 0%, rgba(0, 194, 168, .18), transparent 30rem),
+        radial-gradient(circle at 100% 10%, rgba(255, 61, 127, .16), transparent 26rem),
+        linear-gradient(180deg, #0d121b 0%, var(--bg) 58%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+
+    button, input, textarea { font: inherit; }
+    button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 8px;
+      color: #06130f;
+      background: var(--accent);
+      padding: 0 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button.secondary { color: var(--text); background: #253247; }
+    button.ghost { color: var(--text); background: transparent; border: 1px solid var(--line); }
+    button.danger { color: #21040a; background: var(--danger); }
+    button.icon { width: 44px; padding: 0; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: #0c121c;
+      outline: 0;
+      padding: 13px 14px;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 194, 168, .14); }
+    label { display: grid; gap: 7px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font-size: clamp(42px, 13vw, 72px); line-height: .88; letter-spacing: 0; margin-bottom: 14px; }
+    h2 { font-size: 22px; margin-bottom: 12px; }
+    h3 { font-size: 16px; margin-bottom: 8px; }
+    p, small { color: var(--muted); }
+    .hidden { display: none !important; }
+
+    .shell { width: min(100%, 1080px); margin: 0 auto; padding: 18px; }
+    .auth {
+      min-height: 100svh;
+      display: grid;
+      align-items: center;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+      gap: 28px;
+    }
+    .brand-mark {
+      width: 86px;
+      height: 86px;
+      border-radius: 24px;
+      display: grid;
+      place-items: center;
+      color: #06130f;
+      background: linear-gradient(135deg, var(--accent), var(--gold));
+      font-size: 48px;
+      font-weight: 1000;
+      box-shadow: var(--shadow);
+      margin-bottom: 22px;
+    }
+    .hero-copy p { max-width: 520px; font-size: 18px; line-height: 1.55; }
+    .panel {
+      background: rgba(17, 24, 36, .86);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      backdrop-filter: blur(18px);
+    }
+    .stack { display: grid; gap: 12px; }
+    .row { display: flex; gap: 10px; align-items: center; }
+    .row > * { min-width: 0; }
+    .row .grow { flex: 1; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .fine { font-size: 12px; line-height: 1.45; }
+    .error { color: #ff9aae; }
+    .success { color: #7ff0d7; }
+
+    .app {
+      min-height: 100svh;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+    }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100svh;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 18px;
+      background: rgba(9, 13, 19, .86);
+      border-right: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+    }
+    .side-brand { display: flex; gap: 12px; align-items: center; }
+    .side-logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: #06130f;
+      background: linear-gradient(135deg, var(--accent), var(--gold));
+      font-weight: 1000;
+    }
+    .room-code {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      border: 1px solid rgba(246, 181, 67, .45);
+      border-radius: 8px;
+      color: var(--gold);
+      background: rgba(246, 181, 67, .09);
+      font-size: 22px;
+      letter-spacing: 4px;
+      font-weight: 1000;
+    }
+    .nav { display: grid; gap: 8px; }
+    .nav button {
+      justify-content: flex-start;
+      color: var(--muted);
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .nav button.active {
+      color: var(--text);
+      background: var(--panel-2);
+      border-color: var(--line);
+    }
+    .main { padding: 20px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      color: var(--muted);
+      background: rgba(23, 33, 49, .7);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .badge.host { color: #2b1800; background: var(--gold); border-color: var(--gold); }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); gap: 16px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .now {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+    }
+    .cover {
+      width: 78px;
+      height: 78px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #06130f;
+      background: linear-gradient(135deg, var(--accent-2), var(--gold));
+      font-size: 34px;
+      font-weight: 1000;
+    }
+    .meter { height: 7px; border-radius: 99px; background: #263347; overflow: hidden; margin-top: 10px; }
+    .meter i { display: block; height: 100%; width: 42%; background: linear-gradient(90deg, var(--accent), var(--gold)); }
+    .song {
+      display: grid;
+      grid-template-columns: 34px 52px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+    .song:first-child { border-top: 0; }
+    .song-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 850; }
+    .mini-cover {
+      width: 52px;
+      height: 52px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #06130f;
+      background: linear-gradient(135deg, #64d8ff, #f6b543);
+      font-weight: 1000;
+    }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .actions button { min-height: 34px; padding: 0 9px; font-size: 12px; }
+    .result, .member, .history-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+    .result:first-child, .member:first-child, .history-row:first-child { border-top: 0; }
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #06130f;
+      background: var(--accent);
+      font-weight: 1000;
+      flex: 0 0 auto;
+    }
+    .switch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+    .switch-row:first-child { border-top: 0; }
+    .switch-row input { width: auto; }
+    .settings-note { border-color: rgba(255, 100, 124, .45); background: rgba(255, 100, 124, .08); }
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 820px) {
+      .auth { grid-template-columns: 1fr; align-content: center; }
+      .hero-copy p { font-size: 16px; }
+      .app { display: block; padding-bottom: 74px; }
+      .sidebar {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .sidebar .nav {
+        position: fixed;
+        z-index: 10;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        padding: 8px;
+        background: rgba(9, 13, 19, .94);
+        border-top: 1px solid var(--line);
+        backdrop-filter: blur(16px);
+      }
+      .nav button { justify-content: center; padding: 0 6px; font-size: 13px; }
+      .main { padding: 14px; }
+      .topbar { display: grid; }
+      .grid { grid-template-columns: 1fr; }
+      .split { grid-template-columns: 1fr; }
+      .now { grid-template-columns: 64px minmax(0, 1fr); }
+      .now .cover { width: 64px; height: 64px; }
+      .now .actions { grid-column: 1 / -1; justify-content: stretch; }
+      .now .actions button { flex: 1; }
+      .song { grid-template-columns: 26px 44px minmax(0, 1fr); }
+      .song .actions { grid-column: 1 / -1; justify-content: stretch; }
+      .song .actions button { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      browserLocalPersistence,
+      browserPopupRedirectResolver,
+      initializeAuth,
+      onAuthStateChanged,
+      setPersistence,
+      signInWithRedirect,
+      getRedirectResult,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      deleteDoc,
+      doc,
+      getDoc,
+      increment,
+      limit,
+      onSnapshot,
+      orderBy,
+      query,
+      serverTimestamp,
+      setDoc,
+      updateDoc,
+      writeBatch
+    } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBJ8FZwsl8S51SOM7ZMQEE7I9B12Vg0xho",
+      authDomain: "partybeats-7c0fe.firebaseapp.com",
+      projectId: "partybeats-7c0fe",
+      storageBucket: "partybeats-7c0fe.firebasestorage.app",
+      messagingSenderId: "199585277181",
+      appId: "1:199585277181:web:157432c91d5575a9d8ca94",
+      measurementId: "G-2MZ6CRLCRK"
+    };
+
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const seedSongs = [
+      ["The Weeknd", "Blinding Lights", "3:20"],
+      ["Dua Lipa", "Levitating", "3:23"],
+      ["Earth, Wind & Fire", "September", "3:35"],
+      ["Rihanna", "We Found Love", "3:36"],
+      ["Daft Punk", "One More Time", "5:20"],
+      ["Beyonce", "CUFF IT", "3:45"]
+    ];
+
+    const app = initializeApp(firebaseConfig);
+    let auth;
+    try {
+      auth = initializeAuth(app, {
+        persistence: [browserLocalPersistence],
+        popupRedirectResolver: browserPopupRedirectResolver
+      });
+    } catch {
+      auth = getAuth(app);
+    }
+    const provider = new GoogleAuthProvider();
+    const db = getFirestore(app);
+    const root = document.getElementById("app");
+    const authReady = setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.warn("Party Beats auth persistence failed", error);
+    });
+
+    const initialRoom = cleanRoom(new URLSearchParams(location.search).get("room") || "");
+    const state = {
+      booted: false,
+      busy: false,
+      user: null,
+      nickname: localStorage.getItem("partyBeatsName") || "",
+      pendingRoom: initialRoom,
+      roomId: "",
+      room: null,
+      member: null,
+      tab: "queue",
+      queue: [],
+      members: [],
+      history: [],
+      message: "",
+      error: "",
+      unsub: []
+    };
+
+    const bootFallback = setTimeout(() => {
+      if (state.booted) return;
+      state.user = auth.currentUser || readCachedUser();
+      state.booted = true;
+      state.busy = false;
+      if (!state.user && sessionStorage.getItem("partyBeatsReturningFromGoogle")) {
+        state.error = "Google returned to Party Beats, but Firebase did not provide a signed-in session. Check Firebase Auth authorized domains for localhost and this exact host.";
+        sessionStorage.removeItem("partyBeatsReturningFromGoogle");
+      } else if (!state.user) {
+        state.message = "Ready. Continue with Google to start.";
+      }
+      render();
+    }, 10000);
+
+    authReady.then(() => getRedirectResult(auth)).then((result) => {
+      if (result?.user) acceptUser(result.user);
+    }).catch((error) => {
+      state.error = friendlyAuthError(error);
+      state.booted = true;
+      state.busy = false;
+      render();
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      clearTimeout(bootFallback);
+      if (user) cacheUser(user);
+      state.user = user || readCachedUser();
+      state.booted = true;
+      state.busy = false;
+      if (user && !state.nickname) state.nickname = user.displayName || "";
+      render();
+    });
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      });
+    }
+
+    function render() {
+      if (!state.booted) {
+        root.innerHTML = layoutAuth({ loading: true });
+        return;
+      }
+      root.innerHTML = state.user && state.roomId ? layoutApp() : layoutAuth();
+      bind();
+    }
+
+    function layoutAuth(options = {}) {
+      const step = !state.user ? "Step 1: Sign in with Google" : "Step 2: Choose your party setup";
+      const displayName = state.user?.displayName || state.user?.email || "";
+      return `
+        <main class="shell auth">
+          <section class="hero-copy">
+            <div class="brand-mark">PB</div>
+            <h1>Party<br>Beats</h1>
+            <p>One shared room for the playlist. Guests sign in, pick a nickname, add tracks, react to songs, and the host keeps control of playback.</p>
+          </section>
+          <section class="panel stack" aria-label="Party Beats setup">
+            <div>
+              <h2>${escapeHtml(step)}</h2>
+              ${state.user ? `<p class="fine">Signed in as ${escapeHtml(displayName)}.</p>` : `<p class="fine">Google sign-in keeps room members accountable and gives each guest their own queue identity.</p>`}
+            </div>
+            ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
+            ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
+            ${options.loading ? `<button disabled>Loading...</button>` : ""}
+            ${!options.loading && !state.user ? `
+              <button data-action="signin" ${state.busy ? "disabled" : ""}>${state.busy ? "Opening Google..." : "Continue with Google"}</button>
+              ${isLocalTestHost() ? `<button class="ghost" data-action="local-test">Test locally without Google</button>` : ""}
+            ` : ""}
+            ${state.user ? `
+              <label>Nickname
+                <input data-field="nickname" autocomplete="nickname" maxlength="28" value="${escapeAttr(state.nickname)}" placeholder="What should the room call you?">
+              </label>
+              <div class="split">
+                <button data-action="create" ${state.busy ? "disabled" : ""}>Create Room</button>
+                <button class="secondary" data-action="join" ${state.busy ? "disabled" : ""}>Join Room</button>
+              </div>
+              <label>Room code
+                <input data-field="pendingRoom" inputmode="text" maxlength="6" value="${escapeAttr(state.pendingRoom)}" placeholder="ABC123">
+              </label>
+              <button class="ghost" data-action="signout">Sign out</button>
+            ` : ""}
+            <p class="fine">Room codes are random 6-character alphanumeric codes. Host-only controls stay locked for guests.</p>
+          </section>
+        </main>`;
+    }
+
+    function layoutApp() {
+      const isHost = isCurrentHost();
+      const now = state.room?.now || null;
+      return `
+        <div class="app">
+          <aside class="sidebar">
+            <div class="side-brand">
+              <div class="side-logo">PB</div>
+              <div>
+                <strong>Party Beats</strong><br>
+                <small>${escapeHtml(state.member?.name || state.nickname)} ${isHost ? "Host" : "Guest"}</small>
+              </div>
+            </div>
+            <div class="stack">
+              <small>Room</small>
+              <div class="room-code">${escapeHtml(state.roomId)}</div>
+              <div class="row">
+                <button class="secondary grow" data-action="copy-link">Copy Link</button>
+                <button class="ghost icon" data-action="share" title="Share">...</button>
+              </div>
+            </div>
+            <nav class="nav" aria-label="Main">
+              ${navButton("queue", "Queue")}
+              ${navButton("add", "Add")}
+              ${navButton("people", "People")}
+              ${navButton("settings", "Settings")}
+            </nav>
+            <button class="ghost" data-action="leave">Leave Room</button>
+          </aside>
+          <main class="main">
+            <div class="topbar">
+              <div>
+                <span class="badge ${isHost ? "host" : ""}">${isHost ? "Host controls enabled" : "Guest mode"}</span>
+                <h2>${escapeHtml(tabTitle())}</h2>
+              </div>
+              <div class="badge">${state.queue.length} queued</div>
+            </div>
+            ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
+            ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
+            ${state.tab === "queue" ? viewQueue(now, isHost) : ""}
+            ${state.tab === "add" ? viewAdd() : ""}
+            ${state.tab === "people" ? viewPeople() : ""}
+            ${state.tab === "settings" ? viewSettings(isHost) : ""}
+          </main>
+        </div>`;
+    }
+
+    function navButton(tab, label) {
+      return `<button class="${state.tab === tab ? "active" : ""}" data-tab="${tab}">${label}</button>`;
+    }
+
+    function tabTitle() {
+      return { queue: "Live Queue", add: "Add Songs", people: "People", settings: "Room Settings" }[state.tab] || "Party Beats";
+    }
+
+    function viewQueue(now, isHost) {
+      return `
+        <div class="grid">
+          <section class="card">
+            <h3>Now Playing</h3>
+            <div class="now">
+              <div class="cover">PB</div>
+              <div>
+                <div class="song-title">${escapeHtml(now ? `${now.artist} - ${now.title}` : "No song playing")}</div>
+                <small>${escapeHtml(now ? `${now.duration || "3:30"} from ${now.addedBy || "the room"}` : "The host can start the next queued song.")}</small>
+                <div class="meter"><i></i></div>
+              </div>
+              <div class="actions">
+                <button data-action="skip" ${isHost ? "" : "disabled"}>${now ? "Skip" : "Start"}</button>
+              </div>
+            </div>
+          </section>
+          <section class="card">
+            <h3>Recently Played</h3>
+            ${state.history.length ? state.history.map(song => `
+              <div class="history-row">
+                <div><strong>${escapeHtml(song.title)}</strong><br><small>${escapeHtml(song.artist || "Unknown artist")}</small></div>
+                <small>${escapeHtml(song.addedBy || "")}</small>
+              </div>`).join("") : `<div class="empty">Played songs will show up here.</div>`}
+          </section>
+        </div>
+        <section class="card" style="margin-top: 16px;">
+          <h3>Up Next</h3>
+          ${state.queue.length ? state.queue.map((song, index) => layoutSong(song, index, isHost)).join("") : `<div class="empty">No songs yet. Add the first track.</div>`}
+        </section>`;
+    }
+
+    function layoutSong(song, index, isHost) {
+      const canRemove = isHost || state.room?.settings?.guestRemove;
+      const canMove = isHost || state.room?.settings?.guestReorder;
+      return `
+        <div class="song">
+          <strong>${index + 1}</strong>
+          <div class="mini-cover">${escapeHtml(initials(song.title))}</div>
+          <div>
+            <div class="song-title">${escapeHtml(song.artist ? `${song.artist} - ${song.title}` : song.title)}</div>
+            <small>${escapeHtml(`${song.duration || "3:30"} by ${song.addedBy || "Guest"}`)}</small>
+          </div>
+          <div class="actions">
+            <button class="secondary" data-action="react" data-id="${escapeAttr(song.id)}" data-kind="like">Like ${song.reactions?.like || 0}</button>
+            <button class="secondary" data-action="react" data-id="${escapeAttr(song.id)}" data-kind="fire">Fire ${song.reactions?.fire || 0}</button>
+            <button class="ghost" data-action="move-up" data-id="${escapeAttr(song.id)}" ${canMove ? "" : "disabled"}>Up</button>
+            <button class="ghost" data-action="move-down" data-id="${escapeAttr(song.id)}" ${canMove ? "" : "disabled"}>Down</button>
+            <button class="danger" data-action="remove" data-id="${escapeAttr(song.id)}" ${canRemove ? "" : "disabled"}>Remove</button>
+          </div>
+        </div>`;
+    }
+
+    function viewAdd() {
+      return `
+        <section class="card stack">
+          <h3>Search or Paste a Song</h3>
+          <label>Song, artist, YouTube link, or Spotify link
+            <input data-field="songQuery" placeholder="Dua Lipa Levitating">
+          </label>
+          <button data-action="add-song">Add to Queue</button>
+          <p class="fine">This clean rebuild stores the request now. The next layer can wire YouTube/Spotify search against real APIs.</p>
+        </section>
+        <section class="card" style="margin-top: 16px;">
+          <h3>Quick Adds</h3>
+          ${seedSongs.map(song => `
+            <div class="result">
+              <div><strong>${escapeHtml(song[0])} - ${escapeHtml(song[1])}</strong><br><small>${escapeHtml(song[2])}</small></div>
+              <button class="secondary" data-action="quick-add" data-artist="${escapeAttr(song[0])}" data-title="${escapeAttr(song[1])}" data-duration="${escapeAttr(song[2])}">Add</button>
+            </div>`).join("")}
+        </section>`;
+    }
+
+    function viewPeople() {
+      return `
+        <section class="card">
+          <h3>Room Members</h3>
+          ${state.members.length ? state.members.map(member => `
+            <div class="member">
+              <div class="row">
+                <div class="avatar">${escapeHtml(initials(member.name))}</div>
+                <div><strong>${escapeHtml(member.name || "Guest")}</strong><br><small>${member.id === state.room?.hostId ? "Host" : "Guest"}</small></div>
+              </div>
+              <span class="badge">${member.online === false ? "Away" : "Here"}</span>
+            </div>`).join("") : `<div class="empty">Members appear as they join.</div>`}
+        </section>`;
+    }
+
+    function viewSettings(isHost) {
+      const settings = { ...defaultSettings(), ...(state.room?.settings || {}) };
+      return `
+        <section class="card stack">
+          <h3>Host Controls</h3>
+          ${isHost ? "" : `<div class="card settings-note"><strong>Guest access</strong><br><small>Only the host can change playback and permission settings.</small></div>`}
+          ${settingToggle("cooldown", "Guest add cooldown", settings.cooldown, isHost)}
+          ${settingToggle("guestReorder", "Guests can reorder", settings.guestReorder, isHost)}
+          ${settingToggle("guestRemove", "Guests can remove songs", settings.guestRemove, isHost)}
+          ${settingToggle("autoDj", "Auto-DJ fallback", settings.autoDj, isHost)}
+          ${settingToggle("profanity", "Profanity filter", settings.profanity, isHost)}
+          <label>Crossfade seconds
+            <input data-field="crossfade" type="range" min="0" max="8" value="${Number(settings.crossfade || 0)}" ${isHost ? "" : "disabled"}>
+          </label>
+          <button class="danger" data-action="delete-room" ${isHost ? "" : "disabled"}>End Room</button>
+        </section>`;
+    }
+
+    function settingToggle(key, label, checked, enabled) {
+      return `
+        <div class="switch-row">
+          <div><strong>${escapeHtml(label)}</strong></div>
+          <input data-setting="${escapeAttr(key)}" type="checkbox" ${checked ? "checked" : ""} ${enabled ? "" : "disabled"}>
+        </div>`;
+    }
+
+    function bind() {
+      root.querySelectorAll("[data-action]").forEach((el) => {
+        el.addEventListener("click", handleAction);
+      });
+      root.querySelectorAll("[data-tab]").forEach((el) => {
+        el.addEventListener("click", () => {
+          state.tab = el.dataset.tab;
+          clearNotice();
+          render();
+        });
+      });
+      root.querySelectorAll("[data-field]").forEach((el) => {
+        el.addEventListener("input", handleField);
+      });
+      root.querySelectorAll("[data-setting]").forEach((el) => {
+        el.addEventListener("change", () => updateSetting(el.dataset.setting, el.checked));
+      });
+    }
+
+    async function handleAction(event) {
+      const el = event.currentTarget;
+      const action = el.dataset.action;
+      clearNotice();
+      try {
+        if (action === "signin") await signIn();
+        if (action === "local-test") startLocalTest();
+        if (action === "signout") await logOut();
+        if (action === "create") await createRoom();
+        if (action === "join") await joinRoom();
+        if (action === "leave") leaveRoom();
+        if (action === "copy-link") await copyLink();
+        if (action === "share") await shareRoom();
+        if (action === "skip") await playNext();
+        if (action === "add-song") await addSongFromInput();
+        if (action === "quick-add") await addSong({ artist: el.dataset.artist, title: el.dataset.title, duration: el.dataset.duration });
+        if (action === "react") await reactToSong(el.dataset.id, el.dataset.kind);
+        if (action === "remove") await removeSong(el.dataset.id);
+        if (action === "move-up") await moveSong(el.dataset.id, -1);
+        if (action === "move-down") await moveSong(el.dataset.id, 1);
+        if (action === "delete-room") await endRoom();
+      } catch (error) {
+        state.busy = false;
+        state.error = error.message || "Something went wrong.";
+        render();
+      }
+    }
+
+    function handleField(event) {
+      const field = event.currentTarget.dataset.field;
+      if (field === "nickname") {
+        state.nickname = event.currentTarget.value;
+        localStorage.setItem("partyBeatsName", state.nickname);
+      }
+      if (field === "pendingRoom") state.pendingRoom = cleanRoom(event.currentTarget.value);
+      if (field === "songQuery") state.songQuery = event.currentTarget.value;
+      if (field === "crossfade") updateSetting("crossfade", Number(event.currentTarget.value));
+    }
+
+    async function signIn() {
+      state.busy = true;
+      render();
+      sessionStorage.setItem("partyBeatsReturningFromGoogle", "1");
+      sessionStorage.setItem("partyBeatsReturnUrl", location.href);
+      await authReady;
+      await signInWithRedirect(auth, provider);
+    }
+
+    function startLocalTest() {
+      if (!isLocalTestHost()) return;
+      acceptUser({
+        uid: `local-${crypto.randomUUID()}`,
+        displayName: state.nickname || "Local Tester",
+        email: "local@test.partybeats",
+        photoURL: ""
+      });
+      state.message = "Local test mode is active. Google Auth is still required on the hosted app.";
+      render();
+    }
+
+    async function logOut() {
+      localStorage.removeItem("partyBeatsUser");
+      state.user = null;
+      state.roomId = "";
+      state.room = null;
+      await signOut(auth);
+      render();
+    }
+
+    function acceptUser(user) {
+      sessionStorage.removeItem("partyBeatsReturningFromGoogle");
+      cacheUser(user);
+      state.user = user;
+      state.booted = true;
+      state.busy = false;
+      if (!state.nickname) state.nickname = user.displayName || "";
+      state.message = "";
+      state.error = "";
+      render();
+    }
+
+    function cacheUser(user) {
+      localStorage.setItem("partyBeatsUser", JSON.stringify({
+        uid: user.uid,
+        displayName: user.displayName || "",
+        email: user.email || "",
+        photoURL: user.photoURL || ""
+      }));
+    }
+
+    function readCachedUser() {
+      if (auth.currentUser) return auth.currentUser;
+      try {
+        const cached = JSON.parse(localStorage.getItem("partyBeatsUser") || "null");
+        return cached?.uid ? cached : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function isLocalTestHost() {
+      return ["localhost", "127.0.0.1"].includes(location.hostname);
+    }
+
+    async function createRoom() {
+      requireUser();
+      const name = requireNickname();
+      state.busy = true;
+      render();
+      let code = randomCode();
+      for (let i = 0; i < 8; i += 1) {
+        const exists = await getDoc(roomRef(code));
+        if (!exists.exists()) break;
+        code = randomCode();
+      }
+      await setDoc(roomRef(code), {
+        code,
+        hostId: state.user.uid,
+        hostName: name,
+        settings: defaultSettings(),
+        now: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      await upsertMember(code, name);
+      await enterRoom(code);
+    }
+
+    async function joinRoom() {
+      requireUser();
+      const name = requireNickname();
+      const code = cleanRoom(state.pendingRoom);
+      if (code.length !== 6) throw new Error("Enter a 6-character room code.");
+      const snapshot = await getDoc(roomRef(code));
+      if (!snapshot.exists()) throw new Error("Room not found. Check the code and try again.");
+      await upsertMember(code, name);
+      await enterRoom(code);
+    }
+
+    async function enterRoom(code) {
+      state.busy = false;
+      state.roomId = code;
+      state.pendingRoom = code;
+      history.replaceState(null, "", `?room=${code}`);
+      state.unsub.forEach((stop) => stop());
+      state.unsub = [
+        onSnapshot(roomRef(code), (snap) => {
+          if (!snap.exists()) {
+            state.error = "This room has ended.";
+            leaveRoom(false);
+            return;
+          }
+          state.room = { id: snap.id, ...snap.data() };
+          render();
+        }),
+        onSnapshot(query(collection(db, "rooms", code, "queue"), orderBy("order", "asc"), limit(100)), (snap) => {
+          state.queue = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          render();
+        }),
+        onSnapshot(query(collection(db, "rooms", code, "members"), orderBy("joinedAt", "asc")), (snap) => {
+          state.members = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          state.member = state.members.find((m) => m.id === state.user?.uid) || state.member;
+          render();
+        }),
+        onSnapshot(query(collection(db, "rooms", code, "history"), orderBy("playedAt", "desc"), limit(10)), (snap) => {
+          state.history = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          render();
+        })
+      ];
+      render();
+    }
+
+    async function upsertMember(code, name) {
+      await setDoc(doc(db, "rooms", code, "members", state.user.uid), {
+        id: state.user.uid,
+        name,
+        email: state.user.email || "",
+        photoURL: state.user.photoURL || "",
+        joinedAt: serverTimestamp(),
+        lastSeen: serverTimestamp(),
+        online: true
+      }, { merge: true });
+    }
+
+    async function addSongFromInput() {
+      const query = (state.songQuery || "").trim();
+      if (!query) throw new Error("Type a song or paste a link first.");
+      await addSong(parseSong(query));
+      state.songQuery = "";
+    }
+
+    async function addSong(song) {
+      requireRoom();
+      const name = state.member?.name || state.nickname || "Guest";
+      const newRef = doc(collection(db, "rooms", state.roomId, "queue"));
+      await setDoc(newRef, {
+        artist: song.artist || "Requested",
+        title: song.title || "Untitled song",
+        duration: song.duration || "3:30",
+        source: song.source || "request",
+        addedBy: name,
+        addedById: state.user.uid,
+        reactions: { like: 0, fire: 0 },
+        order: Date.now(),
+        createdAt: serverTimestamp()
+      });
+      state.message = "Added to the queue.";
+      state.tab = "queue";
+      render();
+    }
+
+    async function playNext() {
+      requireHost();
+      const current = state.room?.now;
+      const next = state.queue[0] || null;
+      const batch = writeBatch(db);
+      if (current) {
+        batch.set(doc(collection(db, "rooms", state.roomId, "history")), {
+          ...current,
+          playedAt: serverTimestamp()
+        });
+      }
+      if (next) batch.delete(doc(db, "rooms", state.roomId, "queue", next.id));
+      batch.update(roomRef(state.roomId), { now: next ? stripId(next) : null, updatedAt: serverTimestamp() });
+      await batch.commit();
+    }
+
+    async function reactToSong(id, kind) {
+      requireRoom();
+      await updateDoc(doc(db, "rooms", state.roomId, "queue", id), {
+        [`reactions.${kind}`]: increment(1)
+      });
+    }
+
+    async function removeSong(id) {
+      requireRoom();
+      const canRemove = isCurrentHost() || state.room?.settings?.guestRemove;
+      if (!canRemove) throw new Error("Only the host can remove songs.");
+      await deleteDoc(doc(db, "rooms", state.roomId, "queue", id));
+    }
+
+    async function moveSong(id, direction) {
+      requireRoom();
+      const canMove = isCurrentHost() || state.room?.settings?.guestReorder;
+      if (!canMove) throw new Error("Only the host can reorder songs.");
+      const index = state.queue.findIndex((song) => song.id === id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= state.queue.length) return;
+      const a = state.queue[index];
+      const b = state.queue[target];
+      const batch = writeBatch(db);
+      batch.update(doc(db, "rooms", state.roomId, "queue", a.id), { order: b.order });
+      batch.update(doc(db, "rooms", state.roomId, "queue", b.id), { order: a.order });
+      await batch.commit();
+    }
+
+    async function updateSetting(key, value) {
+      if (!state.roomId || !isCurrentHost()) return;
+      await updateDoc(roomRef(state.roomId), {
+        [`settings.${key}`]: value,
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    async function endRoom() {
+      requireHost();
+      await deleteDoc(roomRef(state.roomId));
+      leaveRoom();
+    }
+
+    function leaveRoom(updateUrl = true) {
+      state.unsub.forEach((stop) => stop());
+      state.unsub = [];
+      state.roomId = "";
+      state.room = null;
+      state.member = null;
+      state.queue = [];
+      state.members = [];
+      state.history = [];
+      state.tab = "queue";
+      if (updateUrl) history.replaceState(null, "", location.pathname);
+      render();
+    }
+
+    async function copyLink() {
+      const link = roomLink();
+      await navigator.clipboard?.writeText(link);
+      state.message = "Room link copied.";
+      render();
+    }
+
+    async function shareRoom() {
+      const link = roomLink();
+      if (navigator.share) {
+        await navigator.share({ title: "Join Party Beats", text: `Join room ${state.roomId}`, url: link });
+      } else {
+        await navigator.clipboard?.writeText(link);
+        state.message = "Share is not available here, so the room link was copied.";
+        render();
+      }
+    }
+
+    function defaultSettings() {
+      return {
+        cooldown: true,
+        guestReorder: false,
+        guestRemove: false,
+        autoDj: true,
+        profanity: true,
+        crossfade: 4
+      };
+    }
+
+    function parseSong(query) {
+      const cleaned = query.replace(/\s+/g, " ").trim();
+      const split = cleaned.split(" - ");
+      if (split.length >= 2) return { artist: split[0], title: split.slice(1).join(" - "), source: "typed" };
+      if (/https?:\/\//i.test(cleaned)) return { artist: "Link request", title: cleaned, source: "link" };
+      return { artist: "Requested", title: cleaned, source: "typed" };
+    }
+
+    function requireUser() {
+      if (!state.user) throw new Error("Sign in with Google first.");
+    }
+
+    function requireRoom() {
+      requireUser();
+      if (!state.roomId) throw new Error("Create or join a room first.");
+    }
+
+    function requireHost() {
+      requireRoom();
+      if (!isCurrentHost()) throw new Error("Only the host can control playback.");
+    }
+
+    function requireNickname() {
+      const name = (state.nickname || "").trim();
+      if (name.length < 2) throw new Error("Enter a nickname first.");
+      localStorage.setItem("partyBeatsName", name);
+      return name;
+    }
+
+    function isCurrentHost() {
+      return !!state.user && state.room?.hostId === state.user.uid;
+    }
+
+    function roomRef(code) {
+      return doc(db, "rooms", code);
+    }
+
+    function roomLink() {
+      return `${location.origin}${location.pathname}?room=${state.roomId}`;
+    }
+
+    function randomCode() {
+      const crypto = window.crypto || window.msCrypto;
+      const bytes = new Uint8Array(6);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+    }
+
+    function cleanRoom(value) {
+      return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    }
+
+    function initials(value) {
+      return String(value || "PB").split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "PB";
+    }
+
+    function stripId(song) {
+      const { id, ...rest } = song;
+      return rest;
+    }
+
+    function clearNotice() {
+      state.error = "";
+      state.message = "";
+    }
+
+    function friendlyAuthError(error) {
+      if (error?.code === "auth/unauthorized-domain") return "Add this domain in Firebase Auth settings, then try again.";
+      if (error?.code === "auth/popup-blocked") return "The popup was blocked, so Party Beats will use redirect sign-in.";
+      return error?.message || "Google sign-in failed.";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/`/g, "&#96;");
+    }
+
+    render();
+  </script>
+</body>
+</html>
