@@ -438,7 +438,9 @@
       console.warn("Party Beats auth persistence failed", error);
     });
 
-    const initialRoom = cleanRoom(new URLSearchParams(location.search).get("room") || "");
+    const params = new URLSearchParams(location.search);
+    const initialRoom = cleanRoom(params.get("room") || localStorage.getItem("partyBeatsRoom") || "");
+    const initialTab = cleanTab(params.get("tab") || sessionStorage.getItem("partyBeatsTab") || "queue");
     const state = {
       booted: false,
       busy: false,
@@ -450,7 +452,7 @@
       roomId: "",
       room: null,
       member: null,
-      tab: "queue",
+      tab: initialTab,
       queue: [],
       members: [],
       joinRequests: [],
@@ -486,13 +488,17 @@
       render();
     });
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       clearTimeout(bootFallback);
       if (user) cacheUser(user);
       state.user = user || readCachedUser();
       state.booted = true;
       state.busy = false;
       if (user && !state.nickname) state.nickname = user.displayName || "";
+      if (state.user && initialRoom && !state.roomId) {
+        await restoreRoomAfterRefresh(initialRoom);
+        return;
+      }
       render();
     });
 
@@ -890,6 +896,8 @@
       scope.querySelectorAll("[data-tab]").forEach((el) => {
         el.addEventListener("click", () => {
           state.tab = el.dataset.tab;
+          rememberTab();
+          updateUrl();
           clearNotice();
           updateApp();
         });
@@ -1088,6 +1096,7 @@
     }
 
     async function requestGuestApproval(code, name) {
+      localStorage.setItem("partyBeatsRoom", code);
       const requestRef = doc(db, "rooms", code, "joinRequests", state.user.uid);
       await setDoc(requestRef, {
         id: state.user.uid,
@@ -1127,7 +1136,9 @@
       state.busy = false;
       state.roomId = code;
       state.pendingRoom = code;
-      history.replaceState(null, "", `?room=${code}`);
+      localStorage.setItem("partyBeatsRoom", code);
+      rememberTab();
+      updateUrl();
       state.unsub.forEach((stop) => stop());
       state.unsub = [
         onSnapshot(roomRef(code), (snap) => {
@@ -1218,9 +1229,48 @@
     async function cancelJoinRequest() {
       if (!state.pendingJoin) return;
       await deleteDoc(doc(db, "rooms", state.pendingJoin.roomId, "joinRequests", state.user.uid));
+      localStorage.removeItem("partyBeatsRoom");
       state.pendingJoin = null;
       state.message = "";
       render();
+    }
+
+    async function restoreRoomAfterRefresh(code) {
+      try {
+        const roomSnapshot = await getDoc(roomRef(code));
+        if (!roomSnapshot.exists()) {
+          localStorage.removeItem("partyBeatsRoom");
+          render();
+          return;
+        }
+
+        const memberSnapshot = await getDoc(doc(db, "rooms", code, "members", state.user.uid));
+        if (memberSnapshot.exists()) {
+          await enterRoom(code);
+          return;
+        }
+
+        const requestSnapshot = await getDoc(doc(db, "rooms", code, "joinRequests", state.user.uid));
+        if (requestSnapshot.exists()) {
+          const request = requestSnapshot.data();
+          if (request.status === "pending") {
+            state.pendingJoin = { roomId: code, name: request.name || state.nickname || "Guest" };
+            state.message = "Request sent. Waiting for the host to allow you in.";
+            render();
+            return;
+          }
+          if (request.status === "approved") {
+            await enterRoom(code);
+            return;
+          }
+        }
+
+        state.pendingRoom = code;
+        render();
+      } catch (error) {
+        state.error = error.message || "Could not restore your room after refresh.";
+        render();
+      }
     }
 
     async function addSongFromInput() {
@@ -1358,6 +1408,8 @@
       state.joinRequests = [];
       state.history = [];
       state.tab = "queue";
+      localStorage.removeItem("partyBeatsRoom");
+      sessionStorage.setItem("partyBeatsTab", "queue");
       if (updateUrl) history.replaceState(null, "", location.pathname);
       render();
     }
@@ -1499,6 +1551,21 @@
 
     function roomLink() {
       return `${location.origin}${location.pathname}?room=${state.roomId}`;
+    }
+
+    function updateUrl() {
+      if (!state.roomId) return;
+      const next = `?room=${state.roomId}&tab=${state.tab}`;
+      if (`${location.search}` !== next) history.replaceState(null, "", next);
+    }
+
+    function rememberTab() {
+      state.tab = cleanTab(state.tab);
+      sessionStorage.setItem("partyBeatsTab", state.tab);
+    }
+
+    function cleanTab(value) {
+      return ["queue", "add", "people", "settings"].includes(value) ? value : "queue";
     }
 
     function randomCode() {
