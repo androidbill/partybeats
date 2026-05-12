@@ -170,6 +170,50 @@
       gap: 16px;
       margin-bottom: 18px;
     }
+    .top-actions { display: flex; align-items: flex-start; gap: 8px; }
+    .menu-wrap { position: relative; }
+    .menu-button {
+      width: 36px;
+      min-height: 30px;
+      padding: 4px;
+      font-size: 20px;
+      line-height: 1;
+    }
+    .overflow-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      z-index: 20;
+      min-width: 172px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px;
+      background: #111824;
+      box-shadow: 0 18px 45px rgba(0,0,0,.35);
+    }
+    .overflow-menu button {
+      width: 100%;
+      justify-content: flex-start;
+      background: transparent;
+      color: var(--text);
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(0,0,0,.62);
+    }
+    .modal {
+      width: min(420px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      background: var(--panel);
+      box-shadow: 0 24px 70px rgba(0,0,0,.45);
+    }
     .badge {
       display: inline-flex;
       align-items: center;
@@ -210,13 +254,29 @@
     }
     .meter { height: 7px; border-radius: 99px; background: #263347; overflow: hidden; margin-top: 10px; }
     .meter i { display: block; height: 100%; width: 42%; background: linear-gradient(90deg, var(--accent), var(--gold)); }
-    .player {
+    .player-stage {
+      position: relative;
       width: 100%;
       aspect-ratio: 16 / 9;
-      border: 0;
       border-radius: 8px;
       background: #05080d;
       margin-top: 14px;
+      overflow: hidden;
+    }
+    .player-slot {
+      position: absolute;
+      inset: 0;
+      opacity: 1;
+      transition: opacity 240ms ease;
+    }
+    .player-slot.player-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .player-slot iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
     }
     .song {
       display: grid;
@@ -394,6 +454,7 @@
       measurementId: "G-2MZ6CRLCRK"
     };
 
+    const APP_VERSION = "2026.05.12.01";
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const seedSongs = [
       ["The Weeknd", "Blinding Lights", "3:20", "fHI8X4OXluQ"],
@@ -437,6 +498,17 @@
     const authReady = setPersistence(auth, browserLocalPersistence).catch((error) => {
       console.warn("Party Beats auth persistence failed", error);
     });
+    const hostPlayback = {
+      apiReady: null,
+      active: null,
+      standby: null,
+      activeSlot: "a",
+      activeVideoId: "",
+      monitor: null,
+      fadeTimer: null,
+      crossfading: false,
+      advancing: false
+    };
 
     const params = new URLSearchParams(location.search);
     const initialRoom = cleanRoom(params.get("room") || localStorage.getItem("partyBeatsRoom") || "");
@@ -462,7 +534,9 @@
       message: "",
       error: "",
       unsub: [],
-      joinRequestsUnsub: null
+      joinRequestsUnsub: null,
+      menuOpen: false,
+      aboutOpen: false
     };
 
     const bootFallback = setTimeout(() => {
@@ -525,6 +599,7 @@
         }
         root.innerHTML = layoutApp();
         bind();
+        syncHostPlayer();
         return;
       }
       root.innerHTML = layoutAuth();
@@ -625,6 +700,7 @@
           </aside>
           <main class="main" data-main>${layoutMain()}</main>
           <div data-join-popup>${layoutFloatingJoinPopup()}</div>
+          <div data-about-modal>${layoutAboutModal()}</div>
         </div>`;
     }
 
@@ -637,7 +713,17 @@
             <span class="badge ${isHost ? "host" : ""}">${isHost ? "Host controls enabled" : "Guest mode"}</span>
             <h2>${escapeHtml(tabTitle())}</h2>
           </div>
-          <div class="badge">${state.queue.length} queued</div>
+          <div class="top-actions">
+            <div class="badge">${state.queue.length} queued</div>
+            <div class="menu-wrap">
+              <button class="ghost menu-button" data-action="menu-toggle" aria-label="Open menu" aria-expanded="${state.menuOpen ? "true" : "false"}">&#8942;</button>
+              ${state.menuOpen ? `
+                <div class="overflow-menu" role="menu">
+                  <button data-action="menu-share" role="menuitem">Share</button>
+                  <button data-action="menu-about" role="menuitem">About</button>
+                </div>` : ""}
+            </div>
+          </div>
         </div>
         ${state.error ? `<p class="error">${escapeHtml(state.error)}</p>` : ""}
         ${state.message ? `<p class="success">${escapeHtml(state.message)}</p>` : ""}
@@ -645,6 +731,24 @@
         ${state.tab === "add" ? viewAdd() : ""}
         ${state.tab === "people" ? viewPeople() : ""}
         ${state.tab === "settings" ? viewSettings(isHost) : ""}`;
+    }
+
+    function layoutAboutModal() {
+      if (!state.aboutOpen) return "";
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="About Party Beats">
+          <section class="modal stack">
+            <div>
+              <h3>About Party Beats</h3>
+              <p class="fine">A shared party queue where guests add songs and the host device keeps playback moving.</p>
+            </div>
+            <div class="card settings-note">
+              <strong>Version</strong><br>
+              <small>${escapeHtml(APP_VERSION)}</small>
+            </div>
+            <button data-action="close-about">Close</button>
+          </section>
+        </div>`;
     }
 
     function layoutFloatingJoinPopup() {
@@ -681,12 +785,11 @@
       return `
         <div class="card" data-video-id="${escapeAttr(now.youtubeId)}">
           <strong>Host Player</strong>
-          <iframe
-            class="player"
-            title="${escapeAttr(`${now.artist || "Party Beats"} - ${now.title || "Now playing"}`)}"
-            src="https://www.youtube.com/embed/${escapeAttr(now.youtubeId)}?autoplay=1&playsinline=1&rel=0"
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowfullscreen></iframe>
+          <div class="player-stage" aria-label="${escapeAttr(`${now.artist || "Party Beats"} - ${now.title || "Now playing"}`)}">
+            <div class="player-slot" data-player-slot="a"><div id="yt-target-a"></div></div>
+            <div class="player-slot player-hidden" data-player-slot="b"><div id="yt-target-b"></div></div>
+          </div>
+          <small>Auto-playing queue${Number(state.room?.settings?.crossfade || 0) ? ` with ${Number(state.room?.settings?.crossfade || 0)}s crossfade` : ""}.</small>
         </div>`;
     }
 
@@ -878,8 +981,10 @@
         const currentVideoId = hostPlayer.querySelector("[data-video-id]")?.dataset.videoId || "";
         const hasPlaceholder = !!hostPlayer.querySelector(".card:not([data-video-id])");
         if (nextVideoId !== currentVideoId || (!nextVideoId && !hasPlaceholder)) {
+          destroyHostPlayers();
           hostPlayer.innerHTML = hostPlayerContent(isCurrentHost());
         }
+        syncHostPlayer();
       }
 
       const joinPopup = root.querySelector("[data-join-popup]");
@@ -887,6 +992,178 @@
         joinPopup.innerHTML = layoutFloatingJoinPopup();
         bind(joinPopup);
       }
+
+      const aboutModal = root.querySelector("[data-about-modal]");
+      if (aboutModal) {
+        aboutModal.innerHTML = layoutAboutModal();
+        bind(aboutModal);
+      }
+    }
+
+    function loadYouTubeApi() {
+      if (window.YT?.Player) return Promise.resolve(window.YT);
+      if (hostPlayback.apiReady) return hostPlayback.apiReady;
+      hostPlayback.apiReady = new Promise((resolve) => {
+        const previousReady = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = () => {
+          if (typeof previousReady === "function") previousReady();
+          resolve(window.YT);
+        };
+        if (!document.querySelector("script[data-youtube-api]")) {
+          const script = document.createElement("script");
+          script.src = "https://www.youtube.com/iframe_api";
+          script.dataset.youtubeApi = "true";
+          document.head.appendChild(script);
+        }
+      });
+      return hostPlayback.apiReady;
+    }
+
+    function syncHostPlayer() {
+      const now = state.room?.now || null;
+      if (!isCurrentHost() || !now?.youtubeId || !root.querySelector("#yt-target-a")) {
+        destroyHostPlayers();
+        return;
+      }
+      if (hostPlayback.crossfading || hostPlayback.activeVideoId === now.youtubeId) {
+        startHostPlayerMonitor();
+        return;
+      }
+      destroyHostPlayers();
+      setPlayerSlotVisibility("a");
+      loadYouTubeApi().then(() => {
+        if (!isCurrentHost() || state.room?.now?.youtubeId !== now.youtubeId || !root.querySelector("#yt-target-a")) return;
+        hostPlayback.activeSlot = "a";
+        hostPlayback.activeVideoId = now.youtubeId;
+        hostPlayback.active = buildYouTubePlayer("a", now.youtubeId, 100);
+        startHostPlayerMonitor();
+      });
+    }
+
+    function buildYouTubePlayer(slot, videoId, volume = 100) {
+      resetPlayerSlot(slot);
+      return new window.YT.Player(`yt-target-${slot}`, {
+        videoId,
+        playerVars: { autoplay: 1, controls: 1, playsinline: 1, rel: 0, modestbranding: 1 },
+        events: {
+          onReady: (event) => {
+            event.target.setVolume(volume);
+            event.target.unMute();
+            event.target.playVideo();
+          },
+          onStateChange: (event) => {
+            if (event.data === window.YT?.PlayerState?.ENDED) advanceFromHostPlayer();
+          }
+        }
+      });
+    }
+
+    function startHostPlayerMonitor() {
+      clearInterval(hostPlayback.monitor);
+      hostPlayback.monitor = setInterval(() => {
+        if (!isCurrentHost() || !hostPlayback.active || hostPlayback.crossfading) return;
+        const next = state.queue[0];
+        const crossfade = Number(state.room?.settings?.crossfade || 0);
+        if (!next?.youtubeId || crossfade <= 0) return;
+        const duration = Number(hostPlayback.active.getDuration?.() || 0);
+        const currentTime = Number(hostPlayback.active.getCurrentTime?.() || 0);
+        const remaining = duration - currentTime;
+        if (duration > crossfade + 2 && remaining > 0 && remaining <= crossfade) {
+          startCrossfade(next, crossfade);
+        }
+      }, 500);
+    }
+
+    function startCrossfade(next, seconds) {
+      if (hostPlayback.crossfading || !hostPlayback.active || !next?.youtubeId) return;
+      hostPlayback.crossfading = true;
+      const outgoingSlot = hostPlayback.activeSlot;
+      const incomingSlot = outgoingSlot === "a" ? "b" : "a";
+      const outgoingPlayer = hostPlayback.active;
+
+      loadYouTubeApi().then(() => {
+        if (!hostPlayback.crossfading || !root.querySelector(`#yt-target-${incomingSlot}`)) return;
+        hostPlayback.standby = buildYouTubePlayer(incomingSlot, next.youtubeId, 0);
+        setPlayerSlotVisibility(outgoingSlot, incomingSlot);
+
+        const startedAt = performance.now();
+        clearInterval(hostPlayback.fadeTimer);
+        hostPlayback.fadeTimer = setInterval(async () => {
+          const progress = Math.min(1, (performance.now() - startedAt) / (seconds * 1000));
+          const incomingVolume = Math.round(progress * 100);
+          const outgoingVolume = Math.max(0, 100 - incomingVolume);
+          try {
+            outgoingPlayer.setVolume(outgoingVolume);
+            hostPlayback.standby?.setVolume(incomingVolume);
+          } catch {}
+          if (progress < 1) return;
+
+          clearInterval(hostPlayback.fadeTimer);
+          try {
+            outgoingPlayer.pauseVideo();
+            outgoingPlayer.destroy();
+          } catch {}
+          resetPlayerSlot(outgoingSlot);
+          hostPlayback.active = hostPlayback.standby;
+          hostPlayback.activeSlot = incomingSlot;
+          hostPlayback.activeVideoId = next.youtubeId;
+          hostPlayback.standby = null;
+          hostPlayback.crossfading = false;
+          setPlayerSlotVisibility(incomingSlot);
+          markHostPlayerVideo(next.youtubeId);
+          await advanceFromHostPlayer();
+        }, 250);
+      });
+    }
+
+    async function advanceFromHostPlayer() {
+      if (hostPlayback.advancing || !isCurrentHost()) return;
+      hostPlayback.advancing = true;
+      try {
+        await playNext();
+      } catch (error) {
+        state.error = error.message || "Could not advance the queue.";
+        updateApp();
+      } finally {
+        hostPlayback.advancing = false;
+      }
+    }
+
+    function markHostPlayerVideo(videoId) {
+      const card = root.querySelector("[data-host-player] [data-video-id]");
+      if (card) card.dataset.videoId = videoId || "";
+    }
+
+    function setPlayerSlotVisibility(activeSlot, secondVisibleSlot = "") {
+      root.querySelectorAll("[data-player-slot]").forEach((slot) => {
+        const visible = slot.dataset.playerSlot === activeSlot || slot.dataset.playerSlot === secondVisibleSlot;
+        slot.classList.toggle("player-hidden", !visible);
+      });
+    }
+
+    function resetPlayerSlot(slot) {
+      const container = root.querySelector(`[data-player-slot="${slot}"]`);
+      if (container) container.innerHTML = `<div id="yt-target-${slot}"></div>`;
+    }
+
+    function destroyHostPlayers() {
+      clearInterval(hostPlayback.monitor);
+      clearInterval(hostPlayback.fadeTimer);
+      [hostPlayback.active, hostPlayback.standby].forEach((player) => {
+        try {
+          player?.destroy?.();
+        } catch {}
+      });
+      hostPlayback.active = null;
+      hostPlayback.standby = null;
+      hostPlayback.activeVideoId = "";
+      hostPlayback.activeSlot = "a";
+      hostPlayback.crossfading = false;
+      root.querySelectorAll("[data-player-slot]").forEach((slot) => {
+        const name = slot.dataset.playerSlot;
+        slot.innerHTML = `<div id="yt-target-${name}"></div>`;
+        slot.classList.toggle("player-hidden", name !== "a");
+      });
     }
 
     function bind(scope = root) {
@@ -924,6 +1201,10 @@
         if (action === "leave") leaveRoom();
         if (action === "copy-link") await copyLink();
         if (action === "share") await shareRoom();
+        if (action === "menu-toggle") toggleMenu();
+        if (action === "menu-share") await shareFromMenu();
+        if (action === "menu-about") showAbout();
+        if (action === "close-about") closeAbout();
         if (action === "skip") await playNext();
         if (action === "add-song") await addSongFromInput();
         if (action === "search-youtube") searchYouTube();
@@ -1424,12 +1705,39 @@
     async function shareRoom() {
       const link = roomLink();
       if (navigator.share) {
-        await navigator.share({ title: "Join Party Beats", text: `Join room ${state.roomId}`, url: link });
+        try {
+          await navigator.share({ title: "Join Party Beats", text: `Join room ${state.roomId}`, url: link });
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+          throw error;
+        }
       } else {
         await navigator.clipboard?.writeText(link);
         state.message = "Share is not available here, so the room link was copied.";
         render();
       }
+    }
+
+    function toggleMenu() {
+      state.menuOpen = !state.menuOpen;
+      updateApp();
+    }
+
+    async function shareFromMenu() {
+      state.menuOpen = false;
+      updateApp();
+      await shareRoom();
+    }
+
+    function showAbout() {
+      state.menuOpen = false;
+      state.aboutOpen = true;
+      updateApp();
+    }
+
+    function closeAbout() {
+      state.aboutOpen = false;
+      updateApp();
     }
 
     function defaultSettings() {
