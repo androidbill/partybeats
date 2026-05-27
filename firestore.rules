@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isGoogleUser() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isRoomAdmin(roomId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/rooms/$(roomId)).data.adminUid == request.auth.uid;
+    }
+
+    function isRoomMember(roomId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid));
+    }
+
+    function memberData(roomId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid)).data;
+    }
+
+    function canAddSong(roomId) {
+      return isRoomAdmin(roomId)
+        || !memberData(roomId).keys().hasAny(['lastAddedAt'])
+        || request.time > memberData(roomId).lastAddedAt + duration.value(3, 'm');
+    }
+
+    match /rooms/{roomId} {
+      allow read: if signedIn();
+      allow create: if isGoogleUser()
+        && request.resource.data.adminUid == request.auth.uid
+        && roomId.matches('^[A-Z]{4}[0-9]{3}$');
+      allow update, delete: if isRoomAdmin(roomId);
+
+      match /members/{memberId} {
+        allow read: if isRoomMember(roomId) || isRoomAdmin(roomId);
+        allow create, update: if signedIn()
+          && memberId == request.auth.uid
+          && exists(/databases/$(database)/documents/rooms/$(roomId));
+        allow delete: if memberId == request.auth.uid || isRoomAdmin(roomId);
+      }
+
+      match /songs/{songId} {
+        allow read: if isRoomMember(roomId);
+        allow create: if isRoomMember(roomId)
+          && request.resource.data.addedByUid == request.auth.uid
+          && canAddSong(roomId);
+        allow update: if isRoomAdmin(roomId)
+          || (
+            isRoomMember(roomId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emojiByUser'])
+            && request.resource.data.emojiByUser.diff(resource.data.emojiByUser).affectedKeys().hasOnly([request.auth.uid])
+          );
+        allow delete: if isRoomAdmin(roomId);
+      }
+    }
+  }
+}

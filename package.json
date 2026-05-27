@@ -1,0 +1,24 @@
+{
+  "name": "partybeats",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "build:pages": "vite build",
+    "build:single-pwa": "vite build"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "6.0.2",
+    "firebase": "12.13.0",
+    "framer-motion": "12.40.0",
+    "lucide-react": "1.16.0",
+    "qrcode": "1.5.4",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "vite": "8.0.14",
+    "vite-plugin-pwa": "1.3.0"
+  }
+}
