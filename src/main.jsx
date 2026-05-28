@@ -110,7 +110,23 @@ const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.01";
+const APP_VERSION = "2026.05.28.02";
+const PROFANITY_WORDS = [
+  "asshole",
+  "bastard",
+  "bitch",
+  "bullshit",
+  "cunt",
+  "dick",
+  "fuck",
+  "fucker",
+  "fucking",
+  "motherfucker",
+  "piss",
+  "shit",
+  "slut",
+  "whore"
+];
 
 function randomRoomId() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
@@ -124,6 +140,11 @@ function normalizeRoomId(value) {
 
 function nicknameFor(user, fallback = "Guest") {
   return user?.displayName || user?.email?.split("@")[0] || fallback;
+}
+
+function hasProfanity(value) {
+  const normalized = value.toLowerCase();
+  return PROFANITY_WORDS.some((word) => new RegExp(`\\b${word}\\b`, "i").test(normalized));
 }
 
 function authErrorMessage(error) {
@@ -286,6 +307,8 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
+  const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
+  const memberById = (uid) => members.find((member) => member.id === uid);
 
   async function signInGoogle() {
     if (!firebaseReady) {
@@ -353,7 +376,7 @@ function App() {
       roomId: nextId,
       adminUid: user.uid,
       adminUids: { [user.uid]: true },
-      adminName: nicknameFor(user),
+      adminName: activeNickname,
       createdAt: serverTimestamp(),
       closed: false,
       cooldownEnabled: true,
@@ -391,7 +414,7 @@ function App() {
       doc(db, "rooms", nextRoomId, "members", user.uid),
       {
         uid: user.uid,
-        name: nicknameFor(user, nickname.trim() || "Guest"),
+        name: activeNickname,
         isAnonymous: user.isAnonymous,
         joinedAt: serverTimestamp()
       },
@@ -428,7 +451,8 @@ function App() {
       videoId,
       thumbnail,
       addedByUid: user.uid,
-      addedByName: nicknameFor(user, nickname.trim() || "Guest"),
+      addedByName: activeNickname,
+      addedByIsAnonymous: user.isAnonymous,
       position: nextPosition,
       emojiByUser: {},
       messages: [],
@@ -528,12 +552,17 @@ function App() {
   async function sendSongMessage(song) {
     const text = messageDraft.trim().slice(0, 90);
     if (!user || !activeRoomId || !text) return;
-    const senderName = nicknameFor(user, nickname.trim() || "Someone").slice(0, 30);
+    if (hasProfanity(text)) {
+      setToast("Message blocked for profanity.");
+      return;
+    }
+    const senderName = activeNickname.slice(0, 30);
     const nextMessages = [
       ...(song.messages || []),
       {
         uid: user.uid,
         name: senderName,
+        isAnonymous: user.isAnonymous,
         text,
         at: Date.now()
       }
@@ -689,7 +718,7 @@ function App() {
             {authLoading ? (
               <div className="muted">Checking session...</div>
             ) : user ? (
-              <SignedIn user={user} nickname={nicknameFor(user, nickname)} onSignOut={handleSignOut} />
+              <SignedIn user={user} nickname={nickname} setNickname={setNickname} onSignOut={handleSignOut} />
             ) : (
               <SignedOut
                 nickname={nickname}
@@ -749,7 +778,10 @@ function App() {
         <div className="topbar-actions">
           <div className="session-chip">
             <span>{user.isAnonymous ? "Guest" : "Google"}</span>
-            <strong>{nicknameFor(user, nickname)}</strong>
+            <strong>
+              {!user.isAnonymous && <GoogleBadge />}
+              {activeNickname}
+            </strong>
           </div>
           <div className="menu-wrap">
             <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu">
@@ -878,6 +910,8 @@ function App() {
             </div>
           ) : (
             songs.map((song, index) => {
+              const uploader = memberById(song.addedByUid);
+              const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
               const emojiCounts = EMOJIS.map((emoji) => ({
                 emoji,
                 count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
@@ -911,7 +945,9 @@ function App() {
                       <b>{song.artist || "YouTube"}</b>
                       <strong>{song.title}</strong>
                     </span>
-                    <span className="uploaded-by">Uploaded by {song.addedByName || "Guest"}</span>
+                    <span className="uploaded-by">
+                      Uploaded by {uploaderIsGoogle && <GoogleBadge />}{song.addedByName || "Guest"}
+                    </span>
                   </button>
 
                   <div className="reaction-strip">
@@ -922,7 +958,7 @@ function App() {
                     )}
                     {(song.messages || []).map((item, messageIndex) => (
                       <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
-                        <b>{item.name || "Guest"}:</b> {item.text}
+                        <b>{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
                       </span>
                     ))}
                   </div>
@@ -1009,7 +1045,7 @@ function App() {
             <div className="member-row" key={member.id}>
               <UserRound aria-hidden="true" />
               <div>
-                <strong>{member.name}</strong>
+                <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name}</strong>
                 <span>{member.isAnonymous ? "Guest" : "Google"}</span>
               </div>
               {isRoomAdminId(member.id) ? (
@@ -1278,17 +1314,36 @@ function SignedOut({ nickname, setNickname, onGoogle, onNickname }) {
   );
 }
 
-function SignedIn({ user, nickname, onSignOut }) {
+function SignedIn({ user, nickname, setNickname, onSignOut }) {
   return (
     <div className="signed-in">
       <div>
         <span>{user.isAnonymous ? "Guest" : "Google"}</span>
-        <strong>{nickname}</strong>
+        <strong>
+          {!user.isAnonymous && <GoogleBadge />}
+          {nickname || nicknameFor(user)}
+        </strong>
       </div>
+      {!user.isAnonymous && (
+        <input
+          value={nickname}
+          onChange={(event) => setNickname(event.target.value)}
+          placeholder="Party nickname"
+          maxLength={30}
+        />
+      )}
       <button className="icon-button" onClick={onSignOut} title="Sign out">
         <LogOut aria-hidden="true" />
       </button>
     </div>
+  );
+}
+
+function GoogleBadge() {
+  return (
+    <span className="google-badge" aria-label="Google user" title="Google user">
+      G
+    </span>
   );
 }
 

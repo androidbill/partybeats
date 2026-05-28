@@ -121,6 +121,10 @@ a {
   align-items: center;
 }
 
+.signed-in input {
+  grid-column: 1 / -1;
+}
+
 .signed-in span,
 .muted,
 .room-id-block span,
@@ -131,7 +135,9 @@ a {
 }
 
 .signed-in strong {
-  display: block;
+  display: flex;
+  gap: 5px;
+  align-items: center;
   margin-top: 3px;
   font-size: 1.08rem;
 }
@@ -805,11 +811,29 @@ input:focus {
 }
 
 .session-chip strong {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: flex-end;
   overflow: hidden;
   color: #17181f;
   font-size: 0.84rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.google-badge {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #4285f4;
+  font-size: 0.66rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .menu-wrap {
@@ -1006,6 +1030,9 @@ input:focus {
 }
 
 .uploaded-by {
+  display: flex;
+  gap: 4px;
+  align-items: center;
   grid-column: 2;
   color: #696c78;
   font-size: 0.72rem;
@@ -1037,6 +1064,9 @@ input:focus {
 }
 
 .song-message b {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
   color: #0f4f42;
 }
 
@@ -1136,6 +1166,12 @@ input:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.people-panel .member-row strong {
+  display: flex;
+  gap: 5px;
+  align-items: center;
 }
 
 .modal-backdrop {
