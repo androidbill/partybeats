@@ -10,7 +10,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["partybeats-icon.svg"],
+      includeAssets: ["partybeats-icon.png"],
       manifest: {
         name: "PartyBeats",
         short_name: "PartyBeats",
@@ -21,9 +21,9 @@ export default defineConfig({
         start_url: ".",
         icons: [
           {
-            src: "partybeats-icon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
+            src: "partybeats-icon.png",
+            sizes: "512x512",
+            type: "image/png",
             purpose: "any maskable"
           }
         ]
