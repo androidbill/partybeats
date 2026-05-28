@@ -113,7 +113,7 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.17";
+const APP_VERSION = "2026.05.28.18";
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -250,6 +250,11 @@ function App() {
   const [renameMemberId, setRenameMemberId] = useState("");
   const [renameDraft, setRenameDraft] = useState("");
   const [nowPlayingNotice, setNowPlayingNotice] = useState(null);
+  const [effectivePlaybackSettings, setEffectivePlaybackSettings] = useState({
+    songId: null,
+    crossfadeEnabled: true,
+    crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
+  });
   const [theme, setTheme] = useState(savedTheme);
   const previousNowPlayingId = useRef(undefined);
   const isDarkTheme = theme === "dark";
@@ -392,10 +397,18 @@ function App() {
   const memberById = (uid) => members.find((member) => member.id === uid);
 
   useEffect(() => {
-    if (!trackNoticeEnabled) {
-      setNowPlayingNotice(null);
-      return undefined;
-    }
+    setEffectivePlaybackSettings((current) => {
+      const songId = nowPlayingSong?.id || null;
+      if (current.songId === songId) return current;
+      return {
+        songId,
+        crossfadeEnabled,
+        crossfadeSeconds
+      };
+    });
+  }, [nowPlayingSong?.id, crossfadeEnabled, crossfadeSeconds]);
+
+  useEffect(() => {
     if (!activeRoomId || !nowPlayingSong?.id) {
       previousNowPlayingId.current = nowPlayingSong?.id || null;
       setNowPlayingNotice(null);
@@ -410,6 +423,10 @@ function App() {
     }
 
     previousNowPlayingId.current = nowPlayingSong.id;
+    if (!trackNoticeEnabled) {
+      setNowPlayingNotice(null);
+      return undefined;
+    }
     const uploader = memberById(nowPlayingSong.addedByUid);
     setNowPlayingNotice({
       id: nowPlayingSong.id,
@@ -419,7 +436,7 @@ function App() {
     });
     const timer = window.setTimeout(() => setNowPlayingNotice(null), trackNoticeSeconds * 1000);
     return () => window.clearTimeout(timer);
-  }, [activeRoomId, nowPlayingSong?.id, trackNoticeEnabled, trackNoticeSeconds]);
+  }, [activeRoomId, nowPlayingSong?.id]);
 
   async function signInGoogle() {
     if (!firebaseReady) {
@@ -882,6 +899,11 @@ function App() {
     setRenameMemberId("");
     setRenameDraft("");
     setNowPlayingNotice(null);
+    setEffectivePlaybackSettings({
+      songId: null,
+      crossfadeEnabled: true,
+      crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
+    });
     setRestoreRoomId("");
     window.history.replaceState({}, "", window.location.pathname);
   }
@@ -1156,8 +1178,8 @@ function App() {
               song={nowPlayingSong}
               onEnded={playNextSong}
               onCrossfade={playNextSong}
-              crossfadeEnabled={crossfadeEnabled}
-              crossfadeSeconds={crossfadeSeconds}
+              crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
+              crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
             />
             <div className="player-actions">
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
