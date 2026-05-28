@@ -1,7 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="108" fill="#12131a"/>
-  <circle cx="168" cy="330" r="72" fill="#ff5a7a"/>
-  <circle cx="344" cy="286" r="72" fill="#39c6a3"/>
-  <path d="M232 328V132l176-40v192" fill="none" stroke="#f8f6ef" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M232 184l176-40" fill="none" stroke="#f7c948" stroke-width="34" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="partybeats-bg" x1="64" y1="448" x2="448" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff2f92"/>
+      <stop offset="1" stop-color="#76d8ff"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#17181f" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="108" fill="url(#partybeats-bg)"/>
+  <g transform="translate(126 78) scale(14)" filter="url(#soft-shadow)">
+    <path
+      d="M9 18V5l12 4"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="3.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <circle cx="6" cy="18" r="3.8" fill="#ffffff"/>
+  </g>
+
+  <g filter="url(#soft-shadow)">
+    <rect x="322" y="354" width="126" height="82" rx="30" fill="#17181f" opacity="0.72"/>
+    <text
+      x="385"
+      y="408"
+      fill="#ffffff"
+      font-family="Inter, Arial, sans-serif"
+      font-size="42"
+      font-weight="900"
+      text-anchor="middle"
+      letter-spacing="1"
+    >PB</text>
+  </g>
 </svg>
