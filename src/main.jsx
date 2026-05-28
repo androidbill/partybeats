@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Crown,
   DoorOpen,
+  Download,
   ExternalLink,
   Info,
   LogIn,
@@ -107,9 +108,9 @@ const ROOM_WORDS = [
 
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
-const DEFAULT_CROSSFADE_SECONDS = 10;
+const DEFAULT_CROSSFADE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.27.08";
+const APP_VERSION = "2026.05.27.10";
 
 function randomRoomId() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
@@ -636,6 +637,44 @@ function App() {
     setToast("Room link copied.");
   }
 
+  async function exportPlaylist() {
+    setMenuOpen(false);
+    if (!songs.length) {
+      setToast("There are no songs to export yet.");
+      return;
+    }
+    const lines = [
+      "PartyBeats Playlist",
+      `Room: ${activeRoomId}`,
+      `Exported: ${new Date().toLocaleString()}`,
+      "",
+      ...songs.flatMap((song, index) => {
+        const emojiCounts = EMOJIS.map((emoji) => ({
+          emoji,
+          count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
+        })).filter((item) => item.count > 0);
+        return [
+          `${index + 1}. ${song.artist || "YouTube"} - ${song.title || "Untitled"}`,
+          `   Added by: ${song.addedByName || "Guest"}`,
+          song.link ? `   Link: ${song.link}` : "",
+          emojiCounts.length ? `   Reactions: ${emojiCounts.map(({ emoji, count }) => `${emoji} ${count}`).join(", ")}` : "",
+          ...(song.messages || []).map((item) => `   Message from ${item.name || "Guest"}: ${item.text}`),
+          ""
+        ].filter(Boolean);
+      })
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `partybeats-${activeRoomId || "playlist"}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setToast("Playlist exported.");
+  }
+
   if (!firebaseReady) {
     return <SetupMissing />;
   }
@@ -736,6 +775,10 @@ function App() {
                 <button onClick={shareRoom}>
                   <Share2 aria-hidden="true" />
                   Share
+                </button>
+                <button onClick={exportPlaylist}>
+                  <Download aria-hidden="true" />
+                  Export
                 </button>
                 <button onClick={leaveRoom}>
                   <DoorOpen aria-hidden="true" />
