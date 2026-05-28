@@ -11,6 +11,7 @@ import {
   LogIn,
   LogOut,
   MessageCircle,
+  Moon,
   MoreVertical,
   Music2,
   Play,
@@ -19,6 +20,7 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
+  Sun,
   SkipForward,
   Trash2,
   UserRound,
@@ -110,7 +112,7 @@ const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.03";
+const APP_VERSION = "2026.05.28.04";
 const PROFANITY_WORDS = [
   "asshole",
   "bastard",
@@ -182,6 +184,14 @@ function adminMapFor(room) {
   };
 }
 
+function savedTheme() {
+  try {
+    return localStorage.getItem("partybeats-theme") || "light";
+  } catch {
+    return "light";
+  }
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -203,6 +213,8 @@ function App() {
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
   const [restoreRoomId, setRestoreRoomId] = useState("");
+  const [theme, setTheme] = useState(savedTheme);
+  const isDarkTheme = theme === "dark";
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -239,6 +251,15 @@ function App() {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("partybeats-theme", theme);
+    } catch {
+      // Theme persistence is a convenience; the toggle still works without storage.
+    }
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
@@ -773,7 +794,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell room-app">
+    <main className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"}`}>
       <header className="app-topbar">
         <div className="topbar-brand">
           <div className="brand-dot">
@@ -786,6 +807,14 @@ function App() {
         </div>
 
         <div className="topbar-actions">
+          <button
+            className="icon-button theme-toggle"
+            onClick={() => setTheme(isDarkTheme ? "light" : "dark")}
+            title={isDarkTheme ? "Light mode" : "Dark mode"}
+            type="button"
+          >
+            {isDarkTheme ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+          </button>
           <div className="session-chip">
             <span>{user.isAnonymous ? "Guest" : "Google"}</span>
             <strong>
