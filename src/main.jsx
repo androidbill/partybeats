@@ -9,6 +9,7 @@ import {
   Info,
   LogIn,
   LogOut,
+  MessageCircle,
   MoreVertical,
   Music2,
   Play,
@@ -106,7 +107,7 @@ const ROOM_WORDS = [
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const COOLDOWN_MS = 3 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.27.02";
+const APP_VERSION = "2026.05.27.04";
 
 function randomRoomId() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
@@ -133,30 +134,6 @@ function authErrorMessage(error) {
     return "Google sign-in was closed before it finished.";
   }
   return error?.message || "Sign-in failed. Check Firebase Authentication setup.";
-}
-
-function youtubeIdFromUrl(value) {
-  const raw = value.trim();
-  if (/^[a-zA-Z0-9_-]{11}$/.test(raw)) return raw;
-
-  try {
-    const url = new URL(raw);
-    if (url.hostname.includes("youtu.be")) {
-      return url.pathname.replace("/", "").slice(0, 11);
-    }
-    if (url.hostname.includes("youtube.com")) {
-      const fromParam = url.searchParams.get("v");
-      if (fromParam) return fromParam.slice(0, 11);
-      const shortsMatch = url.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
-      if (shortsMatch) return shortsMatch[1];
-      const embedMatch = url.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
-      if (embedMatch) return embedMatch[1];
-    }
-  } catch {
-    return "";
-  }
-
-  return "";
 }
 
 function youtubeWatchUrl(videoId) {
@@ -191,7 +168,6 @@ function App() {
   const [songs, setSongs] = useState([]);
   const [members, setMembers] = useState([]);
   const [toast, setToast] = useState("");
-  const [songForm, setSongForm] = useState({ title: "", url: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -199,6 +175,8 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [emojiSongId, setEmojiSongId] = useState("");
+  const [messageSongId, setMessageSongId] = useState("");
+  const [messageDraft, setMessageDraft] = useState("");
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -263,7 +241,6 @@ function App() {
     const unsubMembers = onSnapshot(membersRef, (snap) => {
       setMembers(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
     });
-
     return () => {
       unsubRoom();
       unsubSongs();
@@ -412,9 +389,9 @@ function App() {
     event?.preventDefault();
     if (!user || !activeRoomId) return;
 
-    const videoId = selectedVideo?.videoId || youtubeIdFromUrl(songForm.url);
+    const videoId = selectedVideo?.videoId;
     if (!videoId) {
-      setToast("Paste a valid YouTube URL or choose a search result.");
+      setToast("Choose a YouTube search result.");
       return;
     }
     if (!canAddSong) {
@@ -422,7 +399,7 @@ function App() {
       return;
     }
 
-    const title = selectedVideo?.title || songForm.title.trim() || "YouTube track";
+    const title = selectedVideo?.title || "YouTube track";
     const thumbnail = selectedVideo?.thumbnail || youtubeThumb(videoId);
     const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
     const batch = writeBatch(db);
@@ -437,11 +414,11 @@ function App() {
       addedByName: nicknameFor(user, nickname.trim() || "Guest"),
       position: nextPosition,
       emojiByUser: {},
+      messages: [],
       createdAt: serverTimestamp()
     });
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     await batch.commit();
-    setSongForm({ title: "", url: "" });
     setSearchResults([]);
   }
 
@@ -531,6 +508,27 @@ function App() {
     await updateDoc(songRef, { [path]: emoji });
   }
 
+  async function sendSongMessage(song) {
+    const text = messageDraft.trim().slice(0, 90);
+    if (!user || !activeRoomId || !text) return;
+    const senderName = nicknameFor(user, nickname.trim() || "Someone").slice(0, 30);
+    const nextMessages = [
+      ...(song.messages || []),
+      {
+        uid: user.uid,
+        name: senderName,
+        text,
+        at: Date.now()
+      }
+    ].slice(-4);
+    await updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), {
+      messages: nextMessages
+    });
+    setMessageDraft("");
+    setMessageSongId("");
+    setEmojiSongId("");
+  }
+
   function clearRoomState() {
     setActiveRoomId("");
     setRoom(null);
@@ -538,6 +536,9 @@ function App() {
     setMembers([]);
     setMenuOpen(false);
     setAboutOpen(false);
+    setEmojiSongId("");
+    setMessageSongId("");
+    setMessageDraft("");
     window.history.replaceState({}, "", window.location.pathname);
   }
 
@@ -760,23 +761,6 @@ function App() {
           </div>
         )}
 
-        <form className="song-form" onSubmit={addSong}>
-          <input
-            value={songForm.title}
-            onChange={(event) => setSongForm((prev) => ({ ...prev, title: event.target.value }))}
-            placeholder="Optional title"
-          />
-          <input
-            value={songForm.url}
-            onChange={(event) => setSongForm((prev) => ({ ...prev, url: event.target.value }))}
-            placeholder="Paste YouTube URL"
-          />
-          <button className="primary-action" disabled={!canAddSong}>
-            <Plus aria-hidden="true" />
-            Add
-          </button>
-        </form>
-
         <p className="cooldown-note">
           {isAdmin ? "Admin controls are enabled." : canAddSong ? "You can add a song now." : `Next add in ${Math.ceil(cooldownRemaining / 1000)}s.`}
         </p>
@@ -806,14 +790,22 @@ function App() {
               })).filter((item) => item.count > 0);
               return (
                 <article
-                  className={song.id === room.nowPlayingId ? "song-row is-playing" : "song-row"}
+                  className={[
+                    "song-row",
+                    song.id === room.nowPlayingId ? "is-playing" : "",
+                    emojiSongId === song.id ? "is-reacting" : ""
+                  ].filter(Boolean).join(" ")}
                   key={song.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
+                    setMessageSongId("");
                     setEmojiSongId(song.id);
                   }}
                   onPointerDown={(event) => {
-                    const timer = window.setTimeout(() => setEmojiSongId(song.id), 520);
+                    const timer = window.setTimeout(() => {
+                      setMessageSongId("");
+                      setEmojiSongId(song.id);
+                    }, 520);
                     event.currentTarget.dataset.pressTimer = String(timer);
                   }}
                   onPointerUp={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
@@ -821,17 +813,28 @@ function App() {
                 >
                   <button className="song-main" onClick={() => isAdmin && setNowPlaying(song.id)} type="button">
                     <span className="song-index">{index + 1}</span>
-                    <strong>{song.artist || "YouTube"} - {song.title}</strong>
-                    <span>by {song.addedByName || "Guest"}</span>
+                    <span className="track-line">
+                      <b>{song.artist || "YouTube"}</b>
+                      <strong>{song.title}</strong>
+                    </span>
+                    <span className="uploaded-by">Uploaded by {song.addedByName || "Guest"}</span>
+                  </button>
+
+                  <div className="reaction-strip">
                     {emojiCounts.length > 0 && (
                       <span className="emoji-summary">
                         {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
                       </span>
                     )}
-                  </button>
+                    {(song.messages || []).map((item, messageIndex) => (
+                      <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
+                        <b>{item.name || "Guest"}:</b> {item.text}
+                      </span>
+                    ))}
+                  </div>
 
                   {isAdmin && (
-                    <div className="admin-actions">
+                    <div className="admin-actions" onPointerDown={(event) => event.stopPropagation()}>
                       <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={index === 0}>
                         <ArrowUp aria-hidden="true" />
                       </button>
@@ -848,7 +851,7 @@ function App() {
                   )}
 
                   {emojiSongId === song.id && (
-                    <div className="emoji-popover">
+                    <div className="emoji-popover" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                       {EMOJIS.map((emoji) => (
                         <button
                           className={song.emojiByUser?.[user.uid] === emoji ? "selected" : ""}
@@ -862,6 +865,27 @@ function App() {
                           {emoji}
                         </button>
                       ))}
+                      <button
+                        className={messageSongId === song.id ? "selected" : ""}
+                        onClick={() => setMessageSongId(song.id)}
+                        type="button"
+                        title="Send message"
+                      >
+                        <MessageCircle aria-hidden="true" />
+                      </button>
+                      {messageSongId === song.id && (
+                        <form className="reaction-message" onSubmit={(event) => { event.preventDefault(); sendSongMessage(song); }}>
+                          <input
+                            value={messageDraft}
+                            onChange={(event) => setMessageDraft(event.target.value.slice(0, 90))}
+                            placeholder="90 character message"
+                            maxLength={90}
+                          />
+                          <button className="mini-action" type="submit" disabled={!messageDraft.trim()}>
+                            Send
+                          </button>
+                        </form>
+                      )}
                     </div>
                   )}
                 </article>
@@ -870,6 +894,19 @@ function App() {
           )}
         </div>
       </section>
+
+      {emojiSongId && (
+        <button
+          className="emoji-dismiss-layer"
+          aria-label="Close reactions"
+          onClick={() => {
+            setEmojiSongId("");
+            setMessageSongId("");
+            setMessageDraft("");
+          }}
+          type="button"
+        />
+      )}
 
       {isAdmin && (
         <section className="people-panel">
