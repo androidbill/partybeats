@@ -110,7 +110,7 @@ const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.02";
+const APP_VERSION = "2026.05.28.03";
 const PROFANITY_WORDS = [
   "asshole",
   "bastard",
@@ -202,6 +202,7 @@ function App() {
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
+  const [restoreRoomId, setRestoreRoomId] = useState("");
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -288,8 +289,16 @@ function App() {
     if (roomParam) {
       const normalized = normalizeRoomId(roomParam);
       setRoomId(normalized);
+      setRestoreRoomId(normalized);
     }
   }, []);
+
+  useEffect(() => {
+    if (authLoading || !user || !restoreRoomId || activeRoomId === restoreRoomId) return;
+    joinRoomById(restoreRoomId, { silent: true })
+      .then(() => setRestoreRoomId(""))
+      .catch(() => undefined);
+  }, [authLoading, user, restoreRoomId, activeRoomId]);
 
   const roomAdminUids = adminMapFor(room);
   const isRoomAdminId = (uid) => Boolean(uid && roomAdminUids[uid]);
@@ -389,24 +398,24 @@ function App() {
     await joinRoomById(nextId);
   }
 
-  async function joinRoomById(rawId = roomId) {
+  async function joinRoomById(rawId = roomId, options = {}) {
     if (!user) {
-      setToast("Sign in first.");
+      if (!options.silent) setToast("Sign in first.");
       return;
     }
     const nextRoomId = normalizeRoomId(rawId);
     if (!/^[A-Z]{4}\d{3}$/.test(nextRoomId)) {
-      setToast("Room IDs look like VIBE123.");
+      if (!options.silent) setToast("Room IDs look like VIBE123.");
       return;
     }
 
     const roomSnap = await getDoc(doc(db, "rooms", nextRoomId));
     if (!roomSnap.exists()) {
-      setToast("That room does not exist yet.");
+      if (!options.silent) setToast("That room does not exist yet.");
       return;
     }
     if (roomSnap.data().closed) {
-      setToast("That room has been closed.");
+      if (!options.silent) setToast("That room has been closed.");
       return;
     }
 
@@ -586,6 +595,7 @@ function App() {
     setEmojiSongId("");
     setMessageSongId("");
     setMessageDraft("");
+    setRestoreRoomId("");
     window.history.replaceState({}, "", window.location.pathname);
   }
 
