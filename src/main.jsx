@@ -111,9 +111,9 @@ const ROOM_WORDS = [
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
-const DEFAULT_TRACK_NOTICE_SECONDS = 5;
+const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.13";
+const APP_VERSION = "2026.05.28.14";
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
