@@ -113,7 +113,7 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.15";
+const APP_VERSION = "2026.05.28.17";
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -141,6 +141,28 @@ function randomRoomId() {
 
 function normalizeRoomId(value) {
   return value.trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function normalizeMusicText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\b(official|music|video|audio|lyrics?|lyric|hd|hq|remaster(ed)?|live|visualizer|feat|ft)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function compactMusicText(value) {
+  return normalizeMusicText(value).replace(/\s+/g, "");
+}
+
+function isSameMusicText(a, b) {
+  const left = compactMusicText(a);
+  const right = compactMusicText(b);
+  if (!left || !right) return false;
+  return left === right || left.includes(right) || right.includes(left);
 }
 
 function nicknameFor(user, fallback = "Guest") {
@@ -358,6 +380,7 @@ function App() {
   const cooldownMs = cooldownMinutes * 60 * 1000;
   const crossfadeEnabled = room?.crossfadeEnabled !== false;
   const crossfadeSeconds = Math.min(30, Math.max(1, Number(room?.crossfadeSeconds) || DEFAULT_CROSSFADE_SECONDS));
+  const autoNextEnabled = room?.autoNextEnabled !== false;
   const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
   const memberRecord = members.find((member) => member.id === user?.uid);
@@ -472,6 +495,7 @@ function App() {
       cooldownMs: DEFAULT_COOLDOWN_MS,
       crossfadeEnabled: true,
       crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
+      autoNextEnabled: true,
       trackNoticeEnabled: true,
       trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
       nowPlayingId: null
@@ -594,13 +618,20 @@ function App() {
 
   async function findSimilarYouTubeSong(song) {
     if (!YOUTUBE_API_KEY || !song) return null;
-    const queryText = [song.artist, song.title].filter(Boolean).join(" ");
+    const playlistProfile = songs
+      .filter((item) => item.id !== song.id)
+      .slice(-5)
+      .map((item) => [item.artist, item.title].filter(Boolean).join(" "))
+      .filter(Boolean);
+    const queryText = (playlistProfile.length ? playlistProfile : [[song.artist, song.title].filter(Boolean).join(" ")])
+      .join(" ")
+      .slice(0, 180);
     if (!queryText.trim()) return null;
 
     const params = new URLSearchParams({
       part: "snippet",
       type: "video",
-      maxResults: "12",
+      maxResults: "25",
       videoCategoryId: "10",
       q: queryText,
       key: YOUTUBE_API_KEY
@@ -612,6 +643,8 @@ function App() {
     }
 
     const queuedVideoIds = new Set(songs.map((item) => item.videoId).filter(Boolean));
+    const lastArtist = song.artist || "";
+    const lastTitle = song.title || "";
     const candidates = (data.items || [])
       .map((item) => ({
         videoId: item.id.videoId,
@@ -619,9 +652,14 @@ function App() {
         channelTitle: item.snippet.channelTitle,
         thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
       }))
-      .filter((item) => item.videoId && item.videoId !== song.videoId && !queuedVideoIds.has(item.videoId));
+      .filter((item) => {
+        if (!item.videoId || item.videoId === song.videoId || queuedVideoIds.has(item.videoId)) return false;
+        if (isSameMusicText(item.channelTitle, lastArtist) || isSameMusicText(item.title, lastArtist)) return false;
+        if (isSameMusicText(item.title, lastTitle)) return false;
+        return true;
+      });
     if (!candidates.length) return null;
-    return candidates[Math.floor(Math.random() * Math.min(candidates.length, 6))];
+    return candidates[Math.floor(Math.random() * Math.min(candidates.length, 8))];
   }
 
   async function removeSong(songId) {
@@ -741,6 +779,10 @@ function App() {
 
     const lastSong = songs.find((song) => song.id === room?.nowPlayingId);
     if (!lastSong) {
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      return;
+    }
+    if (!autoNextEnabled) {
       await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
       return;
     }
@@ -867,6 +909,11 @@ function App() {
     if (!isAdmin || !activeRoomId) return;
     const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_CROSSFADE_SECONDS));
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeSeconds: cleanSeconds });
+  }
+
+  async function updateAutoNextEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { autoNextEnabled: enabled });
   }
 
   async function updateTrackNoticeEnabled(enabled) {
@@ -1427,6 +1474,20 @@ function App() {
               />
               <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds >= 30}>
                 +
+              </button>
+            </div>
+            <div className="setting-row">
+              <div>
+                <strong>Auto-next similar track</strong>
+                <span>{autoNextEnabled ? "Add a similar track when the playlist ends" : "Stop when the playlist ends"}</span>
+              </div>
+              <button
+                className={autoNextEnabled ? "toggle-button is-on" : "toggle-button"}
+                onClick={() => updateAutoNextEnabled(!autoNextEnabled)}
+                disabled={!isAdmin}
+                type="button"
+              >
+                {autoNextEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="setting-row">
