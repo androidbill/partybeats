@@ -110,7 +110,7 @@ const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.27.10";
+const APP_VERSION = "2026.05.28.01";
 
 function randomRoomId() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
@@ -649,16 +649,9 @@ function App() {
       `Exported: ${new Date().toLocaleString()}`,
       "",
       ...songs.flatMap((song, index) => {
-        const emojiCounts = EMOJIS.map((emoji) => ({
-          emoji,
-          count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
-        })).filter((item) => item.count > 0);
         return [
           `${index + 1}. ${song.artist || "YouTube"} - ${song.title || "Untitled"}`,
-          `   Added by: ${song.addedByName || "Guest"}`,
           song.link ? `   Link: ${song.link}` : "",
-          emojiCounts.length ? `   Reactions: ${emojiCounts.map(({ emoji, count }) => `${emoji} ${count}`).join(", ")}` : "",
-          ...(song.messages || []).map((item) => `   Message from ${item.name || "Guest"}: ${item.text}`),
           ""
         ].filter(Boolean);
       })
