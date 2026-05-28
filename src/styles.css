@@ -1505,6 +1505,73 @@ input:focus {
   accent-color: #f7c948;
 }
 
+.now-playing-bubble {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 70;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: min(440px, calc(100% - 24px));
+  padding: 12px;
+  border: 1px solid rgba(23, 24, 31, 0.12);
+  border-radius: 8px;
+  color: #17181f;
+  background: #ffffff;
+  box-shadow: 0 20px 60px rgba(18, 19, 26, 0.26);
+  transform: translateX(-50%);
+}
+
+.now-playing-bubble div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.now-playing-bubble span {
+  color: #39c6a3;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.now-playing-bubble strong,
+.now-playing-bubble p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-playing-bubble strong {
+  font-size: 0.95rem;
+}
+
+.now-playing-bubble p {
+  margin: 0;
+  color: #696c78;
+  font-size: 0.82rem;
+}
+
+.now-playing-bubble .mini-action {
+  min-height: 38px;
+  padding: 0 14px;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.room-app.dark-mode .now-playing-bubble {
+  color: #f6f7fb;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #171b25;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
+}
+
+.room-app.dark-mode .now-playing-bubble p {
+  color: #a7adbb;
+}
+
 @media (min-width: 760px) {
   .landing-hero {
     width: min(720px, 100%);

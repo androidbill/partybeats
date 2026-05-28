@@ -111,8 +111,9 @@ const ROOM_WORDS = [
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
+const DEFAULT_TRACK_NOTICE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.11";
+const APP_VERSION = "2026.05.28.13";
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -226,7 +227,9 @@ function App() {
   const [restoreRoomId, setRestoreRoomId] = useState("");
   const [renameMemberId, setRenameMemberId] = useState("");
   const [renameDraft, setRenameDraft] = useState("");
+  const [nowPlayingNotice, setNowPlayingNotice] = useState(null);
   const [theme, setTheme] = useState(savedTheme);
+  const previousNowPlayingId = useRef(undefined);
   const isDarkTheme = theme === "dark";
 
   useEffect(() => {
@@ -355,6 +358,8 @@ function App() {
   const cooldownMs = cooldownMinutes * 60 * 1000;
   const crossfadeEnabled = room?.crossfadeEnabled !== false;
   const crossfadeSeconds = Math.min(30, Math.max(1, Number(room?.crossfadeSeconds) || DEFAULT_CROSSFADE_SECONDS));
+  const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
+  const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
   const memberRecord = members.find((member) => member.id === user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
@@ -362,6 +367,36 @@ function App() {
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
+
+  useEffect(() => {
+    if (!trackNoticeEnabled) {
+      setNowPlayingNotice(null);
+      return undefined;
+    }
+    if (!activeRoomId || !nowPlayingSong?.id) {
+      previousNowPlayingId.current = nowPlayingSong?.id || null;
+      setNowPlayingNotice(null);
+      return undefined;
+    }
+    if (previousNowPlayingId.current === undefined) {
+      previousNowPlayingId.current = nowPlayingSong.id;
+      return undefined;
+    }
+    if (previousNowPlayingId.current === nowPlayingSong.id) {
+      return undefined;
+    }
+
+    previousNowPlayingId.current = nowPlayingSong.id;
+    const uploader = memberById(nowPlayingSong.addedByUid);
+    setNowPlayingNotice({
+      id: nowPlayingSong.id,
+      title: nowPlayingSong.title || "Untitled",
+      artist: nowPlayingSong.artist || "YouTube",
+      addedBy: uploader?.name || nowPlayingSong.addedByName || "Guest"
+    });
+    const timer = window.setTimeout(() => setNowPlayingNotice(null), trackNoticeSeconds * 1000);
+    return () => window.clearTimeout(timer);
+  }, [activeRoomId, nowPlayingSong?.id, trackNoticeEnabled, trackNoticeSeconds]);
 
   async function signInGoogle() {
     if (!firebaseReady) {
@@ -437,6 +472,8 @@ function App() {
       cooldownMs: DEFAULT_COOLDOWN_MS,
       crossfadeEnabled: true,
       crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
+      trackNoticeEnabled: true,
+      trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
       nowPlayingId: null
     });
     await joinRoomById(nextId);
@@ -787,6 +824,7 @@ function App() {
     setMessageDraft("");
     setRenameMemberId("");
     setRenameDraft("");
+    setNowPlayingNotice(null);
     setRestoreRoomId("");
     window.history.replaceState({}, "", window.location.pathname);
   }
@@ -814,6 +852,17 @@ function App() {
     if (!isAdmin || !activeRoomId) return;
     const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_CROSSFADE_SECONDS));
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeSeconds: cleanSeconds });
+  }
+
+  async function updateTrackNoticeEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeEnabled: enabled });
+  }
+
+  async function updateTrackNoticeSeconds(seconds) {
+    if (!isAdmin || !activeRoomId) return;
+    const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_TRACK_NOTICE_SECONDS));
+    await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeSeconds: cleanSeconds });
   }
 
   async function leaveRoom() {
@@ -1357,6 +1406,36 @@ function App() {
                 +
               </button>
             </div>
+            <div className="setting-row">
+              <div>
+                <strong>Track notifications</strong>
+                <span>{trackNoticeEnabled ? `Show now-playing bubble for ${trackNoticeSeconds} seconds` : "Now-playing bubble is off"}</span>
+              </div>
+              <button
+                className={trackNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
+                onClick={() => updateTrackNoticeEnabled(!trackNoticeEnabled)}
+                disabled={!isAdmin}
+                type="button"
+              >
+                {trackNoticeEnabled ? "On" : "Off"}
+              </button>
+            </div>
+            <div className="cooldown-controls">
+              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds - 1)} disabled={!isAdmin || !trackNoticeEnabled || trackNoticeSeconds <= 1}>
+                -
+              </button>
+              <input
+                type="range"
+                min="1"
+                max="30"
+                value={trackNoticeSeconds}
+                onChange={(event) => updateTrackNoticeSeconds(event.target.value)}
+                disabled={!isAdmin || !trackNoticeEnabled}
+              />
+              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds + 1)} disabled={!isAdmin || !trackNoticeEnabled || trackNoticeSeconds >= 30}>
+                +
+              </button>
+            </div>
             {isAdmin && (
               <section className="people-panel settings-people">
                 <h2>People</h2>
@@ -1443,6 +1522,19 @@ function App() {
             )}
             {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
           </section>
+        </div>
+      )}
+
+      {nowPlayingNotice && (
+        <div className="now-playing-bubble" role="status" aria-live="polite">
+          <div>
+            <span>Now Playing</span>
+            <strong>{nowPlayingNotice.artist} · {nowPlayingNotice.title}</strong>
+            <p>Added by {nowPlayingNotice.addedBy}</p>
+          </div>
+          <button className="mini-action" onClick={() => setNowPlayingNotice(null)} type="button">
+            OK
+          </button>
         </div>
       )}
 
