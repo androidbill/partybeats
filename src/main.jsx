@@ -112,8 +112,9 @@ const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
+const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.22";
+const APP_VERSION = "2026.05.28.24";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -251,6 +252,7 @@ function App() {
   const [renameMemberId, setRenameMemberId] = useState("");
   const [renameDraft, setRenameDraft] = useState("");
   const [nowPlayingNotice, setNowPlayingNotice] = useState(null);
+  const [joinNotice, setJoinNotice] = useState(null);
   const [effectivePlaybackSettings, setEffectivePlaybackSettings] = useState({
     songId: null,
     crossfadeEnabled: true,
@@ -258,6 +260,7 @@ function App() {
   });
   const [theme, setTheme] = useState(savedTheme);
   const previousNowPlayingId = useRef(undefined);
+  const previousMemberIds = useRef(undefined);
   const isDarkTheme = theme === "dark";
 
   useEffect(() => {
@@ -389,6 +392,7 @@ function App() {
   const autoNextEnabled = room?.autoNextEnabled !== false;
   const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
+  const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
   const memberRecord = members.find((member) => member.id === user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
@@ -438,6 +442,31 @@ function App() {
     const timer = window.setTimeout(() => setNowPlayingNotice(null), trackNoticeSeconds * 1000);
     return () => window.clearTimeout(timer);
   }, [activeRoomId, nowPlayingSong?.id]);
+
+  useEffect(() => {
+    if (!activeRoomId) {
+      previousMemberIds.current = undefined;
+      setJoinNotice(null);
+      return undefined;
+    }
+
+    const currentIds = new Set(members.map((member) => member.id));
+    if (previousMemberIds.current === undefined) {
+      previousMemberIds.current = currentIds;
+      return undefined;
+    }
+
+    const addedMember = members.find((member) => !previousMemberIds.current.has(member.id));
+    previousMemberIds.current = currentIds;
+    if (!joinNoticeEnabled || !addedMember) return undefined;
+
+    setJoinNotice({
+      id: `${addedMember.id}-${Date.now()}`,
+      name: addedMember.name || "Someone"
+    });
+    const timer = window.setTimeout(() => setJoinNotice(null), DEFAULT_JOIN_NOTICE_SECONDS * 1000);
+    return () => window.clearTimeout(timer);
+  }, [activeRoomId, members, joinNoticeEnabled]);
 
   async function signInGoogle() {
     if (!firebaseReady) {
@@ -516,6 +545,7 @@ function App() {
       autoNextEnabled: true,
       trackNoticeEnabled: true,
       trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
+      joinNoticeEnabled: true,
       nowPlayingId: null
     });
     await joinRoomById(nextId);
@@ -900,6 +930,8 @@ function App() {
     setRenameMemberId("");
     setRenameDraft("");
     setNowPlayingNotice(null);
+    setJoinNotice(null);
+    previousMemberIds.current = undefined;
     setEffectivePlaybackSettings({
       songId: null,
       crossfadeEnabled: true,
@@ -948,6 +980,11 @@ function App() {
     if (!isAdmin || !activeRoomId) return;
     const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_TRACK_NOTICE_SECONDS));
     await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeSeconds: cleanSeconds });
+  }
+
+  async function updateJoinNoticeEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { joinNoticeEnabled: enabled });
   }
 
   async function leaveRoom() {
@@ -1543,6 +1580,20 @@ function App() {
                 +
               </button>
             </div>
+            <div className="setting-row">
+              <div>
+                <strong>Join notifications</strong>
+                <span>{joinNoticeEnabled ? "Show when someone joins the party" : "Join bubbles are off"}</span>
+              </div>
+              <button
+                className={joinNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
+                onClick={() => updateJoinNoticeEnabled(!joinNoticeEnabled)}
+                disabled={!isAdmin}
+                type="button"
+              >
+                {joinNoticeEnabled ? "On" : "Off"}
+              </button>
+            </div>
             {isAdmin && (
               <section className="people-panel settings-people">
                 <h2>People</h2>
@@ -1632,16 +1683,31 @@ function App() {
         </div>
       )}
 
-      {nowPlayingNotice && (
-        <div className="now-playing-bubble" role="status" aria-live="polite">
-          <div>
-            <span>Now Playing</span>
-            <strong>{nowPlayingNotice.artist} · {nowPlayingNotice.title}</strong>
-            <p>Added by {nowPlayingNotice.addedBy}</p>
-          </div>
-          <button className="mini-action" onClick={() => setNowPlayingNotice(null)} type="button">
-            OK
-          </button>
+      {(joinNotice || nowPlayingNotice) && (
+        <div className="notice-stack">
+          {joinNotice && (
+            <div className="notice-bubble join-bubble" role="status" aria-live="polite">
+              <div>
+                <span>Party Guest</span>
+                <strong>{joinNotice.name} has joined the party</strong>
+              </div>
+              <button className="mini-action" onClick={() => setJoinNotice(null)} type="button">
+                OK
+              </button>
+            </div>
+          )}
+          {nowPlayingNotice && (
+            <div className="notice-bubble now-playing-bubble" role="status" aria-live="polite">
+              <div>
+                <span>Now Playing</span>
+                <strong>{nowPlayingNotice.artist} · {nowPlayingNotice.title}</strong>
+                <p>Added by {nowPlayingNotice.addedBy}</p>
+              </div>
+              <button className="mini-action" onClick={() => setNowPlayingNotice(null)} type="button">
+                OK
+              </button>
+            </div>
+          )}
         </div>
       )}
 

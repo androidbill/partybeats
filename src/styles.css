@@ -16,6 +16,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 :root[data-theme="dark"] body {
@@ -730,6 +731,7 @@ input:focus {
 /* Mobile-first app shell */
 .landing-shell {
   min-height: 100dvh;
+  overflow-x: hidden;
   background:
     linear-gradient(rgba(18, 19, 26, 0.28), rgba(18, 19, 26, 0.86)),
     url("https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80") center/cover;
@@ -740,6 +742,7 @@ input:focus {
   align-content: end;
   gap: 18px;
   min-height: 100dvh;
+  width: min(100%, 100vw);
   padding: max(22px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
   color: #ffffff;
 }
@@ -1534,70 +1537,75 @@ input:focus {
   accent-color: #f7c948;
 }
 
-.now-playing-bubble {
+.notice-stack {
   position: fixed;
   left: 50%;
   bottom: max(18px, env(safe-area-inset-bottom));
   z-index: 70;
   display: grid;
+  gap: 8px;
+  width: min(440px, calc(100% - 24px));
+  transform: translateX(-50%);
+}
+
+.notice-bubble {
+  display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  width: min(440px, calc(100% - 24px));
   padding: 12px;
   border: 1px solid rgba(23, 24, 31, 0.12);
   border-radius: 8px;
   color: #17181f;
   background: #ffffff;
   box-shadow: 0 20px 60px rgba(18, 19, 26, 0.26);
-  transform: translateX(-50%);
 }
 
-.now-playing-bubble div {
+.notice-bubble div {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.now-playing-bubble span {
+.notice-bubble span {
   color: #39c6a3;
   font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.now-playing-bubble strong,
-.now-playing-bubble p {
+.notice-bubble strong,
+.notice-bubble p {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.now-playing-bubble strong {
+.notice-bubble strong {
   font-size: 0.95rem;
 }
 
-.now-playing-bubble p {
+.notice-bubble p {
   margin: 0;
   color: #696c78;
   font-size: 0.82rem;
 }
 
-.now-playing-bubble .mini-action {
+.notice-bubble .mini-action {
   min-height: 38px;
   padding: 0 14px;
   color: #ffffff;
   background: #2563eb;
 }
 
-.room-app.dark-mode .now-playing-bubble {
+.room-app.dark-mode .notice-bubble {
   color: #f6f7fb;
   border-color: rgba(255, 255, 255, 0.12);
   background: #171b25;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
 }
 
-.room-app.dark-mode .now-playing-bubble p {
+.room-app.dark-mode .notice-bubble p {
   color: #a7adbb;
 }
 
@@ -1621,6 +1629,84 @@ input:focus {
 }
 
 @media (max-width: 520px) {
+  .landing-hero {
+    align-content: center;
+    gap: 10px;
+    min-height: 100svh;
+    padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+  }
+
+  .brand-mark {
+    gap: 8px;
+    width: max-content;
+    max-width: 100%;
+    padding: 6px 12px 6px 6px;
+    font-size: 0.88rem;
+  }
+
+  .brand-mark .app-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .landing-copy h1 {
+    margin: 6px 0 4px;
+    font-size: clamp(2.7rem, 15vw, 4.2rem);
+    line-height: 0.9;
+  }
+
+  .landing-copy p {
+    font-size: 0.9rem;
+    line-height: 1.32;
+  }
+
+  .auth-panel,
+  .room-card {
+    padding: 12px;
+  }
+
+  .room-card h2 {
+    margin: 0 0 4px;
+    font-size: 1.15rem;
+  }
+
+  .room-card p {
+    margin-bottom: 10px;
+    font-size: 0.82rem;
+  }
+
+  .signed-out,
+  .signed-in,
+  .room-actions {
+    gap: 8px;
+  }
+
+  .nickname-row,
+  .join-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  input {
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 0.95rem;
+  }
+
+  .primary-action,
+  .nickname-row button,
+  .join-row button,
+  .subtle-action,
+  .mini-action {
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 0.9rem;
+  }
+
+  .room-actions .primary-action {
+    width: 100%;
+  }
+
   .topbar-actions .session-chip {
     display: none;
   }
