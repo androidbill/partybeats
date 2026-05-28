@@ -1203,6 +1203,57 @@ input:focus {
   width: 180px;
 }
 
+.settings-modal {
+  gap: 18px;
+}
+
+.setting-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-row div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.setting-row span {
+  color: #696c78;
+  font-size: 0.86rem;
+}
+
+.toggle-button {
+  min-width: 66px;
+  min-height: 38px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #696c78;
+  font-weight: 900;
+}
+
+.toggle-button.is-on {
+  color: #12131a;
+  background: #f7c948;
+}
+
+.cooldown-controls {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.cooldown-controls input[type="range"] {
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  accent-color: #f7c948;
+}
+
 @media (min-width: 760px) {
   .landing-hero {
     width: min(720px, 100%);

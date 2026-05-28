@@ -17,6 +17,7 @@ import {
   QrCode,
   Search,
   Share2,
+  SlidersHorizontal,
   SkipForward,
   Trash2,
   UserRound,
@@ -105,9 +106,10 @@ const ROOM_WORDS = [
 ].filter((word) => word.length === 4);
 
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
-const COOLDOWN_MS = 3 * 60 * 1000;
+const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
+const DEFAULT_CROSSFADE_SECONDS = 10;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.27.04";
+const APP_VERSION = "2026.05.27.08";
 
 function randomRoomId() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
@@ -174,6 +176,7 @@ function App() {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -269,8 +272,16 @@ function App() {
   const roomAdminUids = adminMapFor(room);
   const isRoomAdminId = (uid) => Boolean(uid && roomAdminUids[uid]);
   const isAdmin = Boolean(user && isRoomAdminId(user.uid));
+  const cooldownEnabled = room?.cooldownEnabled !== false;
+  const cooldownMinutes = Math.min(
+    30,
+    Math.max(1, Number(room?.cooldownMinutes) || Math.round((Number(room?.cooldownMs) || DEFAULT_COOLDOWN_MS) / 60000))
+  );
+  const cooldownMs = cooldownMinutes * 60 * 1000;
+  const crossfadeEnabled = room?.crossfadeEnabled !== false;
+  const crossfadeSeconds = Math.min(30, Math.max(1, Number(room?.crossfadeSeconds) || DEFAULT_CROSSFADE_SECONDS));
   const memberRecord = members.find((member) => member.id === user?.uid);
-  const cooldownUntil = memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + COOLDOWN_MS : 0;
+  const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
@@ -344,6 +355,11 @@ function App() {
       adminName: nicknameFor(user),
       createdAt: serverTimestamp(),
       closed: false,
+      cooldownEnabled: true,
+      cooldownMinutes: 3,
+      cooldownMs: DEFAULT_COOLDOWN_MS,
+      crossfadeEnabled: true,
+      crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
       nowPlayingId: null
     });
     await joinRoomById(nextId);
@@ -395,7 +411,7 @@ function App() {
       return;
     }
     if (!canAddSong) {
-      setToast("Non-admins have a 3 minute song cooldown.");
+      setToast(`Non-admins have a ${cooldownMinutes} minute song cooldown.`);
       return;
     }
 
@@ -536,10 +552,36 @@ function App() {
     setMembers([]);
     setMenuOpen(false);
     setAboutOpen(false);
+    setSettingsOpen(false);
     setEmojiSongId("");
     setMessageSongId("");
     setMessageDraft("");
     window.history.replaceState({}, "", window.location.pathname);
+  }
+
+  async function updateCooldownEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { cooldownEnabled: enabled });
+  }
+
+  async function updateCooldownMinutes(minutes) {
+    if (!isAdmin || !activeRoomId) return;
+    const cleanMinutes = Math.min(30, Math.max(1, Number(minutes) || 1));
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      cooldownMinutes: cleanMinutes,
+      cooldownMs: cleanMinutes * 60 * 1000
+    });
+  }
+
+  async function updateCrossfadeEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeEnabled: enabled });
+  }
+
+  async function updateCrossfadeSeconds(seconds) {
+    if (!isAdmin || !activeRoomId) return;
+    const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_CROSSFADE_SECONDS));
+    await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeSeconds: cleanSeconds });
   }
 
   async function leaveRoom() {
@@ -687,6 +729,10 @@ function App() {
                   <Info aria-hidden="true" />
                   About
                 </button>
+                <button onClick={() => { setSettingsOpen(true); setMenuOpen(false); }}>
+                  <SlidersHorizontal aria-hidden="true" />
+                  Settings
+                </button>
                 <button onClick={shareRoom}>
                   <Share2 aria-hidden="true" />
                   Share
@@ -713,7 +759,13 @@ function App() {
         </div>
         {isAdmin && (
           <>
-            <YouTubePlayer song={nowPlayingSong} onEnded={playNextSong} />
+            <YouTubePlayer
+              song={nowPlayingSong}
+              onEnded={playNextSong}
+              onCrossfade={playNextSong}
+              crossfadeEnabled={crossfadeEnabled}
+              crossfadeSeconds={crossfadeSeconds}
+            />
             <div className="player-actions">
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
                 <SkipForward aria-hidden="true" />
@@ -762,7 +814,13 @@ function App() {
         )}
 
         <p className="cooldown-note">
-          {isAdmin ? "Admin controls are enabled." : canAddSong ? "You can add a song now." : `Next add in ${Math.ceil(cooldownRemaining / 1000)}s.`}
+          {isAdmin
+            ? `Admin controls are enabled. Cooldown is ${cooldownEnabled ? `${cooldownMinutes} min` : "off"}.`
+            : !cooldownEnabled
+              ? "Cooldown is off."
+              : canAddSong
+                ? "You can add a song now."
+                : `Next add in ${Math.ceil(cooldownRemaining / 1000)}s.`}
         </p>
       </section>
 
@@ -966,6 +1024,80 @@ function App() {
         </div>
       )}
 
+      {settingsOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal settings-modal">
+            <div className="modal-header">
+              <h2>Settings</h2>
+              <button className="icon-button" onClick={() => setSettingsOpen(false)} title="Close">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <div className="setting-row">
+              <div>
+                <strong>Cooldown</strong>
+                <span>{cooldownEnabled ? `${cooldownMinutes} minutes between guest adds` : "Guests can add songs anytime"}</span>
+              </div>
+              <button
+                className={cooldownEnabled ? "toggle-button is-on" : "toggle-button"}
+                onClick={() => updateCooldownEnabled(!cooldownEnabled)}
+                disabled={!isAdmin}
+                type="button"
+              >
+                {cooldownEnabled ? "On" : "Off"}
+              </button>
+            </div>
+            <div className="cooldown-controls">
+              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes - 1)} disabled={!isAdmin || !cooldownEnabled || cooldownMinutes <= 1}>
+                -
+              </button>
+              <input
+                type="range"
+                min="1"
+                max="30"
+                value={cooldownMinutes}
+                onChange={(event) => updateCooldownMinutes(event.target.value)}
+                disabled={!isAdmin || !cooldownEnabled}
+              />
+              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes + 1)} disabled={!isAdmin || !cooldownEnabled || cooldownMinutes >= 30}>
+                +
+              </button>
+            </div>
+            <div className="setting-row">
+              <div>
+                <strong>Crossfade</strong>
+                <span>{crossfadeEnabled ? `Start next song ${crossfadeSeconds} seconds early` : "Next song starts after the current one ends"}</span>
+              </div>
+              <button
+                className={crossfadeEnabled ? "toggle-button is-on" : "toggle-button"}
+                onClick={() => updateCrossfadeEnabled(!crossfadeEnabled)}
+                disabled={!isAdmin}
+                type="button"
+              >
+                {crossfadeEnabled ? "On" : "Off"}
+              </button>
+            </div>
+            <div className="cooldown-controls">
+              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds - 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds <= 1}>
+                -
+              </button>
+              <input
+                type="range"
+                min="1"
+                max="30"
+                value={crossfadeSeconds}
+                onChange={(event) => updateCrossfadeSeconds(event.target.value)}
+                disabled={!isAdmin || !crossfadeEnabled}
+              />
+              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds >= 30}>
+                +
+              </button>
+            </div>
+            {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
+          </section>
+        </div>
+      )}
+
       {toast && (
         <button className="toast" onClick={() => setToast("")}>
           {toast}
@@ -975,14 +1107,21 @@ function App() {
   );
 }
 
-function YouTubePlayer({ song, onEnded }) {
+function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfadeSeconds }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerRef = useRef(null);
+  const playerTimerRef = useRef(null);
   const endedRef = useRef(onEnded);
+  const crossfadeRef = useRef(onCrossfade);
+  const crossfadeTriggeredRef = useRef(false);
 
   useEffect(() => {
     endedRef.current = onEnded;
   }, [onEnded]);
+
+  useEffect(() => {
+    crossfadeRef.current = onCrossfade;
+  }, [onCrossfade]);
 
   useEffect(() => {
     let cancelled = false;
@@ -995,6 +1134,10 @@ function YouTubePlayer({ song, onEnded }) {
       if (playerRef.current?.destroy) {
         playerRef.current.destroy();
       }
+      if (playerTimerRef.current) {
+        window.clearInterval(playerTimerRef.current);
+      }
+      crossfadeTriggeredRef.current = false;
 
       playerRef.current = new window.YT.Player(containerId.current, {
         videoId: song.videoId,
@@ -1004,8 +1147,41 @@ function YouTubePlayer({ song, onEnded }) {
           rel: 0
         },
         events: {
+          onReady: (event) => {
+            event.target.setVolume?.(100);
+          },
           onStateChange: (event) => {
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              event.target.setVolume?.(100);
+              if (playerTimerRef.current) {
+                window.clearInterval(playerTimerRef.current);
+              }
+              playerTimerRef.current = window.setInterval(() => {
+                if (!crossfadeEnabled || !crossfadeSeconds || !event.target.getDuration || !event.target.getCurrentTime) {
+                  return;
+                }
+                const duration = event.target.getDuration();
+                const current = event.target.getCurrentTime();
+                const remaining = duration - current;
+                if (
+                  crossfadeEnabled
+                  && crossfadeSeconds
+                  && duration
+                  && remaining <= crossfadeSeconds
+                  && !crossfadeTriggeredRef.current
+                ) {
+                  crossfadeTriggeredRef.current = true;
+                  crossfadeRef.current?.();
+                }
+              }, 400);
+            }
+            if (event.data === window.YT.PlayerState.PAUSED && playerTimerRef.current) {
+              window.clearInterval(playerTimerRef.current);
+            }
             if (event.data === window.YT.PlayerState.ENDED) {
+              if (playerTimerRef.current) {
+                window.clearInterval(playerTimerRef.current);
+              }
               endedRef.current?.();
             }
           }
@@ -1017,8 +1193,11 @@ function YouTubePlayer({ song, onEnded }) {
 
     return () => {
       cancelled = true;
+      if (playerTimerRef.current) {
+        window.clearInterval(playerTimerRef.current);
+      }
     };
-  }, [song?.videoId]);
+  }, [song?.videoId, crossfadeEnabled, crossfadeSeconds]);
 
   if (!song?.videoId) {
     return (
