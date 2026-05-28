@@ -24,6 +24,7 @@ import {
   SkipForward,
   Trash2,
   UserRound,
+  UsersRound,
   Wand2,
   X
 } from "lucide-react";
@@ -114,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.24";
+const APP_VERSION = "2026.05.28.25";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -244,6 +245,7 @@ function App() {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
@@ -923,6 +925,7 @@ function App() {
     setMembers([]);
     setMenuOpen(false);
     setAboutOpen(false);
+    setPeopleOpen(false);
     setSettingsOpen(false);
     setEmojiSongId("");
     setMessageSongId("");
@@ -1160,6 +1163,14 @@ function App() {
             type="button"
           >
             {isDarkTheme ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+          </button>
+          <button
+            className="icon-button"
+            onClick={() => setPeopleOpen(true)}
+            title="People in room"
+            type="button"
+          >
+            <UsersRound aria-hidden="true" />
           </button>
           <div className="session-chip">
             <span>{user.isAnonymous ? "Guest" : "Google"}</span>
@@ -1463,6 +1474,38 @@ function App() {
                 </span>
               </div>
             )}
+          </section>
+        </div>
+      )}
+
+      {peopleOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal people-modal">
+            <div className="modal-header">
+              <h2>People</h2>
+              <button className="icon-button" onClick={() => setPeopleOpen(false)} title="Close">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <section className="people-panel visible-people">
+              {members.map((member) => {
+                const memberIsAdmin = isRoomAdminId(member.id);
+                const isCurrentUser = member.id === user.uid;
+                return (
+                  <div className="member-row" key={member.id}>
+                    <UserRound aria-hidden="true" />
+                    <div>
+                      <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name}{isCurrentUser ? " (You)" : ""}</strong>
+                      <span>
+                        {member.isAnonymous ? "Guest" : "Google"}
+                        {memberIsAdmin ? " · Admin" : ""}
+                      </span>
+                    </div>
+                    {memberIsAdmin && <Crown aria-label="Admin" />}
+                  </div>
+                );
+              })}
+            </section>
           </section>
         </div>
       )}

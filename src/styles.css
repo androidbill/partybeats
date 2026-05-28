@@ -1331,6 +1331,16 @@ input:focus {
   box-shadow: none;
 }
 
+.visible-people {
+  width: 100%;
+  margin: 0;
+}
+
+.people-modal {
+  max-height: min(620px, calc(100dvh - 32px));
+  overflow: auto;
+}
+
 .room-app.dark-mode .settings-people {
   border-color: rgba(255, 255, 255, 0.1);
   background: transparent;
