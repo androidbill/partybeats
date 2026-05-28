@@ -113,7 +113,7 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.14";
+const APP_VERSION = "2026.05.28.15";
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -627,6 +627,21 @@ function App() {
   async function removeSong(songId) {
     if (!isAdmin) return;
     await deleteDoc(doc(db, "rooms", activeRoomId, "songs", songId));
+  }
+
+  async function clearPlaylist() {
+    if (!isAdmin || !activeRoomId || !songs.length) return;
+    const confirmed = window.confirm("Clear the entire playlist for this room?");
+    if (!confirmed) return;
+
+    const batch = writeBatch(db);
+    songs.forEach((song) => {
+      batch.delete(doc(db, "rooms", activeRoomId, "songs", song.id));
+    });
+    batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+    await batch.commit();
+    setNowPlayingNotice(null);
+    setToast("Playlist cleared.");
   }
 
   async function moveSong(song, direction) {
@@ -1161,7 +1176,15 @@ function App() {
             <h2>Playlist</h2>
             <p className="muted">Hold a track to react.</p>
           </div>
-          <strong>{songs.length}</strong>
+          <div className="queue-tools">
+            {isAdmin && (
+              <button className="mini-action danger-action" onClick={clearPlaylist} disabled={!songs.length} type="button">
+                <Trash2 aria-hidden="true" />
+                Clear
+              </button>
+            )}
+            <strong>{songs.length}</strong>
+          </div>
         </div>
 
         <div className="song-list">

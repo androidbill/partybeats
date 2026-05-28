@@ -1015,6 +1015,12 @@ input:focus {
   margin-bottom: 8px;
 }
 
+.queue-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .queue-header strong {
   display: grid;
   place-items: center;
@@ -1023,6 +1029,13 @@ input:focus {
   border-radius: 8px;
   color: #ffffff;
   background: #17181f;
+}
+
+.danger-action {
+  min-height: 36px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: #c52b4a;
 }
 
 .song-list {
