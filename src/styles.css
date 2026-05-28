@@ -1297,6 +1297,8 @@ input:focus {
 .people-panel .member-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
   min-height: 46px;
   padding: 6px 0;
   border-top: 1px solid rgba(23, 24, 31, 0.08);
@@ -1318,6 +1320,48 @@ input:focus {
   display: flex;
   gap: 5px;
   align-items: center;
+}
+
+.member-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.member-actions .mini-action {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+.member-actions .icon-button {
+  width: 34px;
+  height: 34px;
+}
+
+.rename-member-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.rename-member-form input {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.86rem;
+}
+
+.rename-member-form .mini-action,
+.rename-member-form .icon-button {
+  min-height: 34px;
+  height: 34px;
+}
+
+.rename-member-form .icon-button {
+  width: 34px;
 }
 
 .modal-backdrop {

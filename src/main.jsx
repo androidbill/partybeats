@@ -5,7 +5,6 @@ import {
   ArrowUp,
   Crown,
   DoorOpen,
-  Download,
   ExternalLink,
   Info,
   LogIn,
@@ -14,6 +13,7 @@ import {
   Moon,
   MoreVertical,
   Music2,
+  Pencil,
   Play,
   Plus,
   QrCode,
@@ -112,7 +112,7 @@ const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.04";
+const APP_VERSION = "2026.05.28.08";
 const PROFANITY_WORDS = [
   "asshole",
   "bastard",
@@ -213,6 +213,8 @@ function App() {
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
   const [restoreRoomId, setRestoreRoomId] = useState("");
+  const [renameMemberId, setRenameMemberId] = useState("");
+  const [renameDraft, setRenameDraft] = useState("");
   const [theme, setTheme] = useState(savedTheme);
   const isDarkTheme = theme === "dark";
 
@@ -273,6 +275,11 @@ function App() {
     const songsRef = query(collection(db, "rooms", activeRoomId, "songs"), orderBy("position", "asc"));
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
 
+    const handleRoomAccessLost = () => {
+      setToast("You were removed from this room.");
+      clearRoomState();
+    };
+
     const unsubRoom = onSnapshot(roomRef, (snap) => {
       const nextRoom = snap.exists() ? { id: snap.id, ...snap.data() } : null;
       if (nextRoom?.closed) {
@@ -281,19 +288,24 @@ function App() {
         return;
       }
       setRoom(nextRoom);
-    });
+    }, handleRoomAccessLost);
     const unsubSongs = onSnapshot(songsRef, (snap) => {
       setSongs(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
-    });
+    }, handleRoomAccessLost);
     const unsubMembers = onSnapshot(membersRef, (snap) => {
-      setMembers(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
-    });
+      const nextMembers = snap.docs.map((item) => ({ id: item.id, ...item.data() }));
+      if (user?.uid && !nextMembers.some((member) => member.id === user.uid)) {
+        handleRoomAccessLost();
+        return;
+      }
+      setMembers(nextMembers);
+    }, handleRoomAccessLost);
     return () => {
       unsubRoom();
       unsubSongs();
       unsubMembers();
     };
-  }, [activeRoomId]);
+  }, [activeRoomId, user?.uid]);
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -562,6 +574,68 @@ function App() {
     setToast(`${member.name || "Member"} is now an admin.`);
   }
 
+  async function demoteMember(member) {
+    if (!isAdmin || !member || member.id === user.uid || !isRoomAdminId(member.id)) return;
+    const activeAdminIds = Object.keys(roomAdminUids).filter((uid) => members.some((item) => item.id === uid));
+    if (activeAdminIds.length <= 1) {
+      setToast("A room needs at least one admin.");
+      return;
+    }
+
+    const roomUpdate = {
+      [`adminUids.${user.uid}`]: true,
+      [`adminUids.${member.id}`]: deleteField()
+    };
+    if (room?.adminUid === member.id) {
+      roomUpdate.adminUid = user.uid;
+      roomUpdate.adminName = activeNickname;
+    }
+
+    await updateDoc(doc(db, "rooms", activeRoomId), roomUpdate);
+    setToast(`${member.name || "Member"} is no longer an admin.`);
+  }
+
+  async function removeMember(member) {
+    if (!isAdmin || !member) return;
+    if (member.id === user.uid) {
+      await leaveRoom();
+      return;
+    }
+
+    const batch = writeBatch(db);
+    const roomUpdate = {};
+    if (isRoomAdminId(member.id)) {
+      roomUpdate[`adminUids.${user.uid}`] = true;
+      roomUpdate[`adminUids.${member.id}`] = deleteField();
+      if (room?.adminUid === member.id) {
+        roomUpdate.adminUid = user.uid;
+        roomUpdate.adminName = activeNickname;
+      }
+      batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
+    }
+    batch.delete(doc(db, "rooms", activeRoomId, "members", member.id));
+    await batch.commit();
+    setToast(`${member.name || "Member"} was removed from the room.`);
+  }
+
+  async function renameMember(member) {
+    const nextName = renameDraft.trim().slice(0, 30);
+    if (!isAdmin || !member || !nextName) return;
+    if (hasProfanity(nextName)) {
+      setToast("Nickname blocked for profanity.");
+      return;
+    }
+    await updateDoc(doc(db, "rooms", activeRoomId, "members", member.id), {
+      name: nextName
+    });
+    if (member.id === user.uid) {
+      setNickname(nextName);
+    }
+    setRenameMemberId("");
+    setRenameDraft("");
+    setToast(`${member.name || "Member"} is now ${nextName}.`);
+  }
+
   async function playNextSong() {
     if (!isAdmin || !activeRoomId) return;
     const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
@@ -616,6 +690,8 @@ function App() {
     setEmojiSongId("");
     setMessageSongId("");
     setMessageDraft("");
+    setRenameMemberId("");
+    setRenameDraft("");
     setRestoreRoomId("");
     window.history.replaceState({}, "", window.location.pathname);
   }
@@ -700,9 +776,10 @@ function App() {
   async function exportPlaylist() {
     setMenuOpen(false);
     if (!songs.length) {
-      setToast("There are no songs to export yet.");
+      setToast("There are no songs to share yet.");
       return;
     }
+    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
     const lines = [
       "PartyBeats Playlist",
       `Room: ${activeRoomId}`,
@@ -716,16 +793,19 @@ function App() {
         ].filter(Boolean);
       })
     ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `partybeats-${activeRoomId || "playlist"}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setToast("Playlist exported.");
+    const playlistText = lines.join("\n");
+    const shareData = {
+      title: `PartyBeats ${activeRoomId} playlist`,
+      text: playlistText,
+      url: shareUrl
+    };
+
+    if (navigator.share) {
+      await navigator.share(shareData).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard?.writeText(`${playlistText}\n\nJoin: ${shareUrl}`);
+    setToast("Playlist copied.");
   }
 
   if (!firebaseReady) {
@@ -841,8 +921,8 @@ function App() {
                   Share
                 </button>
                 <button onClick={exportPlaylist}>
-                  <Download aria-hidden="true" />
-                  Export
+                  <Share2 aria-hidden="true" />
+                  Share Playlist
                 </button>
                 <button onClick={leaveRoom}>
                   <DoorOpen aria-hidden="true" />
@@ -985,7 +1065,7 @@ function App() {
                       <strong>{song.title}</strong>
                     </span>
                     <span className="uploaded-by">
-                      Uploaded by {uploaderIsGoogle && <GoogleBadge />}{song.addedByName || "Guest"}
+                      Uploaded by {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
                     </span>
                   </button>
 
@@ -995,7 +1075,7 @@ function App() {
                         {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
                       </span>
                     )}
-                    {(song.messages || []).map((item, messageIndex) => (
+                    {(song.messages || []).slice(-2).map((item, messageIndex) => (
                       <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
                         <b>{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
                       </span>
@@ -1080,22 +1160,85 @@ function App() {
       {isAdmin && (
         <section className="people-panel">
           <h2>People</h2>
-          {members.map((member) => (
-            <div className="member-row" key={member.id}>
-              <UserRound aria-hidden="true" />
-              <div>
-                <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name}</strong>
-                <span>{member.isAnonymous ? "Guest" : "Google"}</span>
+          {members.map((member) => {
+            const memberIsAdmin = isRoomAdminId(member.id);
+            const isCurrentUser = member.id === user.uid;
+            const isRenaming = renameMemberId === member.id;
+            return (
+              <div className="member-row" key={member.id}>
+                <UserRound aria-hidden="true" />
+                <div>
+                  {isRenaming ? (
+                    <form className="rename-member-form" onSubmit={(event) => { event.preventDefault(); renameMember(member); }}>
+                      <input
+                        value={renameDraft}
+                        onChange={(event) => setRenameDraft(event.target.value.slice(0, 30))}
+                        placeholder="Nickname"
+                        maxLength={30}
+                        autoFocus
+                      />
+                      <button className="mini-action" type="submit" disabled={!renameDraft.trim()}>
+                        Save
+                      </button>
+                      <button
+                        className="icon-button"
+                        onClick={() => {
+                          setRenameMemberId("");
+                          setRenameDraft("");
+                        }}
+                        title="Cancel rename"
+                        type="button"
+                      >
+                        <X aria-hidden="true" />
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name}{isCurrentUser ? " (You)" : ""}</strong>
+                      <span>
+                        {member.isAnonymous ? "Guest" : "Google"}
+                        {memberIsAdmin ? " · Admin" : ""}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="member-actions">
+                  {!isRenaming && (
+                    <button
+                      className="icon-button"
+                      onClick={() => {
+                        setRenameMemberId(member.id);
+                        setRenameDraft(member.name || "");
+                      }}
+                      title="Rename nickname"
+                      type="button"
+                    >
+                      <Pencil aria-hidden="true" />
+                    </button>
+                  )}
+                  {memberIsAdmin ? (
+                    <>
+                      <Crown aria-label="Admin" />
+                      {!isCurrentUser && (
+                        <button className="mini-action" onClick={() => demoteMember(member)}>
+                          Demote
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
+                      Make Admin
+                    </button>
+                  )}
+                  {!isCurrentUser && (
+                    <button className="icon-button danger" onClick={() => removeMember(member)} title="Remove from room">
+                      <Trash2 aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
               </div>
-              {isRoomAdminId(member.id) ? (
-                <Crown aria-label="Admin" />
-              ) : (
-                <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
-                  Make Admin
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </section>
       )}
 
