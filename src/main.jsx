@@ -112,7 +112,7 @@ const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.10";
+const APP_VERSION = "2026.05.28.11";
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -1252,91 +1252,6 @@ function App() {
         />
       )}
 
-      {isAdmin && (
-        <section className="people-panel">
-          <h2>People</h2>
-          {members.map((member) => {
-            const memberIsAdmin = isRoomAdminId(member.id);
-            const isCurrentUser = member.id === user.uid;
-            const isRenaming = renameMemberId === member.id;
-            return (
-              <div className="member-row" key={member.id}>
-                <UserRound aria-hidden="true" />
-                <div>
-                  {isRenaming ? (
-                    <form className="rename-member-form" onSubmit={(event) => { event.preventDefault(); renameMember(member); }}>
-                      <input
-                        value={renameDraft}
-                        onChange={(event) => setRenameDraft(event.target.value.slice(0, 30))}
-                        placeholder="Nickname"
-                        maxLength={30}
-                        autoFocus
-                      />
-                      <button className="mini-action" type="submit" disabled={!renameDraft.trim()}>
-                        Save
-                      </button>
-                      <button
-                        className="icon-button"
-                        onClick={() => {
-                          setRenameMemberId("");
-                          setRenameDraft("");
-                        }}
-                        title="Cancel rename"
-                        type="button"
-                      >
-                        <X aria-hidden="true" />
-                      </button>
-                    </form>
-                  ) : (
-                    <>
-                      <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name}{isCurrentUser ? " (You)" : ""}</strong>
-                      <span>
-                        {member.isAnonymous ? "Guest" : "Google"}
-                        {memberIsAdmin ? " · Admin" : ""}
-                      </span>
-                    </>
-                  )}
-                </div>
-                <div className="member-actions">
-                  {!isRenaming && (
-                    <button
-                      className="icon-button"
-                      onClick={() => {
-                        setRenameMemberId(member.id);
-                        setRenameDraft(member.name || "");
-                      }}
-                      title="Rename nickname"
-                      type="button"
-                    >
-                      <Pencil aria-hidden="true" />
-                    </button>
-                  )}
-                  {memberIsAdmin ? (
-                    <>
-                      <Crown aria-label="Admin" />
-                      {!isCurrentUser && (
-                        <button className="mini-action" onClick={() => demoteMember(member)}>
-                          Demote
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
-                      Make Admin
-                    </button>
-                  )}
-                  {!isCurrentUser && (
-                    <button className="icon-button danger" onClick={() => removeMember(member)} title="Remove from room">
-                      <Trash2 aria-hidden="true" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      )}
-
       {aboutOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <section className="about-modal">
@@ -1442,6 +1357,90 @@ function App() {
                 +
               </button>
             </div>
+            {isAdmin && (
+              <section className="people-panel settings-people">
+                <h2>People</h2>
+                {members.map((member) => {
+                  const memberIsAdmin = isRoomAdminId(member.id);
+                  const isCurrentUser = member.id === user.uid;
+                  const isRenaming = renameMemberId === member.id;
+                  return (
+                    <div className="member-row" key={member.id}>
+                      <UserRound aria-hidden="true" />
+                      <div>
+                        {isRenaming ? (
+                          <form className="rename-member-form" onSubmit={(event) => { event.preventDefault(); renameMember(member); }}>
+                            <input
+                              value={renameDraft}
+                              onChange={(event) => setRenameDraft(event.target.value.slice(0, 30))}
+                              placeholder="Nickname"
+                              maxLength={30}
+                              autoFocus
+                            />
+                            <button className="mini-action" type="submit" disabled={!renameDraft.trim()}>
+                              Save
+                            </button>
+                            <button
+                              className="icon-button"
+                              onClick={() => {
+                                setRenameMemberId("");
+                                setRenameDraft("");
+                              }}
+                              title="Cancel rename"
+                              type="button"
+                            >
+                              <X aria-hidden="true" />
+                            </button>
+                          </form>
+                        ) : (
+                          <>
+                            <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name}{isCurrentUser ? " (You)" : ""}</strong>
+                            <span>
+                              {member.isAnonymous ? "Guest" : "Google"}
+                              {memberIsAdmin ? " · Admin" : ""}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="member-actions">
+                        {!isRenaming && (
+                          <button
+                            className="icon-button"
+                            onClick={() => {
+                              setRenameMemberId(member.id);
+                              setRenameDraft(member.name || "");
+                            }}
+                            title="Rename nickname"
+                            type="button"
+                          >
+                            <Pencil aria-hidden="true" />
+                          </button>
+                        )}
+                        {memberIsAdmin ? (
+                          <>
+                            <Crown aria-label="Admin" />
+                            {!isCurrentUser && (
+                              <button className="mini-action" onClick={() => demoteMember(member)}>
+                                Demote
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
+                            Make Admin
+                          </button>
+                        )}
+                        {!isCurrentUser && (
+                          <button className="icon-button danger" onClick={() => removeMember(member)} title="Remove from room">
+                            <Trash2 aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
             {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
           </section>
         </div>
