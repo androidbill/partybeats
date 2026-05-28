@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.26";
+const APP_VERSION = "2026.05.28.29";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -893,7 +893,7 @@ function App() {
           videoId: selectedVideo.videoId,
           thumbnail: selectedVideo.thumbnail || youtubeThumb(selectedVideo.videoId),
           addedByUid: user.uid,
-          addedByName: "PartyBeats Auto",
+          addedByName: "ROCK BeatsParty Auto",
           addedByIsAnonymous: false,
           autoAdded: true,
           similarToSongId: lastSong.id,
@@ -904,7 +904,7 @@ function App() {
         });
       }
       await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: autoSongId });
-      setToast("PartyBeats added a similar song.");
+      setToast("ROCK BeatsParty added a similar song.");
     } catch (error) {
       setToast(error.message || "Could not auto-add a similar song.");
       await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
@@ -1065,8 +1065,8 @@ function App() {
     if (!activeRoomId) return;
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
     const shareData = {
-      title: "Join my PartyBeats room",
-      text: `Join PartyBeats room ${activeRoomId}`,
+      title: "Join my ROCK BeatsParty room",
+      text: `Join ROCK BeatsParty room ${activeRoomId}`,
       url: shareUrl
     };
     setMenuOpen(false);
@@ -1086,7 +1086,7 @@ function App() {
     }
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
     const lines = [
-      "PartyBeats Playlist",
+      "ROCK BeatsParty Playlist",
       `Room: ${activeRoomId}`,
       `Exported: ${new Date().toLocaleString()}`,
       "",
@@ -1100,7 +1100,7 @@ function App() {
     ];
     const playlistText = lines.join("\n");
     const shareData = {
-      title: `PartyBeats ${activeRoomId} playlist`,
+      title: `ROCK BeatsParty ${activeRoomId} playlist`,
       text: playlistText,
       url: shareUrl
     };
@@ -1123,10 +1123,10 @@ function App() {
         <section className="landing-hero">
           <div className="brand-mark">
             <AppIcon />
-            <span>PartyBeats</span>
+            <span>ROCK BeatsParty</span>
           </div>
           <div className="landing-copy">
-            <h1>PartyBeats</h1>
+            <h1>ROCK BeatsParty</h1>
             <p>Start a room, pass around the code, and let everyone build the music queue from their phone.</p>
           </div>
 
@@ -1186,7 +1186,7 @@ function App() {
             <AppIcon />
           </div>
           <div>
-            <strong>PartyBeats</strong>
+            <strong>ROCK BeatsParty</strong>
             <span>{activeRoomId}</span>
           </div>
         </div>
@@ -1992,7 +1992,7 @@ function SetupMissing() {
   return (
     <main className="setup-missing">
       <AppIcon />
-      <h1>PartyBeats needs Firebase config</h1>
+      <h1>ROCK BeatsParty needs Firebase config</h1>
       <p>Copy .env.example to .env.local and fill in the values from your Firebase web app.</p>
     </main>
   );
