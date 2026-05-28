@@ -106,7 +106,7 @@ const ROOM_WORDS = [
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const COOLDOWN_MS = 3 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.27.01";
+const APP_VERSION = "2026.05.27.02";
 
 function randomRoomId() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
@@ -172,6 +172,13 @@ function nextQueuedSong(songs, currentId) {
   const currentIndex = songs.findIndex((song) => song.id === currentId);
   if (currentIndex < 0) return songs[0];
   return songs[currentIndex + 1] || null;
+}
+
+function adminMapFor(room) {
+  return {
+    ...(room?.adminUid ? { [room.adminUid]: true } : {}),
+    ...(room?.adminUids || {})
+  };
 }
 
 function App() {
@@ -242,7 +249,13 @@ function App() {
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
 
     const unsubRoom = onSnapshot(roomRef, (snap) => {
-      setRoom(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+      const nextRoom = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+      if (nextRoom?.closed) {
+        setToast("Room closed because the last admin left.");
+        clearRoomState();
+        return;
+      }
+      setRoom(nextRoom);
     });
     const unsubSongs = onSnapshot(songsRef, (snap) => {
       setSongs(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
@@ -276,7 +289,9 @@ function App() {
     }
   }, []);
 
-  const isAdmin = Boolean(user && room?.adminUid === user.uid);
+  const roomAdminUids = adminMapFor(room);
+  const isRoomAdminId = (uid) => Boolean(uid && roomAdminUids[uid]);
+  const isAdmin = Boolean(user && isRoomAdminId(user.uid));
   const memberRecord = members.find((member) => member.id === user?.uid);
   const cooldownUntil = memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + COOLDOWN_MS : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
@@ -348,8 +363,10 @@ function App() {
     await setDoc(doc(db, "rooms", nextId), {
       roomId: nextId,
       adminUid: user.uid,
+      adminUids: { [user.uid]: true },
       adminName: nicknameFor(user),
       createdAt: serverTimestamp(),
+      closed: false,
       nowPlayingId: null
     });
     await joinRoomById(nextId);
@@ -369,6 +386,10 @@ function App() {
     const roomSnap = await getDoc(doc(db, "rooms", nextRoomId));
     if (!roomSnap.exists()) {
       setToast("That room does not exist yet.");
+      return;
+    }
+    if (roomSnap.data().closed) {
+      setToast("That room has been closed.");
       return;
     }
 
@@ -487,10 +508,10 @@ function App() {
   async function promoteMember(member) {
     if (!isAdmin || !member || member.isAnonymous) return;
     await updateDoc(doc(db, "rooms", activeRoomId), {
-      adminUid: member.id,
-      adminName: member.name || "Google user"
+      [`adminUids.${user.uid}`]: true,
+      [`adminUids.${member.id}`]: true
     });
-    setToast(`${member.name || "Member"} is now admin.`);
+    setToast(`${member.name || "Member"} is now an admin.`);
   }
 
   async function playNextSong() {
@@ -510,17 +531,49 @@ function App() {
     await updateDoc(songRef, { [path]: emoji });
   }
 
-  async function leaveRoom() {
+  function clearRoomState() {
     setActiveRoomId("");
     setRoom(null);
     setSongs([]);
     setMembers([]);
+    setMenuOpen(false);
+    setAboutOpen(false);
     window.history.replaceState({}, "", window.location.pathname);
   }
 
+  async function leaveRoom() {
+    const leavingRoomId = activeRoomId;
+    const leavingUser = user;
+
+    if (leavingRoomId && leavingUser) {
+      const batch = writeBatch(db);
+      if (isAdmin) {
+        const remainingAdmins = members.filter((member) => member.id !== leavingUser.uid && isRoomAdminId(member.id));
+        if (remainingAdmins.length === 0) {
+          batch.update(doc(db, "rooms", leavingRoomId), {
+            closed: true,
+            closedAt: serverTimestamp(),
+            closedByUid: leavingUser.uid,
+            [`adminUids.${leavingUser.uid}`]: deleteField()
+          });
+        } else {
+          batch.update(doc(db, "rooms", leavingRoomId), {
+            [`adminUids.${leavingUser.uid}`]: deleteField(),
+            adminUid: remainingAdmins[0].id,
+            adminName: remainingAdmins[0].name || "Google user"
+          });
+        }
+      }
+      batch.delete(doc(db, "rooms", leavingRoomId, "members", leavingUser.uid));
+      await batch.commit();
+    }
+
+    clearRoomState();
+  }
+
   async function handleSignOut() {
-    await signOut(auth);
     await leaveRoom();
+    await signOut(auth);
   }
 
   async function shareRoom() {
@@ -828,7 +881,7 @@ function App() {
                 <strong>{member.name}</strong>
                 <span>{member.isAnonymous ? "Guest" : "Google"}</span>
               </div>
-              {member.id === room.adminUid ? (
+              {isRoomAdminId(member.id) ? (
                 <Crown aria-label="Admin" />
               ) : (
                 <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
