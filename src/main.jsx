@@ -1,26 +1,26 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  AlertCircle,
   ArrowDown,
   ArrowUp,
   Crown,
   DoorOpen,
   ExternalLink,
+  Info,
   LogIn,
   LogOut,
+  MoreVertical,
   Music2,
   Play,
   Plus,
   QrCode,
   Search,
-  Shuffle,
+  Share2,
   SkipForward,
-  Sparkles,
   Trash2,
   UserRound,
-  Users,
-  Wand2
+  Wand2,
+  X
 } from "lucide-react";
 import QRCode from "qrcode";
 import {
@@ -106,6 +106,7 @@ const ROOM_WORDS = [
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const COOLDOWN_MS = 3 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+const APP_VERSION = "2026.05.27.01";
 
 function randomRoomId() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
@@ -188,6 +189,9 @@ function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [emojiSongId, setEmojiSongId] = useState("");
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -278,15 +282,6 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
-
-  const stats = useMemo(
-    () => [
-      { label: "People", value: members.length, icon: Users },
-      { label: "Queued", value: songs.length, icon: Music2 },
-      { label: "Room", value: activeRoomId || "----", icon: Sparkles }
-    ],
-    [members.length, songs.length, activeRoomId]
-  );
 
   async function signInGoogle() {
     if (!firebaseReady) {
@@ -489,6 +484,15 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: songId });
   }
 
+  async function promoteMember(member) {
+    if (!isAdmin || !member || member.isAnonymous) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      adminUid: member.id,
+      adminName: member.name || "Google user"
+    });
+    setToast(`${member.name || "Member"} is now admin.`);
+  }
+
   async function playNextSong() {
     if (!isAdmin || !activeRoomId) return;
     const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
@@ -519,43 +523,58 @@ function App() {
     await leaveRoom();
   }
 
+  async function shareRoom() {
+    if (!activeRoomId) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
+    const shareData = {
+      title: "Join my PartyBeats room",
+      text: `Join PartyBeats room ${activeRoomId}`,
+      url: shareUrl
+    };
+    setMenuOpen(false);
+    if (navigator.share) {
+      await navigator.share(shareData).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard?.writeText(`${shareData.text}\n${shareUrl}`);
+    setToast("Room link copied.");
+  }
+
   if (!firebaseReady) {
     return <SetupMissing />;
   }
 
-  return (
-    <main className="app-shell">
-      <section className="hero-band">
-        <div className="hero-copy">
+  if (!activeRoomId || !room) {
+    return (
+      <main className="app-shell landing-shell">
+        <section className="landing-hero">
           <div className="brand-mark">
             <Music2 aria-hidden="true" />
             <span>PartyBeats</span>
           </div>
-          <h1>PartyBeats</h1>
-          <p>Fast room codes, shared song queues, host control, and just enough chaos for a good night.</p>
-        </div>
+          <div className="landing-copy">
+            <h1>PartyBeats</h1>
+            <p>Start a room, pass around the code, and let everyone build the music queue from their phone.</p>
+          </div>
 
-        <div className="auth-panel">
-          {authLoading ? (
-            <div className="muted">Checking session...</div>
-          ) : user ? (
-            <SignedIn user={user} nickname={nicknameFor(user, nickname)} onSignOut={handleSignOut} />
-          ) : (
-            <SignedOut
-              nickname={nickname}
-              setNickname={setNickname}
-              onGoogle={signInGoogle}
-              onNickname={signInNickname}
-            />
-          )}
-        </div>
-      </section>
+          <div className="auth-panel">
+            {authLoading ? (
+              <div className="muted">Checking session...</div>
+            ) : user ? (
+              <SignedIn user={user} nickname={nicknameFor(user, nickname)} onSignOut={handleSignOut} />
+            ) : (
+              <SignedOut
+                nickname={nickname}
+                setNickname={setNickname}
+                onGoogle={signInGoogle}
+                onNickname={signInNickname}
+              />
+            )}
+          </div>
 
-      <section className="control-band">
-        <div className="control-grid">
           <div className="room-card">
             <h2>Start or Join</h2>
-            <p className="muted">Google users can create rooms. Nickname guests can join existing rooms.</p>
+            <p className="muted">Google users can create rooms. Guests can join with a nickname.</p>
             <div className="room-actions">
               <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous}>
                 <Wand2 aria-hidden="true" />
@@ -575,29 +594,274 @@ function App() {
               </div>
             </div>
           </div>
+        </section>
 
-          {stats.map(({ label, value, icon: Icon }) => (
-            <div className="stat-tile" key={label}>
-              <Icon aria-hidden="true" />
-              <span>{label}</span>
-              <strong>{value}</strong>
+        {toast && (
+          <button className="toast" onClick={() => setToast("")}>
+            {toast}
+          </button>
+        )}
+      </main>
+    );
+  }
+
+  return (
+    <main className="app-shell room-app">
+      <header className="app-topbar">
+        <div className="topbar-brand">
+          <div className="brand-dot">
+            <Music2 aria-hidden="true" />
+          </div>
+          <div>
+            <strong>PartyBeats</strong>
+            <span>{activeRoomId}</span>
+          </div>
+        </div>
+
+        <div className="topbar-actions">
+          <div className="session-chip">
+            <span>{user.isAnonymous ? "Guest" : "Google"}</span>
+            <strong>{nicknameFor(user, nickname)}</strong>
+          </div>
+          <div className="menu-wrap">
+            <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu">
+              <MoreVertical aria-hidden="true" />
+            </button>
+            {menuOpen && (
+              <div className="overflow-menu">
+                <button onClick={() => { setAboutOpen(true); setMenuOpen(false); }}>
+                  <Info aria-hidden="true" />
+                  About
+                </button>
+                <button onClick={shareRoom}>
+                  <Share2 aria-hidden="true" />
+                  Share
+                </button>
+                <button onClick={leaveRoom}>
+                  <DoorOpen aria-hidden="true" />
+                  Leave Room
+                </button>
+                <button onClick={handleSignOut}>
+                  <LogOut aria-hidden="true" />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <section className="now-playing-card">
+        <div>
+          <span>{isAdmin ? "Admin player" : "Now playing"}</span>
+          <h1>{nowPlayingSong?.title || "Nothing playing yet"}</h1>
+          <p>{nowPlayingSong ? `${nowPlayingSong.artist || "YouTube"} · added by ${nowPlayingSong.addedByName || "Guest"}` : "The room owner starts playback from their phone."}</p>
+        </div>
+        {isAdmin && (
+          <>
+            <YouTubePlayer song={nowPlayingSong} onEnded={playNextSong} />
+            <div className="player-actions">
+              <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
+                <SkipForward aria-hidden="true" />
+                Next
+              </button>
+              {nowPlayingSong?.link && (
+                <a className="mini-link" href={nowPlayingSong.link} target="_blank" rel="noreferrer">
+                  <ExternalLink aria-hidden="true" />
+                  YouTube
+                </a>
+              )}
             </div>
-          ))}
+          </>
+        )}
+      </section>
+
+      <section className="add-panel">
+        <form className="youtube-search" onSubmit={searchYouTube}>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
+          />
+          <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
+            <Search aria-hidden="true" />
+            {searching ? "..." : "Search"}
+          </button>
+        </form>
+
+        {searchResults.length > 0 && (
+          <div className="search-results">
+            {searchResults.map((result) => (
+              <article className="search-result" key={result.videoId}>
+                <img src={result.thumbnail} alt="" />
+                <div>
+                  <strong>{result.title}</strong>
+                  <span>{result.channelTitle}</span>
+                </div>
+                <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong}>
+                  <Plus aria-hidden="true" />
+                  Add
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <form className="song-form" onSubmit={addSong}>
+          <input
+            value={songForm.title}
+            onChange={(event) => setSongForm((prev) => ({ ...prev, title: event.target.value }))}
+            placeholder="Optional title"
+          />
+          <input
+            value={songForm.url}
+            onChange={(event) => setSongForm((prev) => ({ ...prev, url: event.target.value }))}
+            placeholder="Paste YouTube URL"
+          />
+          <button className="primary-action" disabled={!canAddSong}>
+            <Plus aria-hidden="true" />
+            Add
+          </button>
+        </form>
+
+        <p className="cooldown-note">
+          {isAdmin ? "Admin controls are enabled." : canAddSong ? "You can add a song now." : `Next add in ${Math.ceil(cooldownRemaining / 1000)}s.`}
+        </p>
+      </section>
+
+      <section className="queue-panel">
+        <div className="queue-header">
+          <div>
+            <h2>Playlist</h2>
+            <p className="muted">Hold a track to react.</p>
+          </div>
+          <strong>{songs.length}</strong>
+        </div>
+
+        <div className="song-list">
+          {songs.length === 0 ? (
+            <div className="empty-state">
+              <Music2 aria-hidden="true" />
+              <strong>No songs yet</strong>
+              <span>Drop the first track and set the tone.</span>
+            </div>
+          ) : (
+            songs.map((song, index) => {
+              const emojiCounts = EMOJIS.map((emoji) => ({
+                emoji,
+                count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
+              })).filter((item) => item.count > 0);
+              return (
+                <article
+                  className={song.id === room.nowPlayingId ? "song-row is-playing" : "song-row"}
+                  key={song.id}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setEmojiSongId(song.id);
+                  }}
+                  onPointerDown={(event) => {
+                    const timer = window.setTimeout(() => setEmojiSongId(song.id), 520);
+                    event.currentTarget.dataset.pressTimer = String(timer);
+                  }}
+                  onPointerUp={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
+                  onPointerLeave={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
+                >
+                  <button className="song-main" onClick={() => isAdmin && setNowPlaying(song.id)} type="button">
+                    <span className="song-index">{index + 1}</span>
+                    <strong>{song.artist || "YouTube"} - {song.title}</strong>
+                    <span>by {song.addedByName || "Guest"}</span>
+                    {emojiCounts.length > 0 && (
+                      <span className="emoji-summary">
+                        {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
+                      </span>
+                    )}
+                  </button>
+
+                  {isAdmin && (
+                    <div className="admin-actions">
+                      <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={index === 0}>
+                        <ArrowUp aria-hidden="true" />
+                      </button>
+                      <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={index === songs.length - 1}>
+                        <ArrowDown aria-hidden="true" />
+                      </button>
+                      <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play">
+                        <Play aria-hidden="true" />
+                      </button>
+                      <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song">
+                        <Trash2 aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+
+                  {emojiSongId === song.id && (
+                    <div className="emoji-popover">
+                      {EMOJIS.map((emoji) => (
+                        <button
+                          className={song.emojiByUser?.[user.uid] === emoji ? "selected" : ""}
+                          key={emoji}
+                          onClick={() => {
+                            reactToSong(song, emoji);
+                            setEmojiSongId("");
+                          }}
+                          type="button"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })
+          )}
         </div>
       </section>
 
-      {activeRoomId && room ? (
-        <section className="room-workspace">
-          <aside className="room-sidebar">
-            <div className="room-id-block">
-              <span>Room ID</span>
-              <strong>{activeRoomId}</strong>
-              {isAdmin && (
-                <div className="admin-pill">
-                  <Crown aria-hidden="true" />
-                  Admin
-                </div>
+      {isAdmin && (
+        <section className="people-panel">
+          <h2>People</h2>
+          {members.map((member) => (
+            <div className="member-row" key={member.id}>
+              <UserRound aria-hidden="true" />
+              <div>
+                <strong>{member.name}</strong>
+                <span>{member.isAnonymous ? "Guest" : "Google"}</span>
+              </div>
+              {member.id === room.adminUid ? (
+                <Crown aria-label="Admin" />
+              ) : (
+                <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
+                  Make Admin
+                </button>
               )}
+            </div>
+          ))}
+        </section>
+      )}
+
+      {aboutOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal">
+            <div className="modal-header">
+              <h2>About</h2>
+              <button className="icon-button" onClick={() => setAboutOpen(false)} title="Close">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <div className="about-grid">
+              <div>
+                <span>Room ID</span>
+                <strong>{activeRoomId}</strong>
+              </div>
+              <div>
+                <span>People</span>
+                <strong>{members.length}</strong>
+              </div>
+              <div>
+                <span>Version</span>
+                <strong>{APP_VERSION}</strong>
+              </div>
             </div>
             {qrDataUrl && (
               <div className="qr-block">
@@ -608,186 +872,8 @@ function App() {
                 </span>
               </div>
             )}
-            <div className="member-list">
-              <h3>People</h3>
-              {members.map((member) => (
-                <div className="member-row" key={member.id}>
-                  <UserRound aria-hidden="true" />
-                  <span>{member.name}</span>
-                  {member.id === room.adminUid && <Crown aria-label="Admin" />}
-                </div>
-              ))}
-            </div>
-            <button className="subtle-action" onClick={leaveRoom}>
-              Leave Room
-            </button>
-          </aside>
-
-          <section className="queue-panel">
-            {isAdmin && (
-              <div className="player-panel">
-                <div className="player-copy">
-                  <span>Admin Player</span>
-                  <strong>{nowPlayingSong?.title || "Nothing playing"}</strong>
-                  <p>{nowPlayingSong ? "Connect this device to the speaker and keep this tab open." : "Choose a song from the queue to start playback."}</p>
-                </div>
-                <YouTubePlayer song={nowPlayingSong} onEnded={playNextSong} />
-                <div className="player-actions">
-                  <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
-                    <SkipForward aria-hidden="true" />
-                    Next
-                  </button>
-                  {nowPlayingSong?.link && (
-                    <a className="mini-link" href={nowPlayingSong.link} target="_blank" rel="noreferrer">
-                      <ExternalLink aria-hidden="true" />
-                      YouTube
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="queue-header">
-              <div>
-                <h2>Queue</h2>
-                <p className="muted">
-                  {isAdmin
-                    ? "You can reorder, remove, and choose what is playing."
-                    : canAddSong
-                      ? "Add a track, then your cooldown starts."
-                      : `Next add in ${Math.ceil(cooldownRemaining / 1000)}s.`}
-                </p>
-              </div>
-              <button className="icon-button" onClick={() => setRoomId(randomRoomId())} title="Generate sample room code">
-                <Shuffle aria-hidden="true" />
-              </button>
-            </div>
-
-            <form className="youtube-search" onSubmit={searchYouTube}>
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={YOUTUBE_API_KEY ? "Search YouTube for a song" : "Add VITE_YOUTUBE_API_KEY to enable YouTube search"}
-              />
-              <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
-                <Search aria-hidden="true" />
-                {searching ? "Searching" : "Search"}
-              </button>
-            </form>
-
-            {searchResults.length > 0 && (
-              <div className="search-results">
-                {searchResults.map((result) => (
-                  <article className="search-result" key={result.videoId}>
-                    <img src={result.thumbnail} alt="" />
-                    <div>
-                      <strong>{result.title}</strong>
-                      <span>{result.channelTitle}</span>
-                    </div>
-                    <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong}>
-                      <Plus aria-hidden="true" />
-                      Add
-                    </button>
-                  </article>
-                ))}
-              </div>
-            )}
-
-            <form className="song-form" onSubmit={addSong}>
-              <input
-                value={songForm.title}
-                onChange={(event) => setSongForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Optional title"
-              />
-              <input
-                value={songForm.url}
-                onChange={(event) => setSongForm((prev) => ({ ...prev, url: event.target.value }))}
-                placeholder="Paste YouTube URL"
-              />
-              <button className="primary-action" disabled={!canAddSong}>
-                <Plus aria-hidden="true" />
-                Add URL
-              </button>
-            </form>
-
-            <div className="song-list">
-              {songs.length === 0 ? (
-                <div className="empty-state">
-                  <Music2 aria-hidden="true" />
-                  <strong>No songs yet</strong>
-                  <span>Drop the first track and set the tone.</span>
-                </div>
-              ) : (
-                songs.map((song, index) => (
-                  <article className={song.id === room.nowPlayingId ? "song-row is-playing" : "song-row"} key={song.id}>
-                    <div className="song-position">{index + 1}</div>
-                    {song.thumbnail && <img className="song-thumb" src={song.thumbnail} alt="" />}
-                    <div className="song-main">
-                      <div className="song-title-line">
-                        <strong>{song.title}</strong>
-                        {song.id === room.nowPlayingId && <span>Playing</span>}
-                      </div>
-                      <p>
-                        {song.artist || "Unknown artist"} · added by {song.addedByName || "Guest"}
-                      </p>
-                      {song.link && (
-                        <a href={song.link} target="_blank" rel="noreferrer">
-                          Open track
-                        </a>
-                      )}
-                      <div className="emoji-row">
-                        {EMOJIS.map((emoji) => {
-                          const count = Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length;
-                          return (
-                            <button
-                              className={song.emojiByUser?.[user.uid] === emoji ? "emoji-button selected" : "emoji-button"}
-                              key={emoji}
-                              onClick={() => reactToSong(song, emoji)}
-                              type="button"
-                            >
-                              <span>{emoji}</span>
-                              {count > 0 && <b>{count}</b>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {isAdmin && (
-                      <div className="admin-actions">
-                        <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={index === 0}>
-                          <ArrowUp aria-hidden="true" />
-                        </button>
-                        <button
-                          className="icon-button"
-                          onClick={() => moveSong(song, 1)}
-                          title="Move down"
-                          disabled={index === songs.length - 1}
-                        >
-                          <ArrowDown aria-hidden="true" />
-                        </button>
-                        <button className="mini-action" onClick={() => setNowPlaying(song.id)}>
-                          <Play aria-hidden="true" />
-                          Play
-                        </button>
-                        <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song">
-                          <Trash2 aria-hidden="true" />
-                        </button>
-                      </div>
-                    )}
-                  </article>
-                ))
-              )}
-            </div>
           </section>
-        </section>
-      ) : (
-        <section className="welcome-board">
-          <div>
-            <AlertCircle aria-hidden="true" />
-            <h2>Sign in, then create or join a room.</h2>
-          </div>
-          <p>Room IDs use a four-letter word plus three numbers, like VIBE123. Hosts manage the queue; guests add songs and react.</p>
-        </section>
+        </div>
       )}
 
       {toast && (
