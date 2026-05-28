@@ -113,7 +113,8 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.18";
+const APP_VERSION = "2026.05.28.22";
+const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -1045,7 +1046,7 @@ function App() {
       <main className="app-shell landing-shell">
         <section className="landing-hero">
           <div className="brand-mark">
-            <Music2 aria-hidden="true" />
+            <AppIcon />
             <span>PartyBeats</span>
           </div>
           <div className="landing-copy">
@@ -1106,7 +1107,7 @@ function App() {
       <header className="app-topbar">
         <div className="topbar-brand">
           <div className="brand-dot">
-            <Music2 aria-hidden="true" />
+            <AppIcon />
           </div>
           <div>
             <strong>PartyBeats</strong>
@@ -1821,10 +1822,14 @@ function GoogleBadge() {
   );
 }
 
+function AppIcon() {
+  return <img className="app-icon" src={APP_ICON_URL} alt="" aria-hidden="true" />;
+}
+
 function SetupMissing() {
   return (
     <main className="setup-missing">
-      <Music2 aria-hidden="true" />
+      <AppIcon />
       <h1>PartyBeats needs Firebase config</h1>
       <p>Copy .env.example to .env.local and fill in the values from your Firebase web app.</p>
     </main>

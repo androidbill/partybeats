@@ -68,7 +68,7 @@ a {
   display: inline-flex;
   gap: 10px;
   align-items: center;
-  padding: 10px 14px;
+  padding: 8px 14px 8px 8px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   background: rgba(18, 19, 26, 0.42);
@@ -76,9 +76,12 @@ a {
   font-weight: 800;
 }
 
-.brand-mark svg,
-.setup-missing svg {
-  color: #f7c948;
+.app-icon {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .hero-copy h1 {
@@ -806,8 +809,21 @@ input:focus {
   width: 38px;
   height: 38px;
   border-radius: 8px;
-  color: #12131a;
-  background: #f7c948;
+  overflow: hidden;
+  background: transparent;
+}
+
+.brand-dot .app-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+}
+
+.setup-missing .app-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  margin: 0 auto;
 }
 
 .topbar-brand strong,
