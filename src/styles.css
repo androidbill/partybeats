@@ -1013,6 +1013,11 @@ input:focus {
   line-height: 1.4;
 }
 
+.now-playing-card .dj-note {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.86rem;
+}
+
 .add-panel,
 .queue-panel,
 .people-panel {

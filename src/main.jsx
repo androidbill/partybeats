@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.25";
+const APP_VERSION = "2026.05.28.26";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -383,6 +383,9 @@ function App() {
   const roomAdminUids = adminMapFor(room);
   const isRoomAdminId = (uid) => Boolean(uid && roomAdminUids[uid]);
   const isAdmin = Boolean(user && isRoomAdminId(user.uid));
+  const activeDjUid = room?.activeDjUid || room?.adminUid || "";
+  const activeDjName = room?.activeDjName || room?.adminName || "Room admin";
+  const isActiveDj = Boolean(user && activeDjUid === user.uid);
   const cooldownEnabled = room?.cooldownEnabled !== false;
   const cooldownMinutes = Math.min(
     30,
@@ -537,6 +540,8 @@ function App() {
       adminUid: user.uid,
       adminUids: { [user.uid]: true },
       adminName: activeNickname,
+      activeDjUid: user.uid,
+      activeDjName: activeNickname,
       createdAt: serverTimestamp(),
       closed: false,
       cooldownEnabled: true,
@@ -744,8 +749,21 @@ function App() {
   }
 
   async function setNowPlaying(songId) {
-    if (!isAdmin) return;
+    if (!isActiveDj) {
+      setToast("Only the Active DJ can control playback.");
+      return;
+    }
     await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: songId });
+  }
+
+  async function takeOverDj() {
+    if (!isAdmin || !activeRoomId || !user) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      activeDjUid: user.uid,
+      activeDjName: activeNickname,
+      activeDjAt: serverTimestamp()
+    });
+    setToast("You are now the Active DJ.");
   }
 
   async function promoteMember(member) {
@@ -794,6 +812,12 @@ function App() {
         roomUpdate.adminUid = user.uid;
         roomUpdate.adminName = activeNickname;
       }
+    }
+    if (room?.activeDjUid === member.id) {
+      roomUpdate.activeDjUid = user.uid;
+      roomUpdate.activeDjName = activeNickname;
+    }
+    if (Object.keys(roomUpdate).length > 0) {
       batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
     }
     batch.delete(doc(db, "rooms", activeRoomId, "members", member.id));
@@ -811,6 +835,9 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId, "members", member.id), {
       name: nextName
     });
+    if (room?.activeDjUid === member.id) {
+      await updateDoc(doc(db, "rooms", activeRoomId), { activeDjName: nextName });
+    }
     if (member.id === user.uid) {
       setNickname(nextName);
     }
@@ -820,7 +847,10 @@ function App() {
   }
 
   async function playNextSong() {
-    if (!isAdmin || !activeRoomId) return;
+    if (!isActiveDj || !activeRoomId) {
+      setToast("Only the Active DJ can control playback.");
+      return;
+    }
     const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
     if (nextSong) {
       await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: nextSong.id });
@@ -1009,7 +1039,13 @@ function App() {
           batch.update(doc(db, "rooms", leavingRoomId), {
             [`adminUids.${leavingUser.uid}`]: deleteField(),
             adminUid: remainingAdmins[0].id,
-            adminName: remainingAdmins[0].name || "Google user"
+            adminName: remainingAdmins[0].name || "Google user",
+            ...(room?.activeDjUid === leavingUser.uid
+              ? {
+                  activeDjUid: remainingAdmins[0].id,
+                  activeDjName: remainingAdmins[0].name || "Google user"
+                }
+              : {})
           });
         }
       }
@@ -1217,11 +1253,19 @@ function App() {
 
       <section className="now-playing-card">
         <div>
-          <span>{isAdmin ? "Admin player" : "Now playing"}</span>
+          <span>{isActiveDj ? "Active DJ player" : "Now playing"}</span>
           <h1>{nowPlayingSong?.title || "Nothing playing yet"}</h1>
-          <p>{nowPlayingSong ? `${nowPlayingSong.artist || "YouTube"} · added by ${nowPlayingSong.addedByName || "Guest"}` : "The room owner starts playback from their phone."}</p>
+          <p>
+            {nowPlayingSong
+              ? `${nowPlayingSong.artist || "YouTube"} · added by ${nowPlayingSong.addedByName || "Guest"}`
+              : "The Active DJ starts playback from the phone connected to the speaker."}
+          </p>
+          <p className="dj-note">
+            Playing from {activeDjName}
+            {isAdmin && !isActiveDj ? " · You can take over if the speaker moves to your phone." : ""}
+          </p>
         </div>
-        {isAdmin && (
+        {isActiveDj ? (
           <>
             <YouTubePlayer
               song={nowPlayingSong}
@@ -1243,7 +1287,14 @@ function App() {
               )}
             </div>
           </>
-        )}
+        ) : isAdmin ? (
+          <div className="player-actions">
+            <button className="mini-action" onClick={takeOverDj} type="button">
+              <Crown aria-hidden="true" />
+              Take Over DJ
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="add-panel">
@@ -1343,7 +1394,7 @@ function App() {
                   onPointerUp={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                   onPointerLeave={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                 >
-                  <button className="song-main" onClick={() => isAdmin && setNowPlaying(song.id)} type="button">
+                  <button className="song-main" onClick={() => isActiveDj && setNowPlaying(song.id)} type="button">
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
                       <b>{song.artist || "YouTube"}</b>
@@ -1375,9 +1426,11 @@ function App() {
                       <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={index === songs.length - 1}>
                         <ArrowDown aria-hidden="true" />
                       </button>
-                      <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play">
-                        <Play aria-hidden="true" />
-                      </button>
+                      {isActiveDj && (
+                        <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play">
+                          <Play aria-hidden="true" />
+                        </button>
+                      )}
                       <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song">
                         <Trash2 aria-hidden="true" />
                       </button>
