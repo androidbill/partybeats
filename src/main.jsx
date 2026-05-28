@@ -112,22 +112,24 @@ const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.28.08";
-const PROFANITY_WORDS = [
-  "asshole",
-  "bastard",
-  "bitch",
-  "bullshit",
-  "cunt",
-  "dick",
-  "fuck",
-  "fucker",
-  "fucking",
-  "motherfucker",
-  "piss",
-  "shit",
-  "slut",
-  "whore"
+const APP_VERSION = "2026.05.28.10";
+const PROFANITY_PATTERNS = [
+  /\bass+hole\b/,
+  /\bbastard\b/,
+  /\bb[i1!|]+tch\b/,
+  /\bbull\s*sh[i1!|]+t\b/,
+  /\bc+u+n+t+\b/,
+  /\bd[i1!|]+ck\b/,
+  /\bf+a+c*k+\b/,
+  /\bf+u+c*k+\b/,
+  /\bf+u+k+\b/,
+  /\bf+c+k+\b/,
+  /\bf+u+c*k+(er|ing)?\b/,
+  /\bmoth(er|a)f+u+c*k+(er)?\b/,
+  /\bp[i1!|]+ss\b/,
+  /\bsh[i1!|]+t+\b/,
+  /\bslut\b/,
+  /\bwhore\b/
 ];
 
 function randomRoomId() {
@@ -145,8 +147,17 @@ function nicknameFor(user, fallback = "Guest") {
 }
 
 function hasProfanity(value) {
-  const normalized = value.toLowerCase();
-  return PROFANITY_WORDS.some((word) => new RegExp(`\\b${word}\\b`, "i").test(normalized));
+  const normalized = value
+    .toLowerCase()
+    .replace(/[@]/g, "a")
+    .replace(/[$]/g, "s")
+    .replace(/[0]/g, "o")
+    .replace(/[3]/g, "e")
+    .replace(/[4]/g, "a")
+    .replace(/[5]/g, "s")
+    .replace(/[7]/g, "t");
+  const compact = normalized.replace(/[^a-z0-9]+/g, "");
+  return PROFANITY_PATTERNS.some((pattern) => pattern.test(normalized) || pattern.test(compact));
 }
 
 function authErrorMessage(error) {
@@ -544,6 +555,38 @@ function App() {
     }
   }
 
+  async function findSimilarYouTubeSong(song) {
+    if (!YOUTUBE_API_KEY || !song) return null;
+    const queryText = [song.artist, song.title].filter(Boolean).join(" ");
+    if (!queryText.trim()) return null;
+
+    const params = new URLSearchParams({
+      part: "snippet",
+      type: "video",
+      maxResults: "12",
+      videoCategoryId: "10",
+      q: queryText,
+      key: YOUTUBE_API_KEY
+    });
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || "YouTube search failed.");
+    }
+
+    const queuedVideoIds = new Set(songs.map((item) => item.videoId).filter(Boolean));
+    const candidates = (data.items || [])
+      .map((item) => ({
+        videoId: item.id.videoId,
+        title: item.snippet.title,
+        channelTitle: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
+      }))
+      .filter((item) => item.videoId && item.videoId !== song.videoId && !queuedVideoIds.has(item.videoId));
+    if (!candidates.length) return null;
+    return candidates[Math.floor(Math.random() * Math.min(candidates.length, 6))];
+  }
+
   async function removeSong(songId) {
     if (!isAdmin) return;
     await deleteDoc(doc(db, "rooms", activeRoomId, "songs", songId));
@@ -639,7 +682,59 @@ function App() {
   async function playNextSong() {
     if (!isAdmin || !activeRoomId) return;
     const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
-    await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: nextSong?.id || null });
+    if (nextSong) {
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: nextSong.id });
+      return;
+    }
+
+    const lastSong = songs.find((song) => song.id === room?.nowPlayingId);
+    if (!lastSong) {
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      return;
+    }
+    if (!YOUTUBE_API_KEY) {
+      setToast("Add VITE_YOUTUBE_API_KEY to auto-add similar songs.");
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      return;
+    }
+
+    try {
+      const selectedVideo = await findSimilarYouTubeSong(lastSong);
+      if (!selectedVideo) {
+        setToast("No similar YouTube song found.");
+        await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+        return;
+      }
+
+      const autoSongId = `auto-${lastSong.id}`;
+      const autoSongRef = doc(db, "rooms", activeRoomId, "songs", autoSongId);
+      const autoSongSnap = await getDoc(autoSongRef);
+      if (!autoSongSnap.exists()) {
+        const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
+        await setDoc(autoSongRef, {
+          title: selectedVideo.title || "YouTube track",
+          artist: selectedVideo.channelTitle || "YouTube",
+          link: youtubeWatchUrl(selectedVideo.videoId),
+          provider: "youtube",
+          videoId: selectedVideo.videoId,
+          thumbnail: selectedVideo.thumbnail || youtubeThumb(selectedVideo.videoId),
+          addedByUid: user.uid,
+          addedByName: "PartyBeats Auto",
+          addedByIsAnonymous: false,
+          autoAdded: true,
+          similarToSongId: lastSong.id,
+          position: nextPosition,
+          emojiByUser: {},
+          messages: [],
+          createdAt: serverTimestamp()
+        });
+      }
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: autoSongId });
+      setToast("PartyBeats added a similar song.");
+    } catch (error) {
+      setToast(error.message || "Could not auto-add a similar song.");
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+    }
   }
 
   async function reactToSong(song, emoji) {
