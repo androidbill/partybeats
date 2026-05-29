@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.07";
+const APP_VERSION = "2026.05.29.08";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -201,7 +201,7 @@ function isSameSongCandidate(candidate, reference) {
 }
 
 function candidateHasLowDiversityTitle(candidate) {
-  return /\b(cover|karaoke|instrumental|tribute|reaction|tutorial|lesson|loop|sped up|slowed|nightcore)\b/i.test(candidate.title || "");
+  return /\b(cover|karaoke|instrumental|tribute|reaction|tutorial|lesson|loop|sped up|slowed|nightcore|playlist|full album|nonstop|1 hour|one hour)\b/i.test(candidate.title || "");
 }
 
 function nicknameFor(user, fallback = "Guest") {
@@ -740,9 +740,10 @@ function App() {
     const queuedVideoIds = new Set(songs.map((item) => item.videoId).filter(Boolean));
     const queuedSongs = songs.filter((item) => item.videoId || item.title || item.artist);
     const searchQueries = [
-      `${[song.artist, song.title].filter(Boolean).join(" ")} radio mix`,
+      `songs like ${[song.artist, song.title].filter(Boolean).join(" ")}`,
+      `if you like ${[song.artist, song.title].filter(Boolean).join(" ")}`,
       `${playlistProfile.slice(0, 3).join(" ")} similar songs`,
-      `${playlistProfile.join(" ")} playlist`
+      `${playlistProfile.join(" ")} radio`
     ]
       .map((queryText) => queryText.trim().slice(0, 180))
       .filter(Boolean);
@@ -767,7 +768,7 @@ function App() {
     }));
 
     const seenVideoIds = new Set();
-    const candidates = searchResults
+    const baseCandidates = searchResults
       .flat()
       .map((item) => ({
         videoId: item.id.videoId,
@@ -779,10 +780,24 @@ function App() {
         if (!item.videoId || seenVideoIds.has(item.videoId) || queuedVideoIds.has(item.videoId)) return false;
         seenVideoIds.add(item.videoId);
         if (candidateHasLowDiversityTitle(item)) return false;
-        if (seedSongs.some((reference) => isSameSongCandidate(item, reference))) return false;
-        if (queuedSongs.some((reference) => isSameSongCandidate(item, reference))) return false;
+        if (isSameSongCandidate(item, song)) return false;
+        if (isSameMusicText(item.channelTitle, song.artist) || isSameMusicText(item.title, song.artist)) return false;
         return true;
-      })
+      });
+
+    const strictCandidates = baseCandidates.filter((item) => {
+      if (seedSongs.some((reference) => isSameSongCandidate(item, reference))) return false;
+      if (queuedSongs.some((reference) => isSameMusicText(item.channelTitle, reference.artist))) return false;
+      return true;
+    });
+
+    const candidateSource = strictCandidates.length ? strictCandidates : baseCandidates;
+    const titleDiverseCandidates = candidateSource.filter((item) => {
+      if (queuedSongs.some((reference) => isSameMusicText(item.title, reference.title))) return false;
+      return true;
+    });
+
+    const candidates = (titleDiverseCandidates.length ? titleDiverseCandidates : candidateSource)
       .map((item) => {
         const contextText = playlistProfile.join(" ");
         const candidateText = [item.channelTitle, item.title].filter(Boolean).join(" ");
