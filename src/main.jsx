@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.03";
+const APP_VERSION = "2026.05.29.04";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -440,6 +440,9 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
+  const resumeSeconds = nowPlayingSong && room?.playbackStartedAt?.toMillis
+    ? Math.max(0, Math.floor((Date.now() - room.playbackStartedAt.toMillis()) / 1000))
+    : 0;
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
@@ -590,7 +593,8 @@ function App() {
       trackNoticeEnabled: true,
       trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
       joinNoticeEnabled: true,
-      nowPlayingId: null
+      nowPlayingId: null,
+      playbackStartedAt: null
     });
     await joinRoomById(nextId);
   }
@@ -667,7 +671,10 @@ function App() {
     });
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     if (!room?.nowPlayingId && songs.length === 0) {
-      batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: songRef.id });
+      batch.update(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: songRef.id,
+        playbackStartedAt: serverTimestamp()
+      });
     }
     await batch.commit();
     setSearchResults([]);
@@ -800,7 +807,10 @@ function App() {
     songs.forEach((song) => {
       batch.delete(doc(db, "rooms", activeRoomId, "songs", song.id));
     });
-    batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+    batch.update(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: null,
+      playbackStartedAt: null
+    });
     await batch.commit();
     setNowPlayingNotice(null);
     setToast("Playlist cleared.");
@@ -822,7 +832,10 @@ function App() {
       setToast("Only the Active DJ can control playback.");
       return;
     }
-    await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: songId });
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: songId,
+      playbackStartedAt: songId ? serverTimestamp() : null
+    });
   }
 
   async function takeOverDj() {
@@ -923,22 +936,34 @@ function App() {
     const currentSongId = room?.nowPlayingId || nowPlayingSong?.id || null;
     const nextSong = nextQueuedSong(songs, currentSongId);
     if (nextSong) {
-      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: nextSong.id });
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: nextSong.id,
+        playbackStartedAt: serverTimestamp()
+      });
       return;
     }
 
     const lastSong = songs.find((song) => song.id === currentSongId) || nowPlayingSong;
     if (!lastSong) {
-      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: null,
+        playbackStartedAt: null
+      });
       return;
     }
     if (!autoNextEnabled) {
-      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: null,
+        playbackStartedAt: null
+      });
       return;
     }
     if (!YOUTUBE_API_KEY) {
       setToast("Add VITE_YOUTUBE_API_KEY to auto-add similar songs.");
-      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: null,
+        playbackStartedAt: null
+      });
       return;
     }
 
@@ -946,7 +971,10 @@ function App() {
       const selectedVideo = await findSimilarYouTubeSong(lastSong);
       if (!selectedVideo) {
         setToast("No similar YouTube song found.");
-        await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+        await updateDoc(doc(db, "rooms", activeRoomId), {
+          nowPlayingId: null,
+          playbackStartedAt: null
+        });
         return;
       }
 
@@ -973,11 +1001,17 @@ function App() {
           createdAt: serverTimestamp()
         });
       }
-      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: autoSongId });
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: autoSongId,
+        playbackStartedAt: serverTimestamp()
+      });
       setToast("ROCK BeatsParty added a similar song.");
     } catch (error) {
       setToast(error.message || "Could not auto-add a similar song.");
-      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: null,
+        playbackStartedAt: null
+      });
     }
   }
 
@@ -1343,6 +1377,7 @@ function App() {
               onCrossfade={playNextSong}
               crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
               crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
+              resumeSeconds={resumeSeconds}
             />
             <div className="player-actions">
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
@@ -1886,7 +1921,7 @@ function App() {
   );
 }
 
-function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfadeSeconds }) {
+function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfadeSeconds, resumeSeconds = 0 }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerRef = useRef(null);
   const playerTimerRef = useRef(null);
@@ -1928,6 +1963,11 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
         events: {
           onReady: (event) => {
             event.target.setVolume?.(100);
+            if (resumeSeconds > 2 && event.target.seekTo) {
+              const duration = event.target.getDuration?.() || 0;
+              const seekTo = duration > 0 ? Math.min(resumeSeconds, Math.max(0, duration - 2)) : resumeSeconds;
+              event.target.seekTo(seekTo, true);
+            }
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
@@ -1976,7 +2016,7 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
         window.clearInterval(playerTimerRef.current);
       }
     };
-  }, [song?.videoId, crossfadeEnabled, crossfadeSeconds]);
+  }, [song?.videoId, crossfadeEnabled, crossfadeSeconds, resumeSeconds]);
 
   if (!song?.videoId) {
     return (
