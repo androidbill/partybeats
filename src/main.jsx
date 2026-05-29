@@ -209,8 +209,9 @@ function youtubeThumb(videoId) {
 
 function nextQueuedSong(songs, currentId) {
   if (!songs.length) return null;
+  if (!currentId) return songs[0];
   const currentIndex = songs.findIndex((song) => song.id === currentId);
-  if (currentIndex < 0) return songs[0];
+  if (currentIndex < 0) return null;
   return songs[currentIndex + 1] || null;
 }
 
@@ -851,13 +852,14 @@ function App() {
       setToast("Only the Active DJ can control playback.");
       return;
     }
-    const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
+    const currentSongId = room?.nowPlayingId || nowPlayingSong?.id || null;
+    const nextSong = nextQueuedSong(songs, currentSongId);
     if (nextSong) {
       await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: nextSong.id });
       return;
     }
 
-    const lastSong = songs.find((song) => song.id === room?.nowPlayingId);
+    const lastSong = songs.find((song) => song.id === currentSongId) || nowPlayingSong;
     if (!lastSong) {
       await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
       return;
