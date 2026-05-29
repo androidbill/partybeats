@@ -1653,6 +1653,72 @@ input:focus {
   }
 }
 
+@media (min-width: 980px) {
+  .room-app {
+    display: grid;
+    grid-template-columns: minmax(420px, 0.85fr) minmax(420px, 1.15fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 14px;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app-topbar {
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+  }
+
+  .now-playing-card,
+  .add-panel,
+  .queue-panel {
+    width: 100%;
+    margin: 0;
+  }
+
+  .now-playing-card {
+    align-self: start;
+  }
+
+  .add-panel {
+    align-self: start;
+  }
+
+  .now-playing-card,
+  .add-panel {
+    grid-column: 1;
+  }
+
+  .now-playing-card {
+    grid-row: 2;
+    max-height: calc(100dvh - 220px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .add-panel {
+    grid-row: 3;
+    max-height: 260px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .queue-panel {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    align-self: stretch;
+    min-height: 0;
+    max-height: calc(100dvh - 78px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .queue-panel .song-list {
+    padding-bottom: 12px;
+  }
+}
+
 @media (max-width: 520px) {
   .landing-hero {
     align-content: center;
