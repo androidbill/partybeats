@@ -1755,14 +1755,14 @@ function App() {
                           <>
                             <Crown aria-label="Admin" />
                             {!isCurrentUser && (
-                              <button className="mini-action" onClick={() => demoteMember(member)}>
-                                Demote
+                              <button className="icon-button" onClick={() => demoteMember(member)} title="Remove admin" type="button">
+                                <Crown aria-hidden="true" />
                               </button>
                             )}
                           </>
                         ) : (
-                          <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
-                            Make Admin
+                          <button className="icon-button" onClick={() => promoteMember(member)} disabled={member.isAnonymous} title="Make admin" type="button">
+                            <Crown aria-hidden="true" />
                           </button>
                         )}
                         {!isCurrentUser && (

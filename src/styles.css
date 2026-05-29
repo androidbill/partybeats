@@ -1343,7 +1343,9 @@ input:focus {
 
 .people-modal {
   max-height: min(620px, calc(100dvh - 32px));
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .room-app.dark-mode .settings-people {
@@ -1359,7 +1361,7 @@ input:focus {
 
 .people-panel .member-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) max-content;
   gap: 10px;
   align-items: center;
   min-height: 46px;
@@ -1387,10 +1389,12 @@ input:focus {
 
 .member-actions {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
   gap: 6px;
   align-items: center;
   justify-content: flex-end;
+  white-space: nowrap;
 }
 
 .member-actions .mini-action {
@@ -1435,6 +1439,8 @@ input:focus {
   place-items: end center;
   padding: 16px;
   background: rgba(18, 19, 26, 0.58);
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .about-modal {
@@ -1503,6 +1509,10 @@ input:focus {
 
 .settings-modal {
   gap: 18px;
+  max-height: min(680px, calc(100dvh - 32px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .setting-row {
