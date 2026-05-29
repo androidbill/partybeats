@@ -113,7 +113,7 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
-const APP_VERSION = "2026.05.29.26";
+const APP_VERSION = "2026.05.29.27";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -1070,15 +1070,18 @@ function App() {
 
     if (leavingRoomId && leavingUser) {
       const batch = writeBatch(db);
+      let roomDeleted = false;
       if (isAdmin) {
         const remainingAdmins = members.filter((member) => member.id !== leavingUser.uid && isRoomAdminId(member.id));
         if (remainingAdmins.length === 0) {
-          batch.update(doc(db, "rooms", leavingRoomId), {
-            closed: true,
-            closedAt: serverTimestamp(),
-            closedByUid: leavingUser.uid,
-            [`adminUids.${leavingUser.uid}`]: deleteField()
+          songs.forEach((song) => {
+            batch.delete(doc(db, "rooms", leavingRoomId, "songs", song.id));
           });
+          members.forEach((member) => {
+            batch.delete(doc(db, "rooms", leavingRoomId, "members", member.id));
+          });
+          batch.delete(doc(db, "rooms", leavingRoomId));
+          roomDeleted = true;
         } else {
           batch.update(doc(db, "rooms", leavingRoomId), {
             [`adminUids.${leavingUser.uid}`]: deleteField(),
@@ -1093,7 +1096,9 @@ function App() {
           });
         }
       }
-      batch.delete(doc(db, "rooms", leavingRoomId, "members", leavingUser.uid));
+      if (!roomDeleted) {
+        batch.delete(doc(db, "rooms", leavingRoomId, "members", leavingUser.uid));
+      }
       await batch.commit();
     }
 
