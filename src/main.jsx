@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.09";
+const APP_VERSION = "2026.05.29.10";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -171,7 +171,7 @@ function isSameMusicText(a, b) {
 function musicTokens(value) {
   return normalizeMusicText(value)
     .split(" ")
-    .filter((token) => token.length > 2 && !["the", "and", "with", "from"].includes(token));
+    .filter((token) => token.length > 2 && !["the", "and", "with", "from", "song", "songs", "like", "radio", "mix"].includes(token));
 }
 
 function musicTokenOverlap(a, b) {
@@ -195,9 +195,32 @@ function isSameSongCandidate(candidate, reference) {
   return (
     isSameMusicText(candidate.channelTitle, referenceArtist)
     || isSameMusicText(candidateTitle, referenceTitle)
+    || hasSharedSongPhrase(candidateTitle, referenceTitle)
+    || hasSharedSongPhrase(candidateText, [referenceArtist, referenceTitle].filter(Boolean).join(" "))
     || musicTokenOverlap(candidateTitle, referenceTitle) >= 0.72
     || musicTokenOverlap(candidateText, [referenceArtist, referenceTitle].filter(Boolean).join(" ")) >= 0.82
   );
+}
+
+function songPhraseSet(value) {
+  const tokens = musicTokens(value);
+  const phrases = new Set();
+  for (let size = 2; size <= Math.min(5, tokens.length); size += 1) {
+    for (let index = 0; index <= tokens.length - size; index += 1) {
+      phrases.add(tokens.slice(index, index + size).join(" "));
+    }
+  }
+  return phrases;
+}
+
+function hasSharedSongPhrase(a, b) {
+  const left = songPhraseSet(a);
+  const right = songPhraseSet(b);
+  if (!left.size || !right.size) return false;
+  for (const phrase of left) {
+    if (right.has(phrase)) return true;
+  }
+  return false;
 }
 
 function candidateHasLowDiversityTitle(candidate) {
@@ -811,12 +834,12 @@ function App() {
         seenVideoIds.add(item.videoId);
         if (candidateHasLowDiversityTitle(item)) return false;
         if (isSameSongCandidate(item, song)) return false;
+        if (queuedSongs.some((reference) => isSameSongCandidate(item, reference))) return false;
         if (isSameMusicText(item.channelTitle, song.artist) || isSameMusicText(item.title, song.artist)) return false;
         return true;
       });
 
     const strictCandidates = baseCandidates.filter((item) => {
-      if (seedSongs.some((reference) => isSameSongCandidate(item, reference))) return false;
       if (queuedSongs.some((reference) => isSameMusicText(item.channelTitle, reference.artist))) return false;
       return true;
     });
