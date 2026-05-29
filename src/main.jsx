@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.06";
+const APP_VERSION = "2026.05.29.07";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -1946,6 +1946,20 @@ function YouTubePlayer({
   const endedRef = useRef(onEnded);
   const crossfadeRef = useRef(onCrossfade);
   const crossfadeTriggeredRef = useRef(false);
+  const playbackOptionsRef = useRef({
+    crossfadeEnabled,
+    crossfadeSeconds,
+    resumeSeconds,
+    resumeKey,
+    playbackStartedAtMs
+  });
+  playbackOptionsRef.current = {
+    crossfadeEnabled,
+    crossfadeSeconds,
+    resumeSeconds,
+    resumeKey,
+    playbackStartedAtMs
+  };
 
   useEffect(() => {
     endedRef.current = onEnded;
@@ -1981,8 +1995,9 @@ function YouTubePlayer({
         events: {
           onReady: (event) => {
             event.target.setVolume?.(100);
-            const savedResumeSeconds = readSavedResumeSeconds(resumeKey, playbackStartedAtMs);
-            const nextResumeSeconds = Math.max(resumeSeconds, savedResumeSeconds);
+            const options = playbackOptionsRef.current;
+            const savedResumeSeconds = readSavedResumeSeconds(options.resumeKey, options.playbackStartedAtMs);
+            const nextResumeSeconds = Math.max(options.resumeSeconds, savedResumeSeconds);
             if (nextResumeSeconds > 2 && event.target.seekTo) {
               const duration = event.target.getDuration?.() || 0;
               const seekTo = duration > 0 ? Math.min(nextResumeSeconds, Math.max(0, duration - 2)) : nextResumeSeconds;
@@ -2000,17 +2015,18 @@ function YouTubePlayer({
                   return;
                 }
                 const current = event.target.getCurrentTime();
-                saveResumeSeconds(resumeKey, playbackStartedAtMs, current);
-                if (!crossfadeEnabled || !crossfadeSeconds || !event.target.getDuration) {
+                const options = playbackOptionsRef.current;
+                saveResumeSeconds(options.resumeKey, options.playbackStartedAtMs, current);
+                if (!options.crossfadeEnabled || !options.crossfadeSeconds || !event.target.getDuration) {
                   return;
                 }
                 const duration = event.target.getDuration();
                 const remaining = duration - current;
                 if (
-                  crossfadeEnabled
-                  && crossfadeSeconds
+                  options.crossfadeEnabled
+                  && options.crossfadeSeconds
                   && duration
-                  && remaining <= crossfadeSeconds
+                  && remaining <= options.crossfadeSeconds
                   && !crossfadeTriggeredRef.current
                 ) {
                   crossfadeTriggeredRef.current = true;
@@ -2040,7 +2056,7 @@ function YouTubePlayer({
         window.clearInterval(playerTimerRef.current);
       }
     };
-  }, [song?.videoId, crossfadeEnabled, crossfadeSeconds, resumeSeconds, resumeKey, playbackStartedAtMs]);
+  }, [song?.videoId]);
 
   if (!song?.videoId) {
     return (
