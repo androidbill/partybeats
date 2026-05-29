@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.21";
+const APP_VERSION = "2026.05.29.22";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const YOUTUBE_QUOTA_STORAGE_KEY = "partybeats-youtube-quota-exceeded";
 const PROFANITY_PATTERNS = [
@@ -282,7 +282,7 @@ function youtubeThumb(videoId) {
 }
 
 function youtubeSearchUrl(queryText) {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}`;
+  return `https://music.youtube.com/search?q=${encodeURIComponent(queryText)}`;
 }
 
 function youtubeOembedUrl(videoId) {
@@ -1476,7 +1476,7 @@ function App() {
                 rel="noreferrer"
               >
                 <ExternalLink aria-hidden="true" />
-                Search YouTube
+                Search YouTube Music
               </a>
               {YOUTUBE_API_KEY && (
                 <button className="subtle-action" onClick={tryInAppSearch} type="button">
