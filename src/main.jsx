@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.17";
+const APP_VERSION = "2026.05.29.18";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -280,6 +280,35 @@ function youtubeThumb(videoId) {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+function youtubeSearchUrl(queryText) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}`;
+}
+
+function youtubeOembedUrl(videoId) {
+  return `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(youtubeWatchUrl(videoId))}`;
+}
+
+function extractYouTubeVideoId(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+  try {
+    const url = new URL(rawValue);
+    if (url.hostname.includes("youtu.be")) {
+      return url.pathname.replace("/", "").slice(0, 11);
+    }
+    if (url.hostname.includes("youtube.com")) {
+      if (url.pathname === "/watch") return (url.searchParams.get("v") || "").slice(0, 11);
+      if (url.pathname.startsWith("/shorts/") || url.pathname.startsWith("/embed/")) {
+        return (url.pathname.split("/")[2] || "").slice(0, 11);
+      }
+    }
+  } catch {
+    const match = rawValue.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/);
+    return match?.[1] || "";
+  }
+  return "";
+}
+
 function nextQueuedSong(songs, currentId) {
   if (!songs.length) return null;
   if (!currentId) return songs[0];
@@ -316,6 +345,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [youtubeLink, setYoutubeLink] = useState("");
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [youtubeQuotaExceeded, setYoutubeQuotaExceeded] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -480,7 +512,6 @@ function App() {
   const cooldownMs = cooldownMinutes * 60 * 1000;
   const crossfadeEnabled = room?.crossfadeEnabled !== false;
   const crossfadeSeconds = Math.min(30, Math.max(1, Number(room?.crossfadeSeconds) || DEFAULT_CROSSFADE_SECONDS));
-  const autoNextEnabled = room?.autoNextEnabled !== false;
   const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
@@ -650,7 +681,6 @@ function App() {
       cooldownMs: DEFAULT_COOLDOWN_MS,
       crossfadeEnabled: true,
       crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
-      autoNextEnabled: true,
       trackNoticeEnabled: true,
       trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
       joinNoticeEnabled: true,
@@ -698,16 +728,16 @@ function App() {
 
   async function addSong(event, selectedVideo = null) {
     event?.preventDefault();
-    if (!user || !activeRoomId) return;
+    if (!user || !activeRoomId) return false;
 
     const videoId = selectedVideo?.videoId;
     if (!videoId) {
       setToast("Choose a YouTube search result.");
-      return;
+      return false;
     }
     if (!canAddSong) {
       setToast(`Non-admins have a ${cooldownMinutes} minute song cooldown.`);
-      return;
+      return false;
     }
 
     const title = selectedVideo?.title || "YouTube track";
@@ -741,6 +771,7 @@ function App() {
     }
     await batch.commit();
     setSearchResults([]);
+    return true;
   }
 
   async function searchYouTube(event) {
@@ -765,8 +796,16 @@ function App() {
       const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
       const data = await response.json();
       if (!response.ok) {
+        const quotaReasons = new Set(["quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded", "userRateLimitExceeded"]);
+        if (data.error?.errors?.some((item) => quotaReasons.has(item.reason)) || data.error?.message?.toLowerCase().includes("quota")) {
+          setYoutubeQuotaExceeded(true);
+          setSearchResults([]);
+          setToast("YouTube search quota reached. Use Search YouTube externally or paste a link.");
+          return;
+        }
         throw new Error(data.error?.message || "YouTube search failed.");
       }
+      setYoutubeQuotaExceeded(false);
       setSearchResults(
         (data.items || []).map((item) => ({
           videoId: item.id.videoId,
@@ -782,81 +821,29 @@ function App() {
     }
   }
 
-  async function findSimilarYouTubeSong(song) {
-    if (!YOUTUBE_API_KEY || !song) return null;
-    const recentSongs = songs
-      .filter((item) => item.id !== song.id && !item.autoAdded)
-      .slice(-5);
-    const seedSongs = [song, ...recentSongs].filter(Boolean);
-    const playlistProfile = seedSongs
-      .map((item) => [item.artist, item.title].filter(Boolean).join(" "))
-      .filter(Boolean);
-    if (!playlistProfile.length) return null;
-
-    const queuedVideoIds = new Set(songs.map((item) => item.videoId).filter(Boolean));
-    const queuedSongs = songs.filter((item) => item.videoId || item.title || item.artist);
-    const searchQueries = [
-      `${[song.artist, song.title].filter(Boolean).join(" ")} radio songs`,
-      `songs like ${[song.artist, song.title].filter(Boolean).join(" ")}`,
-      `${playlistProfile.slice(0, 3).join(" ")} party playlist`,
-      `${playlistProfile.join(" ")} similar vibe music`
-    ]
-      .map((queryText) => queryText.trim().slice(0, 180))
-      .filter(Boolean);
-
-    const searchResults = await Promise.all(searchQueries.map(async (queryText) => {
-      const params = new URLSearchParams({
-        part: "snippet",
-        type: "video",
-        maxResults: "20",
-        videoCategoryId: "10",
-        order: "relevance",
-        videoEmbeddable: "true",
-        q: queryText,
-        key: YOUTUBE_API_KEY
+  async function addYouTubeLink(event) {
+    event.preventDefault();
+    const videoId = extractYouTubeVideoId(youtubeLink);
+    if (!videoId) {
+      setToast("Paste a valid YouTube video link.");
+      return;
+    }
+    setLinkLoading(true);
+    try {
+      const response = await fetch(youtubeOembedUrl(videoId));
+      const data = response.ok ? await response.json() : {};
+      const added = await addSong(null, {
+        videoId,
+        title: data.title || "YouTube track",
+        channelTitle: data.author_name || "YouTube",
+        thumbnail: data.thumbnail_url || youtubeThumb(videoId)
       });
-      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || "YouTube search failed.");
-      }
-      return data.items || [];
-    }));
-
-    const seenVideoIds = new Set();
-    const candidates = searchResults
-      .flat()
-      .map((item) => ({
-        videoId: item.id.videoId,
-        title: item.snippet.title,
-        channelTitle: item.snippet.channelTitle,
-        thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
-      }))
-      .filter((item) => {
-        if (!item.videoId || seenVideoIds.has(item.videoId) || queuedVideoIds.has(item.videoId)) return false;
-        seenVideoIds.add(item.videoId);
-        if (candidateHasLowDiversityTitle(item)) return false;
-        if (isSameMusicText(item.channelTitle, song.artist) || isSameMusicText(item.title, song.artist)) return false;
-        if (queuedSongs.some((reference) => isSameMusicText(item.channelTitle, reference.artist))) return false;
-        if (queuedSongs.some((reference) => isSameMusicText(item.title, reference.title) || hasSharedSongPhrase(item.title, reference.title))) return false;
-        return true;
-      })
-      .map((item) => {
-        const contextText = playlistProfile.join(" ");
-        const candidateText = [item.channelTitle, item.title].filter(Boolean).join(" ");
-        const relevance = musicTokenOverlap(candidateText, contextText);
-        const lastSongOverlap = musicTokenOverlap(candidateText, [song.artist, song.title].filter(Boolean).join(" "));
-        const partyBoost = /\b(dance|party|club|remix|radio edit|official video|official audio)\b/i.test(item.title || "") ? 0.1 : 0;
-        return {
-          ...item,
-          score: relevance + partyBoost - (lastSongOverlap * 0.45) + Math.random() * 0.12
-        };
-      })
-      .sort((a, b) => b.score - a.score);
-
-    if (!candidates.length) return null;
-    const radioPool = candidates.slice(0, Math.min(candidates.length, 8));
-    return radioPool[Math.floor(Math.random() * radioPool.length)];
+      if (added) setYoutubeLink("");
+    } catch (error) {
+      setToast(error.message || "Could not add that YouTube link.");
+    } finally {
+      setLinkLoading(false);
+    }
   }
 
   async function removeSong(songId) {
@@ -1009,76 +996,10 @@ function App() {
       return;
     }
 
-    const lastSong = songs.find((song) => song.id === currentSongId) || nowPlayingSong;
-    if (!lastSong) {
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: null,
-        playbackStartedAt: null
-      });
-      return;
-    }
-    if (!autoNextEnabled) {
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: null,
-        playbackStartedAt: null
-      });
-      return;
-    }
-    if (!YOUTUBE_API_KEY) {
-      setToast("Add VITE_YOUTUBE_API_KEY to auto-add similar songs.");
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: null,
-        playbackStartedAt: null
-      });
-      return;
-    }
-
-    try {
-      const selectedVideo = await findSimilarYouTubeSong(lastSong);
-      if (!selectedVideo) {
-        setToast("No similar YouTube song found.");
-        await updateDoc(doc(db, "rooms", activeRoomId), {
-          nowPlayingId: null,
-          playbackStartedAt: null
-        });
-        return;
-      }
-
-      const autoSongId = `auto-${lastSong.id}`;
-      const autoSongRef = doc(db, "rooms", activeRoomId, "songs", autoSongId);
-      const autoSongSnap = await getDoc(autoSongRef);
-      if (!autoSongSnap.exists()) {
-        const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
-        await setDoc(autoSongRef, {
-          title: selectedVideo.title || "YouTube track",
-          artist: selectedVideo.channelTitle || "YouTube",
-          link: youtubeWatchUrl(selectedVideo.videoId),
-          provider: "youtube",
-          videoId: selectedVideo.videoId,
-          thumbnail: selectedVideo.thumbnail || youtubeThumb(selectedVideo.videoId),
-          addedByUid: user.uid,
-          addedByName: "ROCK BeatsParty Auto",
-          addedByIsAnonymous: false,
-          autoAdded: true,
-          similarToSongId: lastSong.id,
-          position: nextPosition,
-          emojiByUser: {},
-          messages: [],
-          createdAt: serverTimestamp()
-        });
-      }
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: autoSongId,
-        playbackStartedAt: serverTimestamp()
-      });
-      setToast("ROCK BeatsParty added a similar song.");
-    } catch (error) {
-      setToast(error.message || "Could not auto-add a similar song.");
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: null,
-        playbackStartedAt: null
-      });
-    }
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: null,
+      playbackStartedAt: null
+    });
   }
 
   async function reactToSong(song, emoji) {
@@ -1167,11 +1088,6 @@ function App() {
     if (!isAdmin || !activeRoomId) return;
     const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_CROSSFADE_SECONDS));
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeSeconds: cleanSeconds });
-  }
-
-  async function updateAutoNextEnabled(enabled) {
-    if (!isAdmin || !activeRoomId) return;
-    await updateDoc(doc(db, "rooms", activeRoomId), { autoNextEnabled: enabled });
   }
 
   async function updateTrackNoticeEnabled(enabled) {
@@ -1471,15 +1387,45 @@ function App() {
       </section>
 
       <section className="add-panel">
-        <form className="youtube-search" onSubmit={searchYouTube}>
+        {!youtubeQuotaExceeded && YOUTUBE_API_KEY ? (
+          <form className="youtube-search" onSubmit={searchYouTube}>
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search YouTube"
+            />
+            <button className="primary-action" disabled={searching}>
+              <Search aria-hidden="true" />
+              {searching ? "..." : "Search"}
+            </button>
+          </form>
+        ) : (
+          <div className="external-search-panel">
+            <div>
+              <strong>{youtubeQuotaExceeded ? "YouTube search quota reached" : "YouTube API key missing"}</strong>
+              <span>Search on YouTube, then paste the video link here.</span>
+            </div>
+            <a
+              className="primary-action"
+              href={youtubeSearchUrl(searchQuery || "music")}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink aria-hidden="true" />
+              Search YouTube
+            </a>
+          </div>
+        )}
+
+        <form className="youtube-link-form" onSubmit={addYouTubeLink}>
           <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
+            value={youtubeLink}
+            onChange={(event) => setYoutubeLink(event.target.value)}
+            placeholder="Paste YouTube link"
           />
-          <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
-            <Search aria-hidden="true" />
-            {searching ? "..." : "Search"}
+          <button className="mini-action" disabled={!youtubeLink.trim() || linkLoading || !canAddSong} type="submit">
+            <Plus aria-hidden="true" />
+            {linkLoading ? "..." : "Add Link"}
           </button>
         </form>
 
@@ -1816,20 +1762,6 @@ function App() {
               />
               <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds >= 30}>
                 +
-              </button>
-            </div>
-            <div className="setting-row">
-              <div>
-                <strong>Auto-next similar track</strong>
-                <span>{autoNextEnabled ? "Add a similar track when the playlist ends" : "Stop when the playlist ends"}</span>
-              </div>
-              <button
-                className={autoNextEnabled ? "toggle-button is-on" : "toggle-button"}
-                onClick={() => updateAutoNextEnabled(!autoNextEnabled)}
-                disabled={!isAdmin}
-                type="button"
-              >
-                {autoNextEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="setting-row">
