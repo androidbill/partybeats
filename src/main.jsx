@@ -115,8 +115,9 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.18";
+const APP_VERSION = "2026.05.29.20";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
+const YOUTUBE_QUOTA_STORAGE_KEY = "partybeats-youtube-quota-exceeded";
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -332,6 +333,23 @@ function savedTheme() {
   }
 }
 
+function savedYoutubeQuotaExceeded() {
+  try {
+    return localStorage.getItem(YOUTUBE_QUOTA_STORAGE_KEY) === new Date().toISOString().slice(0, 10);
+  } catch {
+    return false;
+  }
+}
+
+function savedSearchMode() {
+  try {
+    const mode = localStorage.getItem("partybeats-search-mode");
+    return ["auto", "in-app", "external"].includes(mode) ? mode : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -347,7 +365,8 @@ function App() {
   const [searching, setSearching] = useState(false);
   const [youtubeLink, setYoutubeLink] = useState("");
   const [linkLoading, setLinkLoading] = useState(false);
-  const [youtubeQuotaExceeded, setYoutubeQuotaExceeded] = useState(false);
+  const [youtubeQuotaExceeded, setYoutubeQuotaExceeded] = useState(savedYoutubeQuotaExceeded);
+  const [searchMode, setSearchMode] = useState(savedSearchMode);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -427,6 +446,14 @@ function App() {
       // Nickname persistence is best-effort.
     }
   }, [user?.uid, nickname]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("partybeats-search-mode", searchMode);
+    } catch {
+      // Search mode persistence is best-effort.
+    }
+  }, [searchMode]);
 
   useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
@@ -525,6 +552,7 @@ function App() {
     ? Math.max(0, Math.floor((Date.now() - playbackStartedAtMs) / 1000))
     : 0;
   const resumeKey = activeRoomId && nowPlayingSong?.id ? `partybeats-resume:${activeRoomId}:${nowPlayingSong.id}` : "";
+  const shouldUseExternalSearch = searchMode === "external" || (searchMode === "auto" && youtubeQuotaExceeded) || !YOUTUBE_API_KEY;
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
@@ -799,6 +827,11 @@ function App() {
         const quotaReasons = new Set(["quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded", "userRateLimitExceeded"]);
         if (data.error?.errors?.some((item) => quotaReasons.has(item.reason)) || data.error?.message?.toLowerCase().includes("quota")) {
           setYoutubeQuotaExceeded(true);
+          try {
+            localStorage.setItem(YOUTUBE_QUOTA_STORAGE_KEY, new Date().toISOString().slice(0, 10));
+          } catch {
+            // Quota mode persistence is best-effort.
+          }
           setSearchResults([]);
           setToast("YouTube search quota reached. Use Search YouTube externally or paste a link.");
           return;
@@ -806,6 +839,11 @@ function App() {
         throw new Error(data.error?.message || "YouTube search failed.");
       }
       setYoutubeQuotaExceeded(false);
+      try {
+        localStorage.removeItem(YOUTUBE_QUOTA_STORAGE_KEY);
+      } catch {
+        // Quota mode persistence is best-effort.
+      }
       setSearchResults(
         (data.items || []).map((item) => ({
           videoId: item.id.videoId,
@@ -819,6 +857,25 @@ function App() {
     } finally {
       setSearching(false);
     }
+  }
+
+  function tryInAppSearch() {
+    if (!YOUTUBE_API_KEY) {
+      setToast("Add VITE_YOUTUBE_API_KEY to .env.local to search YouTube in the app.");
+      return;
+    }
+    if (!searchQuery.trim()) {
+      setToast("Enter a song or artist to try in-app search.");
+      return;
+    }
+    setSearchMode("in-app");
+    setYoutubeQuotaExceeded(false);
+    try {
+      localStorage.removeItem(YOUTUBE_QUOTA_STORAGE_KEY);
+    } catch {
+      // Quota mode persistence is best-effort.
+    }
+    searchYouTube({ preventDefault: () => undefined });
   }
 
   async function addYouTubeLink(event) {
@@ -1387,7 +1444,7 @@ function App() {
       </section>
 
       <section className="add-panel">
-        {!youtubeQuotaExceeded && YOUTUBE_API_KEY ? (
+        {!shouldUseExternalSearch ? (
           <form className="youtube-search" onSubmit={searchYouTube}>
             <input
               value={searchQuery}
@@ -1402,18 +1459,32 @@ function App() {
         ) : (
           <div className="external-search-panel">
             <div>
-              <strong>{youtubeQuotaExceeded ? "YouTube search quota reached" : "YouTube API key missing"}</strong>
+              <strong>
+                {!YOUTUBE_API_KEY
+                  ? "YouTube API key missing"
+                  : searchMode === "external"
+                    ? "External search mode"
+                    : "YouTube search quota reached"}
+              </strong>
               <span>Search on YouTube, then paste the video link here.</span>
             </div>
-            <a
-              className="primary-action"
-              href={youtubeSearchUrl(searchQuery || "music")}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <ExternalLink aria-hidden="true" />
-              Search YouTube
-            </a>
+            <div className="external-search-actions">
+              <a
+                className="primary-action"
+                href={youtubeSearchUrl(searchQuery || "music")}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink aria-hidden="true" />
+                Search YouTube
+              </a>
+              {YOUTUBE_API_KEY && (
+                <button className="subtle-action" onClick={tryInAppSearch} type="button">
+                  <Search aria-hidden="true" />
+                  Try in-app
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1763,6 +1834,30 @@ function App() {
               <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds >= 30}>
                 +
               </button>
+            </div>
+            <div className="setting-row">
+              <div>
+                <strong>Search mode</strong>
+                <span>
+                  {searchMode === "auto"
+                    ? "Use in-app search until quota runs out"
+                    : searchMode === "in-app"
+                      ? "Always try in-app YouTube search"
+                      : "Open YouTube search and paste links"}
+                </span>
+              </div>
+            </div>
+            <div className="segmented-control">
+              {["auto", "in-app", "external"].map((mode) => (
+                <button
+                  className={searchMode === mode ? "selected" : ""}
+                  key={mode}
+                  onClick={() => setSearchMode(mode)}
+                  type="button"
+                >
+                  {mode === "auto" ? "Auto" : mode === "in-app" ? "In-app" : "External"}
+                </button>
+              ))}
             </div>
             <div className="setting-row">
               <div>
