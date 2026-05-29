@@ -1694,9 +1694,7 @@ input:focus {
 
   .now-playing-card {
     grid-row: 2;
-    max-height: 42dvh;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: visible;
   }
 
   .now-playing-card h1 {
@@ -1717,7 +1715,8 @@ input:focus {
   .youtube-frame,
   .youtube-frame iframe,
   .player-empty {
-    max-height: 30dvh;
+    aspect-ratio: 21 / 9;
+    max-height: 24dvh;
   }
 
   .player-actions {
@@ -1733,7 +1732,7 @@ input:focus {
 
   .add-panel {
     grid-row: 3;
-    max-height: calc(58dvh - 92px);
+    max-height: calc(100dvh - 430px);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
