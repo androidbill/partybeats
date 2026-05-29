@@ -113,7 +113,7 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
-const APP_VERSION = "2026.05.29.25";
+const APP_VERSION = "2026.05.29.26";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -541,20 +541,25 @@ function App() {
   }, [nowPlayingSong?.id, crossfadeEnabled, crossfadeSeconds]);
 
   useEffect(() => {
-    if (!activeRoomId || !nowPlayingSong?.id) {
-      previousNowPlayingId.current = nowPlayingSong?.id || null;
+    const currentPlayingId = room?.nowPlayingId || null;
+    if (!activeRoomId || !currentPlayingId) {
+      previousNowPlayingId.current = currentPlayingId;
       setNowPlayingNotice(null);
       return undefined;
     }
     if (previousNowPlayingId.current === undefined) {
-      previousNowPlayingId.current = nowPlayingSong.id;
+      previousNowPlayingId.current = currentPlayingId;
       return undefined;
     }
-    if (previousNowPlayingId.current === nowPlayingSong.id) {
+    if (previousNowPlayingId.current === currentPlayingId) {
       return undefined;
     }
 
-    previousNowPlayingId.current = nowPlayingSong.id;
+    previousNowPlayingId.current = currentPlayingId;
+    if (!nowPlayingSong) {
+      setNowPlayingNotice(null);
+      return undefined;
+    }
     if (!trackNoticeEnabled) {
       setNowPlayingNotice(null);
       return undefined;
@@ -568,7 +573,7 @@ function App() {
     });
     const timer = window.setTimeout(() => setNowPlayingNotice(null), trackNoticeSeconds * 1000);
     return () => window.clearTimeout(timer);
-  }, [activeRoomId, nowPlayingSong?.id]);
+  }, [activeRoomId, room?.nowPlayingId, nowPlayingSong?.id, trackNoticeEnabled, trackNoticeSeconds]);
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -578,6 +583,9 @@ function App() {
     }
 
     const currentIds = new Set(members.map((member) => member.id));
+    if (previousMemberIds.current === undefined && members.length === 0) {
+      return undefined;
+    }
     if (previousMemberIds.current === undefined) {
       previousMemberIds.current = currentIds;
       return undefined;
