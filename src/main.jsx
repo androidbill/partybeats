@@ -113,7 +113,7 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
-const APP_VERSION = "2026.05.29.24";
+const APP_VERSION = "2026.05.29.25";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -646,8 +646,8 @@ function App() {
   }
 
   async function createRoom() {
-    const roomUser = await ensureSignedInWithNickname();
-    if (!roomUser) {
+    if (!user || user.isAnonymous) {
+      setToast("Sign in with Google to create a room.");
       return;
     }
 
@@ -667,10 +667,10 @@ function App() {
 
     await setDoc(doc(db, "rooms", nextId), {
       roomId: nextId,
-      adminUid: roomUser.uid,
-      adminUids: { [roomUser.uid]: true },
+      adminUid: user.uid,
+      adminUids: { [user.uid]: true },
       adminName: activeNickname,
-      activeDjUid: roomUser.uid,
+      activeDjUid: user.uid,
       activeDjName: activeNickname,
       createdAt: serverTimestamp(),
       closed: false,
@@ -685,7 +685,7 @@ function App() {
       nowPlayingId: null,
       playbackStartedAt: null
     });
-    await joinRoomById(nextId, { user: roomUser });
+    await joinRoomById(nextId, { user });
   }
 
   async function joinRoomById(rawId = roomId, options = {}) {
@@ -1182,9 +1182,9 @@ function App() {
 
           <div className="room-card">
             <h2>Start or Join</h2>
-            <p className="muted">Use Google or just enter a nickname, then create a room or join with a code.</p>
+            <p className="muted">Sign in with Google to create a room. Guests can join with a nickname and room code.</p>
             <div className="room-actions">
-              <button className="primary-action" onClick={createRoom} disabled={authLoading}>
+              <button className="primary-action" onClick={createRoom} disabled={authLoading || !user || user.isAnonymous}>
                 <Wand2 aria-hidden="true" />
                 Create Room
               </button>
