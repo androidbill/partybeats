@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.08";
+const APP_VERSION = "2026.05.29.09";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -206,6 +206,20 @@ function candidateHasLowDiversityTitle(candidate) {
 
 function nicknameFor(user, fallback = "Guest") {
   return user?.displayName || user?.email?.split("@")[0] || fallback;
+}
+
+function nicknameStorageKey(user) {
+  return user?.uid ? `partybeats-nickname:${user.uid}` : "";
+}
+
+function savedNicknameFor(user) {
+  const key = nicknameStorageKey(user);
+  if (!key) return "";
+  try {
+    return localStorage.getItem(key) || "";
+  } catch {
+    return "";
+  }
 }
 
 function hasProfanity(value) {
@@ -312,7 +326,7 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setAuthLoading(false);
-      setNickname(nicknameFor(nextUser, ""));
+      setNickname(savedNicknameFor(nextUser) || nicknameFor(nextUser, ""));
     }, (error) => {
       setToast(authErrorMessage(error));
       setAuthLoading(false);
@@ -324,7 +338,7 @@ function App() {
         if (result?.user) {
           setUser(result.user);
           setAuthLoading(false);
-          setNickname(nicknameFor(result.user, ""));
+          setNickname(savedNicknameFor(result.user) || nicknameFor(result.user, ""));
         }
       })
       .catch((error) => {
@@ -346,6 +360,17 @@ function App() {
     }
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    const cleanName = nickname.trim();
+    const key = nicknameStorageKey(user);
+    if (!key || !cleanName) return;
+    try {
+      localStorage.setItem(key, cleanName);
+    } catch {
+      // Nickname persistence is best-effort.
+    }
+  }, [user?.uid, nickname]);
 
   useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
@@ -531,7 +556,7 @@ function App() {
       const result = await signInWithPopup(auth, provider);
       if (result?.user) {
         setUser(result.user);
-        setNickname(nicknameFor(result.user, ""));
+        setNickname(savedNicknameFor(result.user) || nicknameFor(result.user, ""));
       }
     } catch (error) {
       if (["auth/popup-blocked", "auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error.code)) {
@@ -555,6 +580,11 @@ function App() {
     try {
       const credential = await signInAnonymously(auth);
       await updateProfile(credential.user, { displayName: cleanName });
+      try {
+        localStorage.setItem(nicknameStorageKey(credential.user), cleanName);
+      } catch {
+        // Nickname persistence is best-effort.
+      }
       setUser(credential.user);
       setNickname(cleanName);
     } catch (error) {
