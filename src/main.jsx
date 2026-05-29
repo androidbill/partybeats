@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.01";
+const APP_VERSION = "2026.05.29.02";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -166,6 +166,42 @@ function isSameMusicText(a, b) {
   const right = compactMusicText(b);
   if (!left || !right) return false;
   return left === right || left.includes(right) || right.includes(left);
+}
+
+function musicTokens(value) {
+  return normalizeMusicText(value)
+    .split(" ")
+    .filter((token) => token.length > 2 && !["the", "and", "with", "from"].includes(token));
+}
+
+function musicTokenOverlap(a, b) {
+  const left = new Set(musicTokens(a));
+  const right = new Set(musicTokens(b));
+  if (!left.size || !right.size) return 0;
+  let shared = 0;
+  left.forEach((token) => {
+    if (right.has(token)) shared += 1;
+  });
+  return shared / Math.min(left.size, right.size);
+}
+
+function isSameSongCandidate(candidate, reference) {
+  if (!candidate || !reference) return false;
+  const candidateText = [candidate.channelTitle, candidate.title].filter(Boolean).join(" ");
+  const referenceArtist = reference.artist || "";
+  const referenceTitle = reference.title || "";
+  const candidateTitle = candidate.title || "";
+
+  return (
+    isSameMusicText(candidate.channelTitle, referenceArtist)
+    || isSameMusicText(candidateTitle, referenceTitle)
+    || musicTokenOverlap(candidateTitle, referenceTitle) >= 0.72
+    || musicTokenOverlap(candidateText, [referenceArtist, referenceTitle].filter(Boolean).join(" ")) >= 0.82
+  );
+}
+
+function candidateHasLowDiversityTitle(candidate) {
+  return /\b(cover|karaoke|instrumental|tribute|reaction|tutorial|lesson|loop|sped up|slowed|nightcore)\b/i.test(candidate.title || "");
 }
 
 function nicknameFor(user, fallback = "Guest") {
@@ -674,34 +710,47 @@ function App() {
 
   async function findSimilarYouTubeSong(song) {
     if (!YOUTUBE_API_KEY || !song) return null;
-    const playlistProfile = songs
-      .filter((item) => item.id !== song.id)
-      .slice(-5)
+    const recentSongs = songs
+      .filter((item) => item.id !== song.id && !item.autoAdded)
+      .slice(-5);
+    const seedSongs = [song, ...recentSongs].filter(Boolean);
+    const playlistProfile = seedSongs
       .map((item) => [item.artist, item.title].filter(Boolean).join(" "))
       .filter(Boolean);
-    const queryText = (playlistProfile.length ? playlistProfile : [[song.artist, song.title].filter(Boolean).join(" ")])
-      .join(" ")
-      .slice(0, 180);
-    if (!queryText.trim()) return null;
-
-    const params = new URLSearchParams({
-      part: "snippet",
-      type: "video",
-      maxResults: "25",
-      videoCategoryId: "10",
-      q: queryText,
-      key: YOUTUBE_API_KEY
-    });
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error?.message || "YouTube search failed.");
-    }
+    if (!playlistProfile.length) return null;
 
     const queuedVideoIds = new Set(songs.map((item) => item.videoId).filter(Boolean));
-    const lastArtist = song.artist || "";
-    const lastTitle = song.title || "";
-    const candidates = (data.items || [])
+    const queuedSongs = songs.filter((item) => item.videoId || item.title || item.artist);
+    const searchQueries = [
+      `${[song.artist, song.title].filter(Boolean).join(" ")} radio mix`,
+      `${playlistProfile.slice(0, 3).join(" ")} similar songs`,
+      `${playlistProfile.join(" ")} playlist`
+    ]
+      .map((queryText) => queryText.trim().slice(0, 180))
+      .filter(Boolean);
+
+    const searchResults = await Promise.all(searchQueries.map(async (queryText) => {
+      const params = new URLSearchParams({
+        part: "snippet",
+        type: "video",
+        maxResults: "20",
+        videoCategoryId: "10",
+        order: "relevance",
+        videoEmbeddable: "true",
+        q: queryText,
+        key: YOUTUBE_API_KEY
+      });
+      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error?.message || "YouTube search failed.");
+      }
+      return data.items || [];
+    }));
+
+    const seenVideoIds = new Set();
+    const candidates = searchResults
+      .flat()
       .map((item) => ({
         videoId: item.id.videoId,
         title: item.snippet.title,
@@ -709,13 +758,28 @@ function App() {
         thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
       }))
       .filter((item) => {
-        if (!item.videoId || item.videoId === song.videoId || queuedVideoIds.has(item.videoId)) return false;
-        if (isSameMusicText(item.channelTitle, lastArtist) || isSameMusicText(item.title, lastArtist)) return false;
-        if (isSameMusicText(item.title, lastTitle)) return false;
+        if (!item.videoId || seenVideoIds.has(item.videoId) || queuedVideoIds.has(item.videoId)) return false;
+        seenVideoIds.add(item.videoId);
+        if (candidateHasLowDiversityTitle(item)) return false;
+        if (seedSongs.some((reference) => isSameSongCandidate(item, reference))) return false;
+        if (queuedSongs.some((reference) => isSameSongCandidate(item, reference))) return false;
         return true;
-      });
+      })
+      .map((item) => {
+        const contextText = playlistProfile.join(" ");
+        const candidateText = [item.channelTitle, item.title].filter(Boolean).join(" ");
+        const relevance = musicTokenOverlap(candidateText, contextText);
+        const lastSongOverlap = musicTokenOverlap(candidateText, [song.artist, song.title].filter(Boolean).join(" "));
+        return {
+          ...item,
+          score: relevance - (lastSongOverlap * 0.35) + Math.random() * 0.12
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+
     if (!candidates.length) return null;
-    return candidates[Math.floor(Math.random() * Math.min(candidates.length, 8))];
+    const radioPool = candidates.slice(0, Math.min(candidates.length, 8));
+    return radioPool[Math.floor(Math.random() * radioPool.length)];
   }
 
   async function removeSong(songId) {
