@@ -17,7 +17,6 @@ import {
   Play,
   Plus,
   QrCode,
-  Search,
   Share2,
   SlidersHorizontal,
   Sun,
@@ -114,10 +113,8 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
-const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.22";
+const APP_VERSION = "2026.05.29.23";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
-const YOUTUBE_QUOTA_STORAGE_KEY = "partybeats-youtube-quota-exceeded";
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -333,23 +330,6 @@ function savedTheme() {
   }
 }
 
-function savedYoutubeQuotaExceeded() {
-  try {
-    return localStorage.getItem(YOUTUBE_QUOTA_STORAGE_KEY) === new Date().toISOString().slice(0, 10);
-  } catch {
-    return false;
-  }
-}
-
-function savedSearchMode() {
-  try {
-    const mode = localStorage.getItem("partybeats-search-mode");
-    return ["auto", "in-app", "external"].includes(mode) ? mode : "auto";
-  } catch {
-    return "auto";
-  }
-}
-
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -361,12 +341,8 @@ function App() {
   const [members, setMembers] = useState([]);
   const [toast, setToast] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
   const [youtubeLink, setYoutubeLink] = useState("");
   const [linkLoading, setLinkLoading] = useState(false);
-  const [youtubeQuotaExceeded, setYoutubeQuotaExceeded] = useState(savedYoutubeQuotaExceeded);
-  const [searchMode, setSearchMode] = useState(savedSearchMode);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -446,14 +422,6 @@ function App() {
       // Nickname persistence is best-effort.
     }
   }, [user?.uid, nickname]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("partybeats-search-mode", searchMode);
-    } catch {
-      // Search mode persistence is best-effort.
-    }
-  }, [searchMode]);
 
   useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
@@ -552,7 +520,6 @@ function App() {
     ? Math.max(0, Math.floor((Date.now() - playbackStartedAtMs) / 1000))
     : 0;
   const resumeKey = activeRoomId && nowPlayingSong?.id ? `partybeats-resume:${activeRoomId}:${nowPlayingSong.id}` : "";
-  const shouldUseExternalSearch = searchMode === "external" || (searchMode === "auto" && youtubeQuotaExceeded) || !YOUTUBE_API_KEY;
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
@@ -798,84 +765,7 @@ function App() {
       });
     }
     await batch.commit();
-    setSearchResults([]);
     return true;
-  }
-
-  async function searchYouTube(event) {
-    event.preventDefault();
-    const queryText = searchQuery.trim();
-    if (!queryText) return;
-    if (!YOUTUBE_API_KEY) {
-      setToast("Add VITE_YOUTUBE_API_KEY to .env.local to search YouTube in the app.");
-      return;
-    }
-
-    setSearching(true);
-    try {
-      const params = new URLSearchParams({
-        part: "snippet",
-        type: "video",
-        maxResults: "8",
-        videoCategoryId: "10",
-        q: queryText,
-        key: YOUTUBE_API_KEY
-      });
-      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
-      const data = await response.json();
-      if (!response.ok) {
-        const quotaReasons = new Set(["quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded", "userRateLimitExceeded"]);
-        if (data.error?.errors?.some((item) => quotaReasons.has(item.reason)) || data.error?.message?.toLowerCase().includes("quota")) {
-          setYoutubeQuotaExceeded(true);
-          try {
-            localStorage.setItem(YOUTUBE_QUOTA_STORAGE_KEY, new Date().toISOString().slice(0, 10));
-          } catch {
-            // Quota mode persistence is best-effort.
-          }
-          setSearchResults([]);
-          setToast("YouTube search quota reached. Use Search YouTube externally or paste a link.");
-          return;
-        }
-        throw new Error(data.error?.message || "YouTube search failed.");
-      }
-      setYoutubeQuotaExceeded(false);
-      try {
-        localStorage.removeItem(YOUTUBE_QUOTA_STORAGE_KEY);
-      } catch {
-        // Quota mode persistence is best-effort.
-      }
-      setSearchResults(
-        (data.items || []).map((item) => ({
-          videoId: item.id.videoId,
-          title: item.snippet.title,
-          channelTitle: item.snippet.channelTitle,
-          thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
-        }))
-      );
-    } catch (error) {
-      setToast(error.message || "YouTube search failed.");
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  function tryInAppSearch() {
-    if (!YOUTUBE_API_KEY) {
-      setToast("Add VITE_YOUTUBE_API_KEY to .env.local to search YouTube in the app.");
-      return;
-    }
-    if (!searchQuery.trim()) {
-      setToast("Enter a song or artist to try in-app search.");
-      return;
-    }
-    setSearchMode("in-app");
-    setYoutubeQuotaExceeded(false);
-    try {
-      localStorage.removeItem(YOUTUBE_QUOTA_STORAGE_KEY);
-    } catch {
-      // Quota mode persistence is best-effort.
-    }
-    searchYouTube({ preventDefault: () => undefined });
   }
 
   async function addYouTubeLink(event) {
@@ -1444,49 +1334,28 @@ function App() {
       </section>
 
       <section className="add-panel">
-        {!shouldUseExternalSearch ? (
-          <form className="youtube-search" onSubmit={searchYouTube}>
+        <div className="external-search-panel">
+          <div>
+            <strong>Search YouTube Music</strong>
+            <span>Find a song, then paste the YouTube or YouTube Music link here.</span>
+          </div>
+          <div className="external-search-actions">
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search YouTube"
+              placeholder="Song or artist"
             />
-            <button className="primary-action" disabled={searching}>
-              <Search aria-hidden="true" />
-              {searching ? "..." : "Search"}
-            </button>
-          </form>
-        ) : (
-          <div className="external-search-panel">
-            <div>
-              <strong>
-                {!YOUTUBE_API_KEY
-                  ? "YouTube API key missing"
-                  : searchMode === "external"
-                    ? "External search mode"
-                    : "YouTube search quota reached"}
-              </strong>
-              <span>Search on YouTube or YouTube Music, then paste the link here.</span>
-            </div>
-            <div className="external-search-actions">
-              <a
-                className="primary-action"
-                href={youtubeSearchUrl(searchQuery || "music")}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <ExternalLink aria-hidden="true" />
-                Search YouTube Music
-              </a>
-              {YOUTUBE_API_KEY && (
-                <button className="subtle-action" onClick={tryInAppSearch} type="button">
-                  <Search aria-hidden="true" />
-                  Try in-app
-                </button>
-              )}
-            </div>
+            <a
+              className="primary-action"
+              href={youtubeSearchUrl(searchQuery || "music")}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink aria-hidden="true" />
+              Search
+            </a>
           </div>
-        )}
+        </div>
 
         <form className="youtube-link-form" onSubmit={addYouTubeLink}>
           <input
@@ -1499,24 +1368,6 @@ function App() {
             {linkLoading ? "..." : "Add Link"}
           </button>
         </form>
-
-        {searchResults.length > 0 && (
-          <div className="search-results">
-            {searchResults.map((result) => (
-              <article className="search-result" key={result.videoId}>
-                <img src={result.thumbnail} alt="" />
-                <div>
-                  <strong>{result.title}</strong>
-                  <span>{result.channelTitle}</span>
-                </div>
-                <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong}>
-                  <Plus aria-hidden="true" />
-                  Add
-                </button>
-              </article>
-            ))}
-          </div>
-        )}
 
         <p className="cooldown-note">
           {isAdmin
@@ -1834,30 +1685,6 @@ function App() {
               <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds >= 30}>
                 +
               </button>
-            </div>
-            <div className="setting-row">
-              <div>
-                <strong>Search mode</strong>
-                <span>
-                  {searchMode === "auto"
-                    ? "Use in-app search until quota runs out"
-                    : searchMode === "in-app"
-                      ? "Always try in-app YouTube search"
-                      : "Open YouTube search and paste links"}
-                </span>
-              </div>
-            </div>
-            <div className="segmented-control">
-              {["auto", "in-app", "external"].map((mode) => (
-                <button
-                  className={searchMode === mode ? "selected" : ""}
-                  key={mode}
-                  onClick={() => setSearchMode(mode)}
-                  type="button"
-                >
-                  {mode === "auto" ? "Auto" : mode === "in-app" ? "In-app" : "External"}
-                </button>
-              ))}
             </div>
             <div className="setting-row">
               <div>

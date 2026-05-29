@@ -1049,9 +1049,10 @@ input:focus {
 }
 
 .external-search-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
 }
 
 .external-search-panel span {
@@ -1590,40 +1591,6 @@ input:focus {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-}
-
-.segmented-control {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  padding: 4px;
-  border-radius: 8px;
-  background: rgba(23, 24, 31, 0.08);
-}
-
-.segmented-control button {
-  min-height: 36px;
-  border-radius: 6px;
-  color: #17181f;
-  background: transparent;
-  font-weight: 900;
-}
-
-.segmented-control button.selected {
-  color: #12131a;
-  background: #f7c948;
-}
-
-.room-app.dark-mode .segmented-control {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.room-app.dark-mode .segmented-control button {
-  color: #f6f7fb;
-}
-
-.room-app.dark-mode .segmented-control button.selected {
-  color: #12131a;
 }
 
 .cooldown-controls input[type="range"] {
