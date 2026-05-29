@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.13";
+const APP_VERSION = "2026.05.29.14";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -337,6 +337,7 @@ function App() {
   const [theme, setTheme] = useState(savedTheme);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
+  const suppressNextTrackClick = useRef("");
   const isDarkTheme = theme === "dark";
 
   useEffect(() => {
@@ -1551,11 +1552,13 @@ function App() {
                   key={song.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
+                    suppressNextTrackClick.current = song.id;
                     setMessageSongId("");
                     setEmojiSongId(song.id);
                   }}
                   onPointerDown={(event) => {
                     const timer = window.setTimeout(() => {
+                      suppressNextTrackClick.current = song.id;
                       setMessageSongId("");
                       setEmojiSongId(song.id);
                     }, 520);
@@ -1564,7 +1567,18 @@ function App() {
                   onPointerUp={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                   onPointerLeave={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                 >
-                  <button className="song-main" onClick={() => isActiveDj && setNowPlaying(song.id)} type="button">
+                  <button
+                    className="song-main"
+                    onClick={(event) => {
+                      if (suppressNextTrackClick.current === song.id) {
+                        event.preventDefault();
+                        suppressNextTrackClick.current = "";
+                        return;
+                      }
+                      if (isActiveDj) setNowPlaying(song.id);
+                    }}
+                    type="button"
+                  >
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
                       <b>{song.artist || "YouTube"}</b>
