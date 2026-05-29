@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.29.20";
+const APP_VERSION = "2026.05.29.21";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const YOUTUBE_QUOTA_STORAGE_KEY = "partybeats-youtube-quota-exceeded";
 const PROFANITY_PATTERNS = [
@@ -297,7 +297,7 @@ function extractYouTubeVideoId(value) {
     if (url.hostname.includes("youtu.be")) {
       return url.pathname.replace("/", "").slice(0, 11);
     }
-    if (url.hostname.includes("youtube.com")) {
+    if (url.hostname.includes("youtube.com") || url.hostname.includes("music.youtube.com")) {
       if (url.pathname === "/watch") return (url.searchParams.get("v") || "").slice(0, 11);
       if (url.pathname.startsWith("/shorts/") || url.pathname.startsWith("/embed/")) {
         return (url.pathname.split("/")[2] || "").slice(0, 11);
@@ -1466,7 +1466,7 @@ function App() {
                     ? "External search mode"
                     : "YouTube search quota reached"}
               </strong>
-              <span>Search on YouTube, then paste the video link here.</span>
+              <span>Search on YouTube or YouTube Music, then paste the link here.</span>
             </div>
             <div className="external-search-actions">
               <a
@@ -1492,7 +1492,7 @@ function App() {
           <input
             value={youtubeLink}
             onChange={(event) => setYoutubeLink(event.target.value)}
-            placeholder="Paste YouTube link"
+            placeholder="Paste YouTube or YouTube Music link"
           />
           <button className="mini-action" disabled={!youtubeLink.trim() || linkLoading || !canAddSong} type="submit">
             <Plus aria-hidden="true" />
