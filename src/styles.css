@@ -1434,6 +1434,13 @@ input:focus {
   -webkit-overflow-scrolling: touch;
 }
 
+.analytics-modal {
+  max-height: min(720px, calc(100dvh - 32px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .room-app.dark-mode .settings-people {
   border-color: rgba(255, 255, 255, 0.1);
   background: transparent;
@@ -1553,6 +1560,23 @@ input:focus {
   background: rgba(255, 255, 255, 0.07);
 }
 
+.room-app.dark-mode .analytics-grid div {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.room-app.dark-mode .analytics-person {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.room-app.dark-mode .analytics-person div span {
+  color: #a7adbb;
+}
+
+.room-app.dark-mode .analytics-tags span {
+  color: #e9fbf6;
+  background: rgba(57, 198, 163, 0.16);
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -1569,7 +1593,14 @@ input:focus {
   gap: 8px;
 }
 
-.about-grid div {
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.about-grid div,
+.analytics-grid div {
   display: grid;
   gap: 3px;
   min-width: 0;
@@ -1578,16 +1609,70 @@ input:focus {
   background: rgba(23, 24, 31, 0.06);
 }
 
-.about-grid span {
+.about-grid span,
+.analytics-grid span {
   color: #696c78;
   font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.about-grid strong {
+.about-grid strong,
+.analytics-grid strong {
   overflow-wrap: anywhere;
   font-size: 0.9rem;
+}
+
+.analytics-section {
+  display: grid;
+  gap: 8px;
+}
+
+.analytics-section h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.analytics-person {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, auto);
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid rgba(23, 24, 31, 0.08);
+  font-size: 0.82rem;
+}
+
+.analytics-person div {
+  display: grid;
+  min-width: 0;
+}
+
+.analytics-person strong,
+.analytics-person span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-person div span {
+  color: #696c78;
+  font-size: 0.74rem;
+}
+
+.analytics-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.analytics-tags span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #0f4f42;
+  background: rgba(57, 198, 163, 0.16);
+  font-size: 0.78rem;
+  font-weight: 900;
 }
 
 .about-modal .qr-block {

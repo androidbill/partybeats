@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import {
   ArrowDown,
   ArrowUp,
+  BarChart3,
   Crown,
   DoorOpen,
   ExternalLink,
@@ -114,7 +115,7 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
-const APP_VERSION = "2026.05.30.05";
+const APP_VERSION = "2026.05.30.06";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -224,6 +225,23 @@ function hasSharedSongPhrase(a, b) {
 
 function candidateHasLowDiversityTitle(candidate) {
   return /\b(cover|karaoke|instrumental|tribute|reaction|tutorial|lesson|loop|sped up|slowed|nightcore|playlist|full album|nonstop|1 hour|one hour)\b/i.test(candidate.title || "");
+}
+
+function analyticsPersonKey(uid, name) {
+  return uid || `name:${name || "Guest"}`;
+}
+
+function emptyAnalyticsPerson(uid, name, isCurrentMember = false) {
+  return {
+    uid,
+    name: name || "Guest",
+    isCurrentMember,
+    songsAdded: 0,
+    reactionsGiven: 0,
+    reactionsReceived: 0,
+    commentsMade: 0,
+    commentsReceived: 0
+  };
 }
 
 function nicknameFor(user, fallback = "Guest") {
@@ -347,6 +365,7 @@ function App() {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [nicknameOpen, setNicknameOpen] = useState(false);
@@ -526,6 +545,7 @@ function App() {
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const canControlRoomVolume = Boolean(user?.isAnonymous && activeNickname.toLowerCase() === "billybeats");
   const memberById = (uid) => members.find((member) => member.id === uid);
+  const analytics = buildAnalytics();
 
   useEffect(() => {
     if (!isActiveDj || !activeRoomId || !nowPlayingSong || playbackStartedAtMs) return;
@@ -606,6 +626,74 @@ function App() {
     const timer = window.setTimeout(() => setJoinNotice(null), DEFAULT_JOIN_NOTICE_SECONDS * 1000);
     return () => window.clearTimeout(timer);
   }, [activeRoomId, members, joinNoticeEnabled]);
+
+  function buildAnalytics() {
+    const people = new Map();
+    const ensurePerson = (uid, name, isCurrentMember = false) => {
+      const key = analyticsPersonKey(uid, name);
+      if (!people.has(key)) {
+        people.set(key, emptyAnalyticsPerson(uid, name, isCurrentMember));
+      }
+      const person = people.get(key);
+      if (name && person.name === "Guest") person.name = name;
+      person.isCurrentMember = person.isCurrentMember || isCurrentMember;
+      return person;
+    };
+
+    members.forEach((member) => ensurePerson(member.id, member.name, true));
+
+    const artistCounts = new Map();
+    const titleWords = new Map();
+    let reactionTotal = 0;
+    let commentTotal = 0;
+
+    songs.forEach((song) => {
+      ensurePerson(song.addedByUid, song.addedByName).songsAdded += 1;
+      const artist = song.artist || "YouTube";
+      artistCounts.set(artist, (artistCounts.get(artist) || 0) + 1);
+      normalizeMusicText(song.title || "").split(" ").forEach((word) => {
+        if (word.length > 3 && !["official", "video", "audio", "music"].includes(word)) {
+          titleWords.set(word, (titleWords.get(word) || 0) + 1);
+        }
+      });
+
+      const reactions = Object.entries(song.emojiByUser || {});
+      reactionTotal += reactions.length;
+      ensurePerson(song.addedByUid, song.addedByName).reactionsReceived += reactions.length;
+      reactions.forEach(([uid]) => {
+        const reactor = memberById(uid);
+        ensurePerson(uid, reactor?.name || "Guest").reactionsGiven += 1;
+      });
+
+      const messages = song.messages || [];
+      commentTotal += messages.length;
+      ensurePerson(song.addedByUid, song.addedByName).commentsReceived += messages.length;
+      messages.forEach((message) => {
+        ensurePerson(message.uid, message.name, members.some((member) => member.id === message.uid)).commentsMade += 1;
+      });
+    });
+
+    const peopleList = [...people.values()].sort((a, b) => b.songsAdded - a.songsAdded || b.reactionsGiven - a.reactionsGiven || a.name.localeCompare(b.name));
+    const topArtists = [...artistCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topTitleWords = [...titleWords.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const topContributor = peopleList.find((person) => person.songsAdded > 0) || null;
+    const topReactedSong = [...songs]
+      .filter((song) => Object.keys(song.emojiByUser || {}).length > 0)
+      .sort((a, b) => Object.keys(b.emojiByUser || {}).length - Object.keys(a.emojiByUser || {}).length)[0] || null;
+
+    return {
+      people: peopleList,
+      currentMemberCount: members.length,
+      participantCount: peopleList.length,
+      songCount: songs.length,
+      reactionTotal,
+      commentTotal,
+      topArtists,
+      topTitleWords,
+      topContributor,
+      topReactedSong
+    };
+  }
 
   async function signInGoogle() {
     if (!firebaseReady) {
@@ -1033,6 +1121,7 @@ function App() {
     setMembers([]);
     setMenuOpen(false);
     setAboutOpen(false);
+    setAnalyticsOpen(false);
     setPeopleOpen(false);
     setSettingsOpen(false);
     setNicknameOpen(false);
@@ -1198,6 +1287,39 @@ function App() {
     setToast("Playlist copied.");
   }
 
+  async function shareAnalytics() {
+    const lines = [
+      "ROCK BeatsParty Analytics",
+      `Room: ${activeRoomId}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      "",
+      `Current people: ${analytics.currentMemberCount}`,
+      `People represented: ${analytics.participantCount}`,
+      `Songs: ${analytics.songCount}`,
+      `Reactions: ${analytics.reactionTotal}`,
+      `Comments: ${analytics.commentTotal}`,
+      "",
+      "People",
+      ...analytics.people.map((person) => {
+        const status = person.isCurrentMember ? "in room" : "previous";
+        return `${person.name} (${status}): ${person.songsAdded} songs, ${person.reactionsGiven} reactions, ${person.commentsMade} comments`;
+      }),
+      "",
+      "Top artists/channels",
+      ...(analytics.topArtists.length ? analytics.topArtists.map(([artist, count]) => `${artist}: ${count}`) : ["None yet"]),
+      "",
+      "Common title words",
+      ...(analytics.topTitleWords.length ? analytics.topTitleWords.map(([word, count]) => `${word}: ${count}`) : ["None yet"])
+    ];
+    const text = lines.join("\n");
+    if (navigator.share) {
+      await navigator.share({ title: `ROCK BeatsParty ${activeRoomId} analytics`, text }).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard?.writeText(text);
+    setToast("Analytics copied.");
+  }
+
   if (!firebaseReady) {
     return <SetupMissing />;
   }
@@ -1317,6 +1439,10 @@ function App() {
                 <button onClick={() => { setAboutOpen(true); setMenuOpen(false); }}>
                   <Info aria-hidden="true" />
                   About
+                </button>
+                <button onClick={() => { setAnalyticsOpen(true); setMenuOpen(false); }}>
+                  <BarChart3 aria-hidden="true" />
+                  Analytics
                 </button>
                 <button onClick={() => { setSettingsOpen(true); setMenuOpen(false); }}>
                   <SlidersHorizontal aria-hidden="true" />
@@ -1694,6 +1820,85 @@ function App() {
                 );
               })}
             </section>
+          </section>
+        </div>
+      )}
+
+      {analyticsOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal analytics-modal">
+            <div className="modal-header">
+              <h2>Analytics</h2>
+              <button className="icon-button" onClick={() => setAnalyticsOpen(false)} title="Close" type="button">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <div className="analytics-grid">
+              <div>
+                <span>Current</span>
+                <strong>{analytics.currentMemberCount}</strong>
+              </div>
+              <div>
+                <span>People</span>
+                <strong>{analytics.participantCount}</strong>
+              </div>
+              <div>
+                <span>Songs</span>
+                <strong>{analytics.songCount}</strong>
+              </div>
+              <div>
+                <span>Reactions</span>
+                <strong>{analytics.reactionTotal}</strong>
+              </div>
+              <div>
+                <span>Comments</span>
+                <strong>{analytics.commentTotal}</strong>
+              </div>
+              <div>
+                <span>Top DJ</span>
+                <strong>{analytics.topContributor?.name || "None"}</strong>
+              </div>
+            </div>
+            <section className="analytics-section">
+              <h3>People</h3>
+              {analytics.people.length ? analytics.people.map((person) => (
+                <div className="analytics-person" key={analyticsPersonKey(person.uid, person.name)}>
+                  <div>
+                    <strong>{person.name}</strong>
+                    <span>{person.isCurrentMember ? "In room" : "Previously active"}</span>
+                  </div>
+                  <span>{person.songsAdded} songs</span>
+                  <span>{person.reactionsGiven} reacts</span>
+                  <span>{person.commentsMade} comments</span>
+                </div>
+              )) : <p className="muted">No activity yet.</p>}
+            </section>
+            <section className="analytics-section">
+              <h3>Top Artists</h3>
+              <div className="analytics-tags">
+                {analytics.topArtists.length ? analytics.topArtists.map(([artist, count]) => (
+                  <span key={artist}>{artist} · {count}</span>
+                )) : <span>None yet</span>}
+              </div>
+            </section>
+            <section className="analytics-section">
+              <h3>Song Vibes</h3>
+              <div className="analytics-tags">
+                {analytics.topTitleWords.length ? analytics.topTitleWords.map(([word, count]) => (
+                  <span key={word}>{word} · {count}</span>
+                )) : <span>None yet</span>}
+              </div>
+            </section>
+            {analytics.topReactedSong && (
+              <section className="analytics-section">
+                <h3>Most Reacted</h3>
+                <p className="muted">{analytics.topReactedSong.artist || "YouTube"} · {analytics.topReactedSong.title}</p>
+              </section>
+            )}
+            <button className="primary-action" onClick={shareAnalytics} type="button">
+              <Share2 aria-hidden="true" />
+              Share Analytics
+            </button>
           </section>
         </div>
       )}
