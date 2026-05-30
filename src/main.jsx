@@ -28,6 +28,7 @@ import {
   Volume2,
   UsersRound,
   Wand2,
+  Palette,
   X
 } from "lucide-react";
 import QRCode from "qrcode";
@@ -117,8 +118,22 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.30.09";
+const APP_VERSION = "2026.05.30.10";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
+
+const COLOR_THEMES = [
+  { id: "sunset", name: "Sunset", note: "Warm pink, gold, and teal" },
+  { id: "ocean", name: "Ocean", note: "Deep blue with aqua highlights" },
+  { id: "neon", name: "Neon", note: "Purple club lights" },
+  { id: "forest", name: "Forest", note: "Green and gold" },
+  { id: "candy", name: "Candy", note: "Bright pink and violet" },
+  { id: "fire", name: "Fire", note: "Red, orange, and yellow" },
+  { id: "ice", name: "Ice", note: "Cool blue and silver" },
+  { id: "royal", name: "Royal", note: "Indigo and gold" },
+  { id: "mono", name: "Mono", note: "Clean black and white" },
+  { id: "lime", name: "Lime", note: "Electric green and charcoal" }
+];
+
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -351,6 +366,15 @@ function savedTheme() {
   }
 }
 
+function savedColorTheme() {
+  try {
+    const saved = localStorage.getItem("partybeats-color-theme") || "sunset";
+    return COLOR_THEMES.some((item) => item.id === saved) ? saved : "sunset";
+  } catch {
+    return "sunset";
+  }
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -372,6 +396,7 @@ function App() {
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [colorThemeOpen, setColorThemeOpen] = useState(false);
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
@@ -387,6 +412,7 @@ function App() {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [theme, setTheme] = useState(savedTheme);
+  const [colorTheme, setColorTheme] = useState(savedColorTheme);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
   const previousSongCount = useRef(undefined);
@@ -437,6 +463,15 @@ function App() {
     }
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("partybeats-color-theme", colorTheme);
+    } catch {
+      // Color theme persistence is a convenience; the picker still works without storage.
+    }
+    document.documentElement.dataset.colorTheme = colorTheme;
+  }, [colorTheme]);
 
   useEffect(() => {
     const cleanName = nickname.trim();
@@ -1473,7 +1508,7 @@ function App() {
   }
 
   return (
-    <main className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"}`}>
+    <main className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"} color-theme-${colorTheme}`}>
       <header className="app-topbar">
         <div className="topbar-brand">
           <div className="brand-dot">
@@ -1534,6 +1569,10 @@ function App() {
                 <button onClick={() => { setSettingsOpen(true); setMenuOpen(false); }}>
                   <SlidersHorizontal aria-hidden="true" />
                   Settings
+                </button>
+                <button onClick={() => { setColorThemeOpen(true); setMenuOpen(false); }}>
+                  <Palette aria-hidden="true" />
+                  Color themes
                 </button>
                 <button onClick={shareRoom}>
                   <Share2 aria-hidden="true" />
@@ -2016,6 +2055,36 @@ function App() {
               <Share2 aria-hidden="true" />
               Share Analytics
             </button>
+          </section>
+        </div>
+      )}
+
+
+      {colorThemeOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal color-theme-modal">
+            <div className="modal-header">
+              <h2>Color themes</h2>
+              <button className="icon-button" onClick={() => setColorThemeOpen(false)} title="Close">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <p className="muted">Choose the app color style for this phone.</p>
+            <div className="color-theme-grid">
+              {COLOR_THEMES.map((item) => (
+                <button
+                  className={colorTheme === item.id ? "color-theme-option is-selected" : "color-theme-option"}
+                  data-theme-choice={item.id}
+                  key={item.id}
+                  onClick={() => setColorTheme(item.id)}
+                  type="button"
+                >
+                  <span className="theme-swatch" aria-hidden="true" />
+                  <strong>{item.name}</strong>
+                  <small>{item.note}</small>
+                </button>
+              ))}
+            </div>
           </section>
         </div>
       )}
