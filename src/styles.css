@@ -2468,3 +2468,10 @@ input:focus {
     font-size: 0.72rem;
   }
 }
+
+/* Keep the landing page hero image above the generic color-theme app background. */
+.app-shell.landing-shell {
+  background:
+    linear-gradient(rgba(18, 19, 26, 0.28), rgba(18, 19, 26, 0.86)),
+    url("https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80") center/cover no-repeat;
+}
