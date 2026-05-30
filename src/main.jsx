@@ -389,6 +389,7 @@ function App() {
   const [theme, setTheme] = useState(savedTheme);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
+  const previousSongCount = useRef(undefined);
   const suppressNextTrackClick = useRef("");
   const isDarkTheme = theme === "dark";
 
@@ -551,6 +552,34 @@ function App() {
   const canControlRoomSettings = isAdmin || canControlRoomVolume;
   const memberById = (uid) => members.find((member) => member.id === uid);
   const analytics = buildAnalytics();
+
+  useEffect(() => {
+    if (!activeRoomId) {
+      previousSongCount.current = undefined;
+      return;
+    }
+
+    const previousCount = previousSongCount.current;
+    previousSongCount.current = songs.length;
+
+    if (
+      previousCount === undefined
+      || !isActiveDj
+      || !activeRoomId
+      || room?.nowPlayingId
+      || songs.length <= previousCount
+    ) {
+      return;
+    }
+
+    const newlyAddedSong = songs[previousCount] || songs[songs.length - 1];
+    if (!newlyAddedSong?.id) return;
+
+    updateDoc(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: newlyAddedSong.id,
+      playbackStartedAt: serverTimestamp()
+    }).catch(() => undefined);
+  }, [isActiveDj, activeRoomId, room?.nowPlayingId, songs]);
 
   useEffect(() => {
     if (!isActiveDj || !activeRoomId || !nowPlayingSong || playbackStartedAtMs) return;
@@ -867,13 +896,18 @@ function App() {
     if (!isAdmin) {
       batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     }
-    if (!room?.nowPlayingId) {
+    if (isActiveDj && !room?.nowPlayingId) {
       batch.update(doc(db, "rooms", activeRoomId), {
         nowPlayingId: songRef.id,
         playbackStartedAt: serverTimestamp()
       });
     }
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (error) {
+      setToast(error.message || "Could not add that song.");
+      return false;
+    }
     setSearchResults([]);
     return true;
   }
