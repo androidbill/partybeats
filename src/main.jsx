@@ -867,7 +867,7 @@ function App() {
     if (!isAdmin) {
       batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     }
-    if (isActiveDj && !room?.nowPlayingId && songs.length === 0) {
+    if (!room?.nowPlayingId) {
       batch.update(doc(db, "rooms", activeRoomId), {
         nowPlayingId: songRef.id,
         playbackStartedAt: serverTimestamp()
