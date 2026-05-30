@@ -118,7 +118,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.30.10";
+const APP_VERSION = "2026.05.30.11";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 
 const COLOR_THEMES = [
