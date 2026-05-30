@@ -117,7 +117,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.30.07";
+const APP_VERSION = "2026.05.30.08";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -532,7 +532,7 @@ function App() {
   const cooldownMs = cooldownMinutes * 60 * 1000;
   const crossfadeEnabled = room?.crossfadeEnabled !== false;
   const crossfadeSeconds = Math.min(30, Math.max(1, Number(room?.crossfadeSeconds) || DEFAULT_CROSSFADE_SECONDS));
-  const roomVolume = Math.min(100, Math.max(0, Number(room?.volume) || 100));
+  const roomVolume = Math.min(100, Math.max(0, room?.volume == null ? 100 : Number(room.volume) || 0));
   const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
@@ -548,6 +548,7 @@ function App() {
   const resumeKey = activeRoomId && nowPlayingSong?.id ? `partybeats-resume:${activeRoomId}:${nowPlayingSong.id}` : "";
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const canControlRoomVolume = Boolean(user?.isAnonymous && activeNickname.toLowerCase() === "billybeats");
+  const canControlRoomSettings = isAdmin || canControlRoomVolume;
   const memberById = (uid) => members.find((member) => member.id === uid);
   const analytics = buildAnalytics();
 
@@ -1188,12 +1189,12 @@ function App() {
   }
 
   async function updateCooldownEnabled(enabled) {
-    if (!isAdmin || !activeRoomId) return;
+    if (!canControlRoomSettings || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { cooldownEnabled: enabled });
   }
 
   async function updateCooldownMinutes(minutes) {
-    if (!isAdmin || !activeRoomId) return;
+    if (!canControlRoomSettings || !activeRoomId) return;
     const cleanMinutes = Math.min(30, Math.max(1, Number(minutes) || 1));
     await updateDoc(doc(db, "rooms", activeRoomId), {
       cooldownMinutes: cleanMinutes,
@@ -1202,29 +1203,29 @@ function App() {
   }
 
   async function updateCrossfadeEnabled(enabled) {
-    if (!isAdmin || !activeRoomId) return;
+    if (!canControlRoomSettings || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeEnabled: enabled });
   }
 
   async function updateCrossfadeSeconds(seconds) {
-    if (!isAdmin || !activeRoomId) return;
+    if (!canControlRoomSettings || !activeRoomId) return;
     const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_CROSSFADE_SECONDS));
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeSeconds: cleanSeconds });
   }
 
   async function updateTrackNoticeEnabled(enabled) {
-    if (!isAdmin || !activeRoomId) return;
+    if (!canControlRoomSettings || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeEnabled: enabled });
   }
 
   async function updateTrackNoticeSeconds(seconds) {
-    if (!isAdmin || !activeRoomId) return;
+    if (!canControlRoomSettings || !activeRoomId) return;
     const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_TRACK_NOTICE_SECONDS));
     await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeSeconds: cleanSeconds });
   }
 
   async function updateJoinNoticeEnabled(enabled) {
-    if (!isAdmin || !activeRoomId) return;
+    if (!canControlRoomSettings || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { joinNoticeEnabled: enabled });
   }
 
@@ -1995,14 +1996,14 @@ function App() {
               <button
                 className={cooldownEnabled ? "toggle-button is-on" : "toggle-button"}
                 onClick={() => updateCooldownEnabled(!cooldownEnabled)}
-                disabled={!isAdmin}
+                disabled={!canControlRoomSettings}
                 type="button"
               >
                 {cooldownEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes - 1)} disabled={!isAdmin || !cooldownEnabled || cooldownMinutes <= 1}>
+              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes - 1)} disabled={!canControlRoomSettings || !cooldownEnabled || cooldownMinutes <= 1}>
                 -
               </button>
               <input
@@ -2011,9 +2012,9 @@ function App() {
                 max="30"
                 value={cooldownMinutes}
                 onChange={(event) => updateCooldownMinutes(event.target.value)}
-                disabled={!isAdmin || !cooldownEnabled}
+                disabled={!canControlRoomSettings || !cooldownEnabled}
               />
-              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes + 1)} disabled={!isAdmin || !cooldownEnabled || cooldownMinutes >= 30}>
+              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes + 1)} disabled={!canControlRoomSettings || !cooldownEnabled || cooldownMinutes >= 30}>
                 +
               </button>
             </div>
@@ -2025,14 +2026,14 @@ function App() {
               <button
                 className={crossfadeEnabled ? "toggle-button is-on" : "toggle-button"}
                 onClick={() => updateCrossfadeEnabled(!crossfadeEnabled)}
-                disabled={!isAdmin}
+                disabled={!canControlRoomSettings}
                 type="button"
               >
                 {crossfadeEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds - 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds <= 1}>
+              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds - 1)} disabled={!canControlRoomSettings || !crossfadeEnabled || crossfadeSeconds <= 1}>
                 -
               </button>
               <input
@@ -2041,9 +2042,9 @@ function App() {
                 max="30"
                 value={crossfadeSeconds}
                 onChange={(event) => updateCrossfadeSeconds(event.target.value)}
-                disabled={!isAdmin || !crossfadeEnabled}
+                disabled={!canControlRoomSettings || !crossfadeEnabled}
               />
-              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds >= 30}>
+              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!canControlRoomSettings || !crossfadeEnabled || crossfadeSeconds >= 30}>
                 +
               </button>
             </div>
@@ -2055,14 +2056,14 @@ function App() {
               <button
                 className={trackNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
                 onClick={() => updateTrackNoticeEnabled(!trackNoticeEnabled)}
-                disabled={!isAdmin}
+                disabled={!canControlRoomSettings}
                 type="button"
               >
                 {trackNoticeEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds - 1)} disabled={!isAdmin || !trackNoticeEnabled || trackNoticeSeconds <= 1}>
+              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds - 1)} disabled={!canControlRoomSettings || !trackNoticeEnabled || trackNoticeSeconds <= 1}>
                 -
               </button>
               <input
@@ -2071,9 +2072,9 @@ function App() {
                 max="30"
                 value={trackNoticeSeconds}
                 onChange={(event) => updateTrackNoticeSeconds(event.target.value)}
-                disabled={!isAdmin || !trackNoticeEnabled}
+                disabled={!canControlRoomSettings || !trackNoticeEnabled}
               />
-              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds + 1)} disabled={!isAdmin || !trackNoticeEnabled || trackNoticeSeconds >= 30}>
+              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds + 1)} disabled={!canControlRoomSettings || !trackNoticeEnabled || trackNoticeSeconds >= 30}>
                 +
               </button>
             </div>
@@ -2085,7 +2086,7 @@ function App() {
               <button
                 className={joinNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
                 onClick={() => updateJoinNoticeEnabled(!joinNoticeEnabled)}
-                disabled={!isAdmin}
+                disabled={!canControlRoomSettings}
                 type="button"
               >
                 {joinNoticeEnabled ? "On" : "Off"}
@@ -2175,7 +2176,7 @@ function App() {
                 })}
               </section>
             )}
-            {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
+            {!canControlRoomSettings && <p className="muted">Only admins can change room settings.</p>}
           </section>
         </div>
       )}
@@ -2494,3 +2495,4 @@ function SetupMissing() {
 }
 
 createRoot(document.getElementById("root")).render(<App />);
+
