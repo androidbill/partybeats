@@ -23,6 +23,7 @@ import {
   SkipForward,
   Trash2,
   UserRound,
+  Volume2,
   UsersRound,
   Wand2,
   X
@@ -113,7 +114,7 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
-const APP_VERSION = "2026.05.29.27";
+const APP_VERSION = "2026.05.30.05";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -348,6 +349,7 @@ function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [nicknameOpen, setNicknameOpen] = useState(false);
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -507,6 +509,7 @@ function App() {
   const cooldownMs = cooldownMinutes * 60 * 1000;
   const crossfadeEnabled = room?.crossfadeEnabled !== false;
   const crossfadeSeconds = Math.min(30, Math.max(1, Number(room?.crossfadeSeconds) || DEFAULT_CROSSFADE_SECONDS));
+  const roomVolume = Math.min(100, Math.max(0, Number(room?.volume) || 100));
   const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
@@ -521,6 +524,7 @@ function App() {
     : 0;
   const resumeKey = activeRoomId && nowPlayingSong?.id ? `partybeats-resume:${activeRoomId}:${nowPlayingSong.id}` : "";
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
+  const canControlRoomVolume = Boolean(user?.isAnonymous && activeNickname.toLowerCase() === "billybeats");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
   useEffect(() => {
@@ -687,6 +691,7 @@ function App() {
       cooldownMs: DEFAULT_COOLDOWN_MS,
       crossfadeEnabled: true,
       crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
+      volume: 100,
       trackNoticeEnabled: true,
       trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
       joinNoticeEnabled: true,
@@ -769,7 +774,7 @@ function App() {
     if (!isAdmin) {
       batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     }
-    if (!room?.nowPlayingId && songs.length === 0) {
+    if (isActiveDj && !room?.nowPlayingId && songs.length === 0) {
       batch.update(doc(db, "rooms", activeRoomId), {
         nowPlayingId: songRef.id,
         playbackStartedAt: serverTimestamp()
@@ -939,6 +944,30 @@ function App() {
     setToast(`${member.name || "Member"} is now ${nextName}.`);
   }
 
+  async function saveOwnNickname(event) {
+    event.preventDefault();
+    const nextName = nickname.trim().slice(0, 30);
+    if (!user || !activeRoomId || !nextName) return;
+    if (hasProfanity(nextName)) {
+      setToast("Nickname blocked for profanity.");
+      return;
+    }
+    await updateDoc(doc(db, "rooms", activeRoomId, "members", user.uid), {
+      name: nextName
+    });
+    if (room?.activeDjUid === user.uid) {
+      await updateDoc(doc(db, "rooms", activeRoomId), { activeDjName: nextName });
+    }
+    try {
+      localStorage.setItem(nicknameStorageKey(user), nextName);
+    } catch {
+      // Nickname persistence is best-effort.
+    }
+    setNickname(nextName);
+    setNicknameOpen(false);
+    setToast("Nickname updated.");
+  }
+
   async function playNextSong() {
     if (!isActiveDj || !activeRoomId) {
       setToast("Only the Active DJ can control playback.");
@@ -1006,6 +1035,7 @@ function App() {
     setAboutOpen(false);
     setPeopleOpen(false);
     setSettingsOpen(false);
+    setNicknameOpen(false);
     setEmojiSongId("");
     setMessageSongId("");
     setMessageDraft("");
@@ -1062,6 +1092,12 @@ function App() {
   async function updateJoinNoticeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { joinNoticeEnabled: enabled });
+  }
+
+  async function updateRoomVolume(value) {
+    if (!canControlRoomVolume || !activeRoomId) return;
+    const cleanVolume = Math.min(100, Math.max(0, Number(value) || 0));
+    await updateDoc(doc(db, "rooms", activeRoomId), { volume: cleanVolume });
   }
 
   async function leaveRoom() {
@@ -1177,6 +1213,7 @@ function App() {
           <div className="landing-copy">
             <h1>ROCK BeatsParty</h1>
             <p>Start a room, pass around the code, and let everyone build the music queue from their phone.</p>
+            <span className="landing-version">Version {APP_VERSION}</span>
           </div>
 
           <div className="auth-panel">
@@ -1263,6 +1300,14 @@ function App() {
               {activeNickname}
             </strong>
           </div>
+          <button
+            className="icon-button"
+            onClick={() => setNicknameOpen(true)}
+            title="Edit nickname"
+            type="button"
+          >
+            <Pencil aria-hidden="true" />
+          </button>
           <div className="menu-wrap">
             <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu">
               <MoreVertical aria-hidden="true" />
@@ -1324,6 +1369,7 @@ function App() {
               resumeSeconds={resumeSeconds}
               resumeKey={resumeKey}
               playbackStartedAtMs={playbackStartedAtMs}
+              volume={roomVolume}
             />
             <div className="player-actions">
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
@@ -1346,6 +1392,25 @@ function App() {
             </button>
           </div>
         ) : null}
+        {canControlRoomVolume && (
+          <div className="room-volume-control">
+            <label htmlFor="room-volume">
+              <span>
+                <Volume2 aria-hidden="true" />
+                Room volume
+              </span>
+              <strong>{roomVolume}</strong>
+            </label>
+            <input
+              id="room-volume"
+              type="range"
+              min="0"
+              max="100"
+              value={roomVolume}
+              onChange={(event) => updateRoomVolume(event.target.value)}
+            />
+          </div>
+        )}
       </section>
 
       <section className="add-panel">
@@ -1363,6 +1428,7 @@ function App() {
             <a
               className="primary-action"
               href={youtubeSearchUrl(searchQuery || "music")}
+              onClick={() => window.setTimeout(() => setSearchQuery(""), 0)}
               target="_blank"
               rel="noreferrer"
             >
@@ -1834,6 +1900,31 @@ function App() {
         </div>
       )}
 
+      {nicknameOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal nickname-modal">
+            <div className="modal-header">
+              <h2>Nickname</h2>
+              <button className="icon-button" onClick={() => setNicknameOpen(false)} title="Close" type="button">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <form className="nickname-edit-form" onSubmit={saveOwnNickname}>
+              <input
+                value={nickname}
+                onChange={(event) => setNickname(event.target.value.slice(0, 30))}
+                placeholder="Party nickname"
+                maxLength={30}
+                autoFocus
+              />
+              <button className="primary-action" type="submit" disabled={!nickname.trim()}>
+                Save
+              </button>
+            </form>
+          </section>
+        </div>
+      )}
+
       {(joinNotice || nowPlayingNotice) && (
         <div className="notice-stack">
           {joinNotice && (
@@ -1879,7 +1970,8 @@ function YouTubePlayer({
   crossfadeSeconds,
   resumeSeconds = 0,
   resumeKey = "",
-  playbackStartedAtMs = 0
+  playbackStartedAtMs = 0,
+  volume = 100
 }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerRef = useRef(null);
@@ -1892,14 +1984,16 @@ function YouTubePlayer({
     crossfadeSeconds,
     resumeSeconds,
     resumeKey,
-    playbackStartedAtMs
+    playbackStartedAtMs,
+    volume
   });
   playbackOptionsRef.current = {
     crossfadeEnabled,
     crossfadeSeconds,
     resumeSeconds,
     resumeKey,
-    playbackStartedAtMs
+    playbackStartedAtMs,
+    volume
   };
 
   useEffect(() => {
@@ -1909,6 +2003,10 @@ function YouTubePlayer({
   useEffect(() => {
     crossfadeRef.current = onCrossfade;
   }, [onCrossfade]);
+
+  useEffect(() => {
+    playerRef.current?.setVolume?.(volume);
+  }, [volume]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1935,7 +2033,7 @@ function YouTubePlayer({
         },
         events: {
           onReady: (event) => {
-            event.target.setVolume?.(100);
+            event.target.setVolume?.(playbackOptionsRef.current.volume);
             const options = playbackOptionsRef.current;
             const savedResumeSeconds = readSavedResumeSeconds(options.resumeKey, options.playbackStartedAtMs);
             const nextResumeSeconds = Math.max(options.resumeSeconds, savedResumeSeconds);
@@ -1947,7 +2045,7 @@ function YouTubePlayer({
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
-              event.target.setVolume?.(100);
+              event.target.setVolume?.(playbackOptionsRef.current.volume);
               if (playerTimerRef.current) {
                 window.clearInterval(playerTimerRef.current);
               }
