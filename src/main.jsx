@@ -18,6 +18,7 @@ import {
   Play,
   Plus,
   QrCode,
+  Search,
   Share2,
   SlidersHorizontal,
   Sun,
@@ -115,7 +116,8 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
-const APP_VERSION = "2026.05.30.06";
+const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+const APP_VERSION = "2026.05.30.07";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -360,6 +362,8 @@ function App() {
   const [members, setMembers] = useState([]);
   const [toast, setToast] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [youtubeLink, setYoutubeLink] = useState("");
   const [linkLoading, setLinkLoading] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -869,7 +873,48 @@ function App() {
       });
     }
     await batch.commit();
+    setSearchResults([]);
     return true;
+  }
+
+  async function searchYouTube(event) {
+    event.preventDefault();
+    const queryText = searchQuery.trim();
+    if (!queryText) return;
+    if (!YOUTUBE_API_KEY) {
+      setToast("Add VITE_YOUTUBE_API_KEY to .env.local to search YouTube in the app.");
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const params = new URLSearchParams({
+        part: "snippet",
+        type: "video",
+        maxResults: "8",
+        videoCategoryId: "10",
+        q: queryText,
+        key: YOUTUBE_API_KEY
+      });
+      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error?.message || "YouTube search failed.");
+      }
+      setSearchResults(
+        (data.items || []).map((item) => ({
+          videoId: item.id.videoId,
+          title: item.snippet.title,
+          channelTitle: item.snippet.channelTitle,
+          thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
+        }))
+      );
+      setSearchQuery("");
+    } catch (error) {
+      setToast(error.message || "YouTube search failed.");
+    } finally {
+      setSearching(false);
+    }
   }
 
   async function addYouTubeLink(event) {
@@ -1540,6 +1585,18 @@ function App() {
       </section>
 
       <section className="add-panel">
+        <form className="youtube-search" onSubmit={searchYouTube}>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={YOUTUBE_API_KEY ? "Search YouTube in app" : "Add VITE_YOUTUBE_API_KEY"}
+          />
+          <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching} type="submit">
+            <Search aria-hidden="true" />
+            {searching ? "..." : "Search"}
+          </button>
+        </form>
+
         <div className="external-search-panel">
           <div>
             <strong>Search YouTube Music</strong>
@@ -1563,6 +1620,24 @@ function App() {
             </a>
           </div>
         </div>
+
+        {searchResults.length > 0 && (
+          <div className="search-results">
+            {searchResults.map((result) => (
+              <article className="search-result" key={result.videoId}>
+                <img src={result.thumbnail} alt="" />
+                <div>
+                  <strong>{result.title}</strong>
+                  <span>{result.channelTitle}</span>
+                </div>
+                <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong} type="button">
+                  <Plus aria-hidden="true" />
+                  Add
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
 
         <form className="youtube-link-form" onSubmit={addYouTubeLink}>
           <input
