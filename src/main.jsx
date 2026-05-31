@@ -118,7 +118,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.31.05";
+const APP_VERSION = "2026.05.30.12";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 
 const COLOR_THEMES = [
@@ -406,7 +406,6 @@ function App() {
   const [renameDraft, setRenameDraft] = useState("");
   const [nowPlayingNotice, setNowPlayingNotice] = useState(null);
   const [joinNotice, setJoinNotice] = useState(null);
-  const [playbackProgress, setPlaybackProgress] = useState({ songId: null, currentSeconds: 0, durationSeconds: 0, remainingSeconds: 0 });
   const [effectivePlaybackSettings, setEffectivePlaybackSettings] = useState({
     songId: null,
     crossfadeEnabled: true,
@@ -588,10 +587,6 @@ function App() {
   const canControlRoomSettings = isAdmin || canControlRoomVolume;
   const memberById = (uid) => members.find((member) => member.id === uid);
   const analytics = buildAnalytics();
-
-  useEffect(() => {
-    setPlaybackProgress({ songId: nowPlayingSong?.id || null, currentSeconds: 0, durationSeconds: 0, remainingSeconds: 0 });
-  }, [nowPlayingSong?.id]);
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -1601,18 +1596,6 @@ function App() {
         </div>
       </header>
 
-      <section className="sticky-now-playing">
-        <div className="sticky-now-playing-copy">
-          <span>Now playing</span>
-          <strong>{nowPlayingSong?.title || "Nothing playing yet"}</strong>
-          <p>{nowPlayingSong ? nowPlayingSong.artist || "YouTube" : "Waiting for the first track"}</p>
-        </div>
-        <div className="sticky-now-playing-time">
-          <span>Remaining</span>
-          <strong>{nowPlayingSong && playbackProgress.durationSeconds ? formatDuration(playbackProgress.remainingSeconds) : "--:--"}</strong>
-        </div>
-      </section>
-
       <section className="now-playing-card">
         <div>
           <span>{isActiveDj ? "Active DJ player" : "Now playing"}</span>
@@ -1639,7 +1622,6 @@ function App() {
               resumeKey={resumeKey}
               playbackStartedAtMs={playbackStartedAtMs}
               volume={roomVolume}
-              onProgress={(progress) => setPlaybackProgress({ songId: nowPlayingSong?.id || null, ...progress })}
             />
             <div className="player-actions">
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
@@ -2375,7 +2357,6 @@ function YouTubePlayer({
   song,
   onEnded,
   onCrossfade,
-  onProgress,
   crossfadeEnabled,
   crossfadeSeconds,
   resumeSeconds = 0,
@@ -2388,7 +2369,6 @@ function YouTubePlayer({
   const playerTimerRef = useRef(null);
   const endedRef = useRef(onEnded);
   const crossfadeRef = useRef(onCrossfade);
-  const progressRef = useRef(onProgress);
   const crossfadeTriggeredRef = useRef(false);
   const playbackOptionsRef = useRef({
     crossfadeEnabled,
@@ -2414,10 +2394,6 @@ function YouTubePlayer({
   useEffect(() => {
     crossfadeRef.current = onCrossfade;
   }, [onCrossfade]);
-
-  useEffect(() => {
-    progressRef.current = onProgress;
-  }, [onProgress]);
 
   useEffect(() => {
     playerRef.current?.setVolume?.(volume);
@@ -2457,13 +2433,6 @@ function YouTubePlayer({
               const seekTo = duration > 0 ? Math.min(nextResumeSeconds, Math.max(0, duration - 2)) : nextResumeSeconds;
               event.target.seekTo(seekTo, true);
             }
-            const duration = event.target.getDuration?.() || 0;
-            const current = event.target.getCurrentTime?.() || 0;
-            progressRef.current?.({
-              currentSeconds: current,
-              durationSeconds: duration,
-              remainingSeconds: duration ? Math.max(0, duration - current) : 0
-            });
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
@@ -2478,16 +2447,11 @@ function YouTubePlayer({
                 const current = event.target.getCurrentTime();
                 const options = playbackOptionsRef.current;
                 saveResumeSeconds(options.resumeKey, options.playbackStartedAtMs, current);
-                const duration = event.target.getDuration?.() || 0;
-                const remaining = duration ? Math.max(0, duration - current) : 0;
-                progressRef.current?.({
-                  currentSeconds: current,
-                  durationSeconds: duration,
-                  remainingSeconds: remaining
-                });
                 if (!options.crossfadeEnabled || !options.crossfadeSeconds || !event.target.getDuration) {
                   return;
                 }
+                const duration = event.target.getDuration();
+                const remaining = duration - current;
                 if (
                   options.crossfadeEnabled
                   && options.crossfadeSeconds
@@ -2507,11 +2471,6 @@ function YouTubePlayer({
               if (playerTimerRef.current) {
                 window.clearInterval(playerTimerRef.current);
               }
-              progressRef.current?.({
-                currentSeconds: 0,
-                durationSeconds: 0,
-                remainingSeconds: 0
-              });
               endedRef.current?.();
             }
           }
@@ -2538,13 +2497,6 @@ function YouTubePlayer({
   }
 
   return <div className="youtube-frame" id={containerId.current} />;
-}
-
-function formatDuration(seconds) {
-  const totalSeconds = Math.max(0, Math.ceil(Number(seconds) || 0));
-  const minutes = Math.floor(totalSeconds / 60);
-  const remainder = totalSeconds % 60;
-  return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
 function readSavedResumeSeconds(resumeKey, playbackStartedAtMs) {
