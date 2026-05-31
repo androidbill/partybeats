@@ -38,7 +38,6 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
   updateProfile
 } from "firebase/auth";
@@ -118,7 +117,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.31.03";
+const APP_VERSION = "2026.05.31.04";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 
 const COLOR_THEMES = [
@@ -787,11 +786,6 @@ function App() {
       setAuthLoading(false);
     } catch (error) {
       setAuthLoading(false);
-      if (error.code === "auth/popup-blocked") {
-        setAuthLoading(true);
-        await signInWithRedirect(auth, provider);
-        return;
-      }
       setToast(authErrorMessage(error));
     }
   }
