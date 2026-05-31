@@ -37,7 +37,6 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signInAnonymously,
-  signInWithPopup,
   signInWithRedirect,
   signOut,
   updateProfile
@@ -118,7 +117,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.30.12";
+const APP_VERSION = "2026.05.31.01";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 
 const COLOR_THEMES = [
@@ -772,16 +771,8 @@ function App() {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     try {
-      const result = await signInWithPopup(auth, provider);
-      if (result?.user) {
-        setUser(result.user);
-        setNickname(savedNicknameFor(result.user) || nicknameFor(result.user, ""));
-      }
+      await signInWithRedirect(auth, provider);
     } catch (error) {
-      if (["auth/popup-blocked", "auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error.code)) {
-        await signInWithRedirect(auth, provider);
-        return;
-      }
       setToast(authErrorMessage(error));
     }
   }
