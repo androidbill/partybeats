@@ -2373,6 +2373,44 @@ input:focus {
   }
 }
 
+/* Playlist track readability */
+.track-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 1px;
+  align-items: start;
+  line-height: 1.16;
+}
+
+.track-line b,
+.track-line strong {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.track-line b {
+  font-size: 0.78rem;
+  line-height: 1.12;
+}
+
+.track-line strong {
+  font-size: 0.86rem;
+  line-height: 1.16;
+}
+
+@media (max-width: 620px) {
+  .track-line b {
+    font-size: 0.72rem;
+  }
+
+  .track-line strong {
+    font-size: 0.82rem;
+  }
+}
+
 @media (min-width: 980px) {
   .room-app {
     grid-template-columns: minmax(390px, 0.8fr) minmax(460px, 1.2fr);
