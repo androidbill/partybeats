@@ -38,6 +38,7 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile
 } from "firebase/auth";
@@ -117,7 +118,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.31.04";
+const APP_VERSION = "2026.05.31.05";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 
 const COLOR_THEMES = [
@@ -447,7 +448,6 @@ function App() {
       .catch((error) => {
         if (!active) return;
         setToast(authErrorMessage(error));
-        setAuthLoading(false);
       });
 
     return () => {
@@ -776,16 +776,17 @@ function App() {
     }
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-    setAuthLoading(true);
     try {
       const result = await signInWithPopup(auth, provider);
       if (result?.user) {
         setUser(result.user);
         setNickname(savedNicknameFor(result.user) || nicknameFor(result.user, ""));
       }
-      setAuthLoading(false);
     } catch (error) {
-      setAuthLoading(false);
+      if (["auth/popup-blocked", "auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error.code)) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
       setToast(authErrorMessage(error));
     }
   }
