@@ -37,6 +37,7 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signInAnonymously,
+  signInWithPopup,
   signInWithRedirect,
   signOut,
   updateProfile
@@ -117,7 +118,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.31.01";
+const APP_VERSION = "2026.05.31.02";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 
 const COLOR_THEMES = [
@@ -441,11 +442,17 @@ function App() {
           setUser(result.user);
           setAuthLoading(false);
           setNickname(savedNicknameFor(result.user) || nicknameFor(result.user, ""));
+        } else if (sessionStorage.getItem("partybeats-google-redirect") === "pending") {
+          sessionStorage.removeItem("partybeats-google-redirect");
+          setAuthLoading(false);
+          setToast("Google returned, but Firebase did not finish signing in. Check Firebase authorized domains.");
         }
       })
       .catch((error) => {
         if (!active) return;
+        sessionStorage.removeItem("partybeats-google-redirect");
         setToast(authErrorMessage(error));
+        setAuthLoading(false);
       });
 
     return () => {
@@ -771,8 +778,17 @@ function App() {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     try {
-      await signInWithRedirect(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      if (result?.user) {
+        setUser(result.user);
+        setNickname(savedNicknameFor(result.user) || nicknameFor(result.user, ""));
+      }
     } catch (error) {
+      if (error.code === "auth/popup-blocked") {
+        sessionStorage.setItem("partybeats-google-redirect", "pending");
+        await signInWithRedirect(auth, provider);
+        return;
+      }
       setToast(authErrorMessage(error));
     }
   }
