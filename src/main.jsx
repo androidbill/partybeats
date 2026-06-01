@@ -113,8 +113,9 @@ const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
+const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.17";
+const APP_VERSION = "2026.06.01.18";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -235,6 +236,15 @@ function playlistTrackDisplay(song) {
     artist,
     title: title || rawTitle
   };
+}
+
+function parseIsoDurationSeconds(value) {
+  const match = String(value || "").match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!match) return null;
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+  return (hours * 3600) + (minutes * 60) + seconds;
 }
 
 function nextQueuedSong(songs, currentId) {
@@ -670,6 +680,19 @@ function App() {
       return;
     }
 
+    let durationSeconds = Number(selectedVideo?.durationSeconds) || null;
+    if (!durationSeconds && YOUTUBE_API_KEY) {
+      durationSeconds = await fetchYouTubeDurationSeconds(videoId);
+    }
+    if (!isAdmin && !durationSeconds) {
+      setToast("Could not verify song length. Ask an admin to add this track.");
+      return;
+    }
+    if (!isAdmin && durationSeconds > NON_ADMIN_MAX_SONG_SECONDS) {
+      setToast("Only admins can add songs longer than 10 minutes.");
+      return;
+    }
+
     const title = selectedVideo?.title || "YouTube track";
     const thumbnail = selectedVideo?.thumbnail || youtubeThumb(videoId);
     const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
@@ -682,6 +705,7 @@ function App() {
       provider: "youtube",
       videoId,
       thumbnail,
+      durationSeconds: durationSeconds || null,
       addedByUid: user.uid,
       addedByName: activeNickname,
       addedByIsAnonymous: user.isAnonymous,
@@ -697,6 +721,23 @@ function App() {
     await batch.commit();
     setSearchResults([]);
     setYoutubeLink("");
+  }
+
+  async function fetchYouTubeDurationSeconds(videoId) {
+    if (!YOUTUBE_API_KEY || !videoId) return null;
+    try {
+      const params = new URLSearchParams({
+        part: "contentDetails",
+        id: videoId,
+        key: YOUTUBE_API_KEY
+      });
+      const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || "YouTube duration lookup failed.");
+      return parseIsoDurationSeconds(data.items?.[0]?.contentDetails?.duration);
+    } catch {
+      return null;
+    }
   }
 
   async function fetchYouTubeLinkDetails(videoId) {
@@ -767,7 +808,8 @@ function App() {
           videoId: item.id.videoId,
           title: item.snippet.title,
           channelTitle: item.snippet.channelTitle,
-          thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
+          thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId),
+          durationSeconds: null
         }))
       );
     } catch (error) {
