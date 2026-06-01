@@ -1,4 +1,4 @@
-name: Deploy ROCK BeatsParty to GitHub Pages
+name: Deploy BP PartyBeats to GitHub Pages
 
 on:
   push:
