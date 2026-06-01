@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.11";
+const APP_VERSION = "2026.06.01.12";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -689,6 +689,7 @@ function App() {
 
   function openExternalYouTubeMusicSearch() {
     window.open(youtubeMusicSearchUrl(searchQuery), "_blank", "noopener,noreferrer");
+    setSearchQuery("");
   }
 
   async function searchYouTube(event) {
@@ -701,6 +702,7 @@ function App() {
     }
 
     setSearching(true);
+    setSearchQuery("");
     try {
       const params = new URLSearchParams({
         part: "snippet",
