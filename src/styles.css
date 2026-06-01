@@ -1083,6 +1083,42 @@ input:focus {
   padding: 12px;
 }
 
+.search-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: rgba(23, 24, 31, 0.08);
+}
+
+.search-tabs button {
+  min-height: 38px;
+  border-radius: 6px;
+  color: #696c78;
+  background: transparent;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.search-tabs button.is-active {
+  color: #12131a;
+  background: #f7c948;
+}
+
+.room-app.dark-mode .search-tabs {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.room-app.dark-mode .search-tabs button {
+  color: #a7adbb;
+}
+
+.room-app.dark-mode .search-tabs button.is-active {
+  color: #12131a;
+}
+
 .add-panel .youtube-search,
 .add-panel .song-form,
 .youtube-link-form {
@@ -1100,6 +1136,10 @@ input:focus {
   padding: 10px;
   border-radius: 8px;
   background: rgba(247, 201, 72, 0.18);
+}
+
+.external-search-panel .youtube-link-form {
+  margin-bottom: 0;
 }
 
 .external-search-panel div {
