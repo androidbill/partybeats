@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import {
   ArrowDown,
   ArrowUp,
-  BarChart3,
   Crown,
   DoorOpen,
   ExternalLink,
@@ -25,10 +24,8 @@ import {
   SkipForward,
   Trash2,
   UserRound,
-  Volume2,
   UsersRound,
   Wand2,
-  Palette,
   X
 } from "lucide-react";
 import QRCode from "qrcode";
@@ -118,22 +115,8 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.05.30.12";
+const APP_VERSION = "2026.05.31.02";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
-
-const COLOR_THEMES = [
-  { id: "sunset", name: "Sunset", note: "Warm pink, gold, and teal" },
-  { id: "ocean", name: "Ocean", note: "Deep blue with aqua highlights" },
-  { id: "neon", name: "Neon", note: "Purple club lights" },
-  { id: "forest", name: "Forest", note: "Green and gold" },
-  { id: "candy", name: "Candy", note: "Bright pink and violet" },
-  { id: "fire", name: "Fire", note: "Red, orange, and yellow" },
-  { id: "ice", name: "Ice", note: "Cool blue and silver" },
-  { id: "royal", name: "Royal", note: "Indigo and gold" },
-  { id: "mono", name: "Mono", note: "Clean black and white" },
-  { id: "lime", name: "Lime", note: "Electric green and charcoal" }
-];
-
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
   /\bbastard\b/,
@@ -185,98 +168,8 @@ function isSameMusicText(a, b) {
   return left === right || left.includes(right) || right.includes(left);
 }
 
-function musicTokens(value) {
-  return normalizeMusicText(value)
-    .split(" ")
-    .filter((token) => token.length > 2 && !["the", "and", "with", "from", "song", "songs", "like", "radio", "mix"].includes(token));
-}
-
-function musicTokenOverlap(a, b) {
-  const left = new Set(musicTokens(a));
-  const right = new Set(musicTokens(b));
-  if (!left.size || !right.size) return 0;
-  let shared = 0;
-  left.forEach((token) => {
-    if (right.has(token)) shared += 1;
-  });
-  return shared / Math.min(left.size, right.size);
-}
-
-function isSameSongCandidate(candidate, reference) {
-  if (!candidate || !reference) return false;
-  const candidateText = [candidate.channelTitle, candidate.title].filter(Boolean).join(" ");
-  const referenceArtist = reference.artist || "";
-  const referenceTitle = reference.title || "";
-  const candidateTitle = candidate.title || "";
-
-  return (
-    isSameMusicText(candidate.channelTitle, referenceArtist)
-    || isSameMusicText(candidateTitle, referenceTitle)
-    || hasSharedSongPhrase(candidateTitle, referenceTitle)
-    || hasSharedSongPhrase(candidateText, [referenceArtist, referenceTitle].filter(Boolean).join(" "))
-    || musicTokenOverlap(candidateTitle, referenceTitle) >= 0.72
-    || musicTokenOverlap(candidateText, [referenceArtist, referenceTitle].filter(Boolean).join(" ")) >= 0.82
-  );
-}
-
-function songPhraseSet(value) {
-  const tokens = musicTokens(value);
-  const phrases = new Set();
-  for (let size = 2; size <= Math.min(5, tokens.length); size += 1) {
-    for (let index = 0; index <= tokens.length - size; index += 1) {
-      phrases.add(tokens.slice(index, index + size).join(" "));
-    }
-  }
-  return phrases;
-}
-
-function hasSharedSongPhrase(a, b) {
-  const left = songPhraseSet(a);
-  const right = songPhraseSet(b);
-  if (!left.size || !right.size) return false;
-  for (const phrase of left) {
-    if (right.has(phrase)) return true;
-  }
-  return false;
-}
-
-function candidateHasLowDiversityTitle(candidate) {
-  return /\b(cover|karaoke|instrumental|tribute|reaction|tutorial|lesson|loop|sped up|slowed|nightcore|playlist|full album|nonstop|1 hour|one hour)\b/i.test(candidate.title || "");
-}
-
-function analyticsPersonKey(uid, name) {
-  return uid || `name:${name || "Guest"}`;
-}
-
-function emptyAnalyticsPerson(uid, name, isCurrentMember = false) {
-  return {
-    uid,
-    name: name || "Guest",
-    isCurrentMember,
-    songsAdded: 0,
-    reactionsGiven: 0,
-    reactionsReceived: 0,
-    commentsMade: 0,
-    commentsReceived: 0
-  };
-}
-
 function nicknameFor(user, fallback = "Guest") {
   return user?.displayName || user?.email?.split("@")[0] || fallback;
-}
-
-function nicknameStorageKey(user) {
-  return user?.uid ? `partybeats-nickname:${user.uid}` : "";
-}
-
-function savedNicknameFor(user) {
-  const key = nicknameStorageKey(user);
-  if (!key) return "";
-  try {
-    return localStorage.getItem(key) || "";
-  } catch {
-    return "";
-  }
 }
 
 function hasProfanity(value) {
@@ -314,40 +207,10 @@ function youtubeThumb(videoId) {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-function youtubeSearchUrl(queryText) {
-  return `https://music.youtube.com/search?q=${encodeURIComponent(queryText)}`;
-}
-
-function youtubeOembedUrl(videoId) {
-  return `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(youtubeWatchUrl(videoId))}`;
-}
-
-function extractYouTubeVideoId(value) {
-  const rawValue = String(value || "").trim();
-  if (!rawValue) return "";
-  try {
-    const url = new URL(rawValue);
-    if (url.hostname.includes("youtu.be")) {
-      return url.pathname.replace("/", "").slice(0, 11);
-    }
-    if (url.hostname.includes("youtube.com") || url.hostname.includes("music.youtube.com")) {
-      if (url.pathname === "/watch") return (url.searchParams.get("v") || "").slice(0, 11);
-      if (url.pathname.startsWith("/shorts/") || url.pathname.startsWith("/embed/")) {
-        return (url.pathname.split("/")[2] || "").slice(0, 11);
-      }
-    }
-  } catch {
-    const match = rawValue.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/);
-    return match?.[1] || "";
-  }
-  return "";
-}
-
 function nextQueuedSong(songs, currentId) {
   if (!songs.length) return null;
-  if (!currentId) return songs[0];
   const currentIndex = songs.findIndex((song) => song.id === currentId);
-  if (currentIndex < 0) return null;
+  if (currentIndex < 0) return songs[0];
   return songs[currentIndex + 1] || null;
 }
 
@@ -366,15 +229,6 @@ function savedTheme() {
   }
 }
 
-function savedColorTheme() {
-  try {
-    const saved = localStorage.getItem("partybeats-color-theme") || "sunset";
-    return COLOR_THEMES.some((item) => item.id === saved) ? saved : "sunset";
-  } catch {
-    return "sunset";
-  }
-}
-
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -388,16 +242,11 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [youtubeLink, setYoutubeLink] = useState("");
-  const [linkLoading, setLinkLoading] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [colorThemeOpen, setColorThemeOpen] = useState(false);
-  const [nicknameOpen, setNicknameOpen] = useState(false);
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -412,11 +261,8 @@ function App() {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [theme, setTheme] = useState(savedTheme);
-  const [colorTheme, setColorTheme] = useState(savedColorTheme);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
-  const previousSongCount = useRef(undefined);
-  const suppressNextTrackClick = useRef("");
   const isDarkTheme = theme === "dark";
 
   useEffect(() => {
@@ -429,7 +275,7 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setAuthLoading(false);
-      setNickname(savedNicknameFor(nextUser) || nicknameFor(nextUser, ""));
+      setNickname(nicknameFor(nextUser, ""));
     }, (error) => {
       setToast(authErrorMessage(error));
       setAuthLoading(false);
@@ -441,7 +287,7 @@ function App() {
         if (result?.user) {
           setUser(result.user);
           setAuthLoading(false);
-          setNickname(savedNicknameFor(result.user) || nicknameFor(result.user, ""));
+          setNickname(nicknameFor(result.user, ""));
         }
       })
       .catch((error) => {
@@ -463,26 +309,6 @@ function App() {
     }
     document.documentElement.dataset.theme = theme;
   }, [theme]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("partybeats-color-theme", colorTheme);
-    } catch {
-      // Color theme persistence is a convenience; the picker still works without storage.
-    }
-    document.documentElement.dataset.colorTheme = colorTheme;
-  }, [colorTheme]);
-
-  useEffect(() => {
-    const cleanName = nickname.trim();
-    const key = nicknameStorageKey(user);
-    if (!key || !cleanName) return;
-    try {
-      localStorage.setItem(key, cleanName);
-    } catch {
-      // Nickname persistence is best-effort.
-    }
-  }, [user?.uid, nickname]);
 
   useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
@@ -568,7 +394,7 @@ function App() {
   const cooldownMs = cooldownMinutes * 60 * 1000;
   const crossfadeEnabled = room?.crossfadeEnabled !== false;
   const crossfadeSeconds = Math.min(30, Math.max(1, Number(room?.crossfadeSeconds) || DEFAULT_CROSSFADE_SECONDS));
-  const roomVolume = Math.min(100, Math.max(0, room?.volume == null ? 100 : Number(room.volume) || 0));
+  const autoNextEnabled = room?.autoNextEnabled !== false;
   const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
@@ -577,49 +403,8 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
-  const playbackStartedAtMs = room?.playbackStartedAt?.toMillis ? room.playbackStartedAt.toMillis() : 0;
-  const resumeSeconds = nowPlayingSong && playbackStartedAtMs
-    ? Math.max(0, Math.floor((Date.now() - playbackStartedAtMs) / 1000))
-    : 0;
-  const resumeKey = activeRoomId && nowPlayingSong?.id ? `partybeats-resume:${activeRoomId}:${nowPlayingSong.id}` : "";
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
-  const canControlRoomVolume = Boolean(user?.isAnonymous && activeNickname.toLowerCase() === "billybeats");
-  const canControlRoomSettings = isAdmin || canControlRoomVolume;
   const memberById = (uid) => members.find((member) => member.id === uid);
-  const analytics = buildAnalytics();
-
-  useEffect(() => {
-    if (!activeRoomId) {
-      previousSongCount.current = undefined;
-      return;
-    }
-
-    const previousCount = previousSongCount.current;
-    previousSongCount.current = songs.length;
-
-    if (
-      previousCount === undefined
-      || !isActiveDj
-      || !activeRoomId
-      || room?.nowPlayingId
-      || songs.length <= previousCount
-    ) {
-      return;
-    }
-
-    const newlyAddedSong = songs[previousCount] || songs[songs.length - 1];
-    if (!newlyAddedSong?.id) return;
-
-    updateDoc(doc(db, "rooms", activeRoomId), {
-      nowPlayingId: newlyAddedSong.id,
-      playbackStartedAt: serverTimestamp()
-    }).catch(() => undefined);
-  }, [isActiveDj, activeRoomId, room?.nowPlayingId, songs]);
-
-  useEffect(() => {
-    if (!isActiveDj || !activeRoomId || !nowPlayingSong || playbackStartedAtMs) return;
-    updateDoc(doc(db, "rooms", activeRoomId), { playbackStartedAt: serverTimestamp() }).catch(() => undefined);
-  }, [isActiveDj, activeRoomId, nowPlayingSong?.id, playbackStartedAtMs]);
 
   useEffect(() => {
     setEffectivePlaybackSettings((current) => {
@@ -634,25 +419,20 @@ function App() {
   }, [nowPlayingSong?.id, crossfadeEnabled, crossfadeSeconds]);
 
   useEffect(() => {
-    const currentPlayingId = room?.nowPlayingId || null;
-    if (!activeRoomId || !currentPlayingId) {
-      previousNowPlayingId.current = currentPlayingId;
+    if (!activeRoomId || !nowPlayingSong?.id) {
+      previousNowPlayingId.current = nowPlayingSong?.id || null;
       setNowPlayingNotice(null);
       return undefined;
     }
     if (previousNowPlayingId.current === undefined) {
-      previousNowPlayingId.current = currentPlayingId;
+      previousNowPlayingId.current = nowPlayingSong.id;
       return undefined;
     }
-    if (previousNowPlayingId.current === currentPlayingId) {
+    if (previousNowPlayingId.current === nowPlayingSong.id) {
       return undefined;
     }
 
-    previousNowPlayingId.current = currentPlayingId;
-    if (!nowPlayingSong) {
-      setNowPlayingNotice(null);
-      return undefined;
-    }
+    previousNowPlayingId.current = nowPlayingSong.id;
     if (!trackNoticeEnabled) {
       setNowPlayingNotice(null);
       return undefined;
@@ -666,7 +446,7 @@ function App() {
     });
     const timer = window.setTimeout(() => setNowPlayingNotice(null), trackNoticeSeconds * 1000);
     return () => window.clearTimeout(timer);
-  }, [activeRoomId, room?.nowPlayingId, nowPlayingSong?.id, trackNoticeEnabled, trackNoticeSeconds]);
+  }, [activeRoomId, nowPlayingSong?.id]);
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -676,9 +456,6 @@ function App() {
     }
 
     const currentIds = new Set(members.map((member) => member.id));
-    if (previousMemberIds.current === undefined && members.length === 0) {
-      return undefined;
-    }
     if (previousMemberIds.current === undefined) {
       previousMemberIds.current = currentIds;
       return undefined;
@@ -696,74 +473,6 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [activeRoomId, members, joinNoticeEnabled]);
 
-  function buildAnalytics() {
-    const people = new Map();
-    const ensurePerson = (uid, name, isCurrentMember = false) => {
-      const key = analyticsPersonKey(uid, name);
-      if (!people.has(key)) {
-        people.set(key, emptyAnalyticsPerson(uid, name, isCurrentMember));
-      }
-      const person = people.get(key);
-      if (name && person.name === "Guest") person.name = name;
-      person.isCurrentMember = person.isCurrentMember || isCurrentMember;
-      return person;
-    };
-
-    members.forEach((member) => ensurePerson(member.id, member.name, true));
-
-    const artistCounts = new Map();
-    const titleWords = new Map();
-    let reactionTotal = 0;
-    let commentTotal = 0;
-
-    songs.forEach((song) => {
-      ensurePerson(song.addedByUid, song.addedByName).songsAdded += 1;
-      const artist = song.artist || "YouTube";
-      artistCounts.set(artist, (artistCounts.get(artist) || 0) + 1);
-      normalizeMusicText(song.title || "").split(" ").forEach((word) => {
-        if (word.length > 3 && !["official", "video", "audio", "music"].includes(word)) {
-          titleWords.set(word, (titleWords.get(word) || 0) + 1);
-        }
-      });
-
-      const reactions = Object.entries(song.emojiByUser || {});
-      reactionTotal += reactions.length;
-      ensurePerson(song.addedByUid, song.addedByName).reactionsReceived += reactions.length;
-      reactions.forEach(([uid]) => {
-        const reactor = memberById(uid);
-        ensurePerson(uid, reactor?.name || "Guest").reactionsGiven += 1;
-      });
-
-      const messages = song.messages || [];
-      commentTotal += messages.length;
-      ensurePerson(song.addedByUid, song.addedByName).commentsReceived += messages.length;
-      messages.forEach((message) => {
-        ensurePerson(message.uid, message.name, members.some((member) => member.id === message.uid)).commentsMade += 1;
-      });
-    });
-
-    const peopleList = [...people.values()].sort((a, b) => b.songsAdded - a.songsAdded || b.reactionsGiven - a.reactionsGiven || a.name.localeCompare(b.name));
-    const topArtists = [...artistCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const topTitleWords = [...titleWords.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-    const topContributor = peopleList.find((person) => person.songsAdded > 0) || null;
-    const topReactedSong = [...songs]
-      .filter((song) => Object.keys(song.emojiByUser || {}).length > 0)
-      .sort((a, b) => Object.keys(b.emojiByUser || {}).length - Object.keys(a.emojiByUser || {}).length)[0] || null;
-
-    return {
-      people: peopleList,
-      currentMemberCount: members.length,
-      participantCount: peopleList.length,
-      songCount: songs.length,
-      reactionTotal,
-      commentTotal,
-      topArtists,
-      topTitleWords,
-      topContributor,
-      topReactedSong
-    };
-  }
-
   async function signInGoogle() {
     if (!firebaseReady) {
       setToast("Add your Firebase config first.");
@@ -775,7 +484,7 @@ function App() {
       const result = await signInWithPopup(auth, provider);
       if (result?.user) {
         setUser(result.user);
-        setNickname(savedNicknameFor(result.user) || nicknameFor(result.user, ""));
+        setNickname(nicknameFor(result.user, ""));
       }
     } catch (error) {
       if (["auth/popup-blocked", "auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error.code)) {
@@ -786,31 +495,23 @@ function App() {
     }
   }
 
-  async function ensureSignedInWithNickname(options = {}) {
-    if (user) return user;
+  async function signInNickname() {
     if (!firebaseReady) {
-      if (!options.silent) setToast("Add your Firebase config first.");
-      return null;
+      setToast("Add your Firebase config first.");
+      return;
     }
     const cleanName = nickname.trim();
     if (cleanName.length < 2) {
-      if (!options.silent) setToast("Choose a nickname with at least 2 characters.");
-      return null;
+      setToast("Choose a nickname with at least 2 characters.");
+      return;
     }
     try {
       const credential = await signInAnonymously(auth);
       await updateProfile(credential.user, { displayName: cleanName });
-      try {
-        localStorage.setItem(nicknameStorageKey(credential.user), cleanName);
-      } catch {
-        // Nickname persistence is best-effort.
-      }
       setUser(credential.user);
       setNickname(cleanName);
-      return credential.user;
     } catch (error) {
-      if (!options.silent) setToast(authErrorMessage(error));
-      return null;
+      setToast(authErrorMessage(error));
     }
   }
 
@@ -848,19 +549,18 @@ function App() {
       cooldownMs: DEFAULT_COOLDOWN_MS,
       crossfadeEnabled: true,
       crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
-      volume: 100,
+      autoNextEnabled: true,
       trackNoticeEnabled: true,
       trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
       joinNoticeEnabled: true,
-      nowPlayingId: null,
-      playbackStartedAt: null
+      nowPlayingId: null
     });
-    await joinRoomById(nextId, { user });
+    await joinRoomById(nextId);
   }
 
   async function joinRoomById(rawId = roomId, options = {}) {
-    const joiningUser = options.user || await ensureSignedInWithNickname(options);
-    if (!joiningUser) {
+    if (!user) {
+      if (!options.silent) setToast("Sign in first.");
       return;
     }
     const nextRoomId = normalizeRoomId(rawId);
@@ -880,11 +580,11 @@ function App() {
     }
 
     await setDoc(
-      doc(db, "rooms", nextRoomId, "members", joiningUser.uid),
+      doc(db, "rooms", nextRoomId, "members", user.uid),
       {
-        uid: joiningUser.uid,
+        uid: user.uid,
         name: activeNickname,
-        isAnonymous: joiningUser.isAnonymous,
+        isAnonymous: user.isAnonymous,
         joinedAt: serverTimestamp()
       },
       { merge: true }
@@ -896,24 +596,23 @@ function App() {
 
   async function addSong(event, selectedVideo = null) {
     event?.preventDefault();
-    if (!user || !activeRoomId) return false;
+    if (!user || !activeRoomId) return;
 
     const videoId = selectedVideo?.videoId;
     if (!videoId) {
       setToast("Choose a YouTube search result.");
-      return false;
+      return;
     }
     if (!canAddSong) {
       setToast(`Non-admins have a ${cooldownMinutes} minute song cooldown.`);
-      return false;
+      return;
     }
 
     const title = selectedVideo?.title || "YouTube track";
     const thumbnail = selectedVideo?.thumbnail || youtubeThumb(videoId);
     const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
-    const songRef = doc(collection(db, "rooms", activeRoomId, "songs"));
     const batch = writeBatch(db);
-    batch.set(songRef, {
+    batch.set(doc(collection(db, "rooms", activeRoomId, "songs")), {
       title,
       artist: selectedVideo?.channelTitle || "YouTube",
       link: youtubeWatchUrl(videoId),
@@ -928,23 +627,9 @@ function App() {
       messages: [],
       createdAt: serverTimestamp()
     });
-    if (!isAdmin) {
-      batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
-    }
-    if (isActiveDj && !room?.nowPlayingId) {
-      batch.update(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: songRef.id,
-        playbackStartedAt: serverTimestamp()
-      });
-    }
-    try {
-      await batch.commit();
-    } catch (error) {
-      setToast(error.message || "Could not add that song.");
-      return false;
-    }
+    batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
+    await batch.commit();
     setSearchResults([]);
-    return true;
   }
 
   async function searchYouTube(event) {
@@ -979,7 +664,6 @@ function App() {
           thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
         }))
       );
-      setSearchQuery("");
     } catch (error) {
       setToast(error.message || "YouTube search failed.");
     } finally {
@@ -987,29 +671,50 @@ function App() {
     }
   }
 
-  async function addYouTubeLink(event) {
-    event.preventDefault();
-    const videoId = extractYouTubeVideoId(youtubeLink);
-    if (!videoId) {
-      setToast("Paste a valid YouTube video link.");
-      return;
+  async function findSimilarYouTubeSong(song) {
+    if (!YOUTUBE_API_KEY || !song) return null;
+    const playlistProfile = songs
+      .filter((item) => item.id !== song.id)
+      .slice(-5)
+      .map((item) => [item.artist, item.title].filter(Boolean).join(" "))
+      .filter(Boolean);
+    const queryText = (playlistProfile.length ? playlistProfile : [[song.artist, song.title].filter(Boolean).join(" ")])
+      .join(" ")
+      .slice(0, 180);
+    if (!queryText.trim()) return null;
+
+    const params = new URLSearchParams({
+      part: "snippet",
+      type: "video",
+      maxResults: "25",
+      videoCategoryId: "10",
+      q: queryText,
+      key: YOUTUBE_API_KEY
+    });
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || "YouTube search failed.");
     }
-    setLinkLoading(true);
-    try {
-      const response = await fetch(youtubeOembedUrl(videoId));
-      const data = response.ok ? await response.json() : {};
-      const added = await addSong(null, {
-        videoId,
-        title: data.title || "YouTube track",
-        channelTitle: data.author_name || "YouTube",
-        thumbnail: data.thumbnail_url || youtubeThumb(videoId)
+
+    const queuedVideoIds = new Set(songs.map((item) => item.videoId).filter(Boolean));
+    const lastArtist = song.artist || "";
+    const lastTitle = song.title || "";
+    const candidates = (data.items || [])
+      .map((item) => ({
+        videoId: item.id.videoId,
+        title: item.snippet.title,
+        channelTitle: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId)
+      }))
+      .filter((item) => {
+        if (!item.videoId || item.videoId === song.videoId || queuedVideoIds.has(item.videoId)) return false;
+        if (isSameMusicText(item.channelTitle, lastArtist) || isSameMusicText(item.title, lastArtist)) return false;
+        if (isSameMusicText(item.title, lastTitle)) return false;
+        return true;
       });
-      if (added) setYoutubeLink("");
-    } catch (error) {
-      setToast(error.message || "Could not add that YouTube link.");
-    } finally {
-      setLinkLoading(false);
-    }
+    if (!candidates.length) return null;
+    return candidates[Math.floor(Math.random() * Math.min(candidates.length, 8))];
   }
 
   async function removeSong(songId) {
@@ -1026,10 +731,7 @@ function App() {
     songs.forEach((song) => {
       batch.delete(doc(db, "rooms", activeRoomId, "songs", song.id));
     });
-    batch.update(doc(db, "rooms", activeRoomId), {
-      nowPlayingId: null,
-      playbackStartedAt: null
-    });
+    batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
     await batch.commit();
     setNowPlayingNotice(null);
     setToast("Playlist cleared.");
@@ -1051,10 +753,7 @@ function App() {
       setToast("Only the Active DJ can control playback.");
       return;
     }
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      nowPlayingId: songId,
-      playbackStartedAt: songId ? serverTimestamp() : null
-    });
+    await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: songId });
   }
 
   async function takeOverDj() {
@@ -1147,56 +846,69 @@ function App() {
     setToast(`${member.name || "Member"} is now ${nextName}.`);
   }
 
-  async function saveOwnNickname(event) {
-    event.preventDefault();
-    const nextName = nickname.trim().slice(0, 30);
-    if (!user || !activeRoomId || !nextName) return;
-    if (hasProfanity(nextName)) {
-      setToast("Nickname blocked for profanity.");
-      return;
-    }
-    await updateDoc(doc(db, "rooms", activeRoomId, "members", user.uid), {
-      name: nextName
-    });
-    if (room?.activeDjUid === user.uid) {
-      await updateDoc(doc(db, "rooms", activeRoomId), { activeDjName: nextName });
-    }
-    try {
-      localStorage.setItem(nicknameStorageKey(user), nextName);
-    } catch {
-      // Nickname persistence is best-effort.
-    }
-    setNickname(nextName);
-    setNicknameOpen(false);
-    setToast("Nickname updated.");
-  }
-
   async function playNextSong() {
     if (!isActiveDj || !activeRoomId) {
       setToast("Only the Active DJ can control playback.");
       return;
     }
-    const currentSongId = room?.nowPlayingId || nowPlayingSong?.id || null;
-    if (!currentSongId) {
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: null,
-        playbackStartedAt: null
-      });
-      return;
-    }
-    const nextSong = nextQueuedSong(songs, currentSongId);
+    const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
     if (nextSong) {
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: nextSong.id,
-        playbackStartedAt: serverTimestamp()
-      });
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: nextSong.id });
       return;
     }
 
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      nowPlayingId: null,
-      playbackStartedAt: null
-    });
+    const lastSong = songs.find((song) => song.id === room?.nowPlayingId);
+    if (!lastSong) {
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      return;
+    }
+    if (!autoNextEnabled) {
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      return;
+    }
+    if (!YOUTUBE_API_KEY) {
+      setToast("Add VITE_YOUTUBE_API_KEY to auto-add similar songs.");
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+      return;
+    }
+
+    try {
+      const selectedVideo = await findSimilarYouTubeSong(lastSong);
+      if (!selectedVideo) {
+        setToast("No similar YouTube song found.");
+        await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+        return;
+      }
+
+      const autoSongId = `auto-${lastSong.id}`;
+      const autoSongRef = doc(db, "rooms", activeRoomId, "songs", autoSongId);
+      const autoSongSnap = await getDoc(autoSongRef);
+      if (!autoSongSnap.exists()) {
+        const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
+        await setDoc(autoSongRef, {
+          title: selectedVideo.title || "YouTube track",
+          artist: selectedVideo.channelTitle || "YouTube",
+          link: youtubeWatchUrl(selectedVideo.videoId),
+          provider: "youtube",
+          videoId: selectedVideo.videoId,
+          thumbnail: selectedVideo.thumbnail || youtubeThumb(selectedVideo.videoId),
+          addedByUid: user.uid,
+          addedByName: "BP PartyBeats Auto",
+          addedByIsAnonymous: false,
+          autoAdded: true,
+          similarToSongId: lastSong.id,
+          position: nextPosition,
+          emojiByUser: {},
+          messages: [],
+          createdAt: serverTimestamp()
+        });
+      }
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: autoSongId });
+      setToast("BP PartyBeats added a similar song.");
+    } catch (error) {
+      setToast(error.message || "Could not auto-add a similar song.");
+      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+    }
   }
 
   async function reactToSong(song, emoji) {
@@ -1243,10 +955,8 @@ function App() {
     setMembers([]);
     setMenuOpen(false);
     setAboutOpen(false);
-    setAnalyticsOpen(false);
     setPeopleOpen(false);
     setSettingsOpen(false);
-    setNicknameOpen(false);
     setEmojiSongId("");
     setMessageSongId("");
     setMessageDraft("");
@@ -1265,12 +975,12 @@ function App() {
   }
 
   async function updateCooldownEnabled(enabled) {
-    if (!canControlRoomSettings || !activeRoomId) return;
+    if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { cooldownEnabled: enabled });
   }
 
   async function updateCooldownMinutes(minutes) {
-    if (!canControlRoomSettings || !activeRoomId) return;
+    if (!isAdmin || !activeRoomId) return;
     const cleanMinutes = Math.min(30, Math.max(1, Number(minutes) || 1));
     await updateDoc(doc(db, "rooms", activeRoomId), {
       cooldownMinutes: cleanMinutes,
@@ -1279,36 +989,35 @@ function App() {
   }
 
   async function updateCrossfadeEnabled(enabled) {
-    if (!canControlRoomSettings || !activeRoomId) return;
+    if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeEnabled: enabled });
   }
 
   async function updateCrossfadeSeconds(seconds) {
-    if (!canControlRoomSettings || !activeRoomId) return;
+    if (!isAdmin || !activeRoomId) return;
     const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_CROSSFADE_SECONDS));
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeSeconds: cleanSeconds });
   }
 
+  async function updateAutoNextEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { autoNextEnabled: enabled });
+  }
+
   async function updateTrackNoticeEnabled(enabled) {
-    if (!canControlRoomSettings || !activeRoomId) return;
+    if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeEnabled: enabled });
   }
 
   async function updateTrackNoticeSeconds(seconds) {
-    if (!canControlRoomSettings || !activeRoomId) return;
+    if (!isAdmin || !activeRoomId) return;
     const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_TRACK_NOTICE_SECONDS));
     await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeSeconds: cleanSeconds });
   }
 
   async function updateJoinNoticeEnabled(enabled) {
-    if (!canControlRoomSettings || !activeRoomId) return;
+    if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { joinNoticeEnabled: enabled });
-  }
-
-  async function updateRoomVolume(value) {
-    if (!canControlRoomVolume || !activeRoomId) return;
-    const cleanVolume = Math.min(100, Math.max(0, Number(value) || 0));
-    await updateDoc(doc(db, "rooms", activeRoomId), { volume: cleanVolume });
   }
 
   async function leaveRoom() {
@@ -1317,18 +1026,15 @@ function App() {
 
     if (leavingRoomId && leavingUser) {
       const batch = writeBatch(db);
-      let roomDeleted = false;
       if (isAdmin) {
         const remainingAdmins = members.filter((member) => member.id !== leavingUser.uid && isRoomAdminId(member.id));
         if (remainingAdmins.length === 0) {
-          songs.forEach((song) => {
-            batch.delete(doc(db, "rooms", leavingRoomId, "songs", song.id));
+          batch.update(doc(db, "rooms", leavingRoomId), {
+            closed: true,
+            closedAt: serverTimestamp(),
+            closedByUid: leavingUser.uid,
+            [`adminUids.${leavingUser.uid}`]: deleteField()
           });
-          members.forEach((member) => {
-            batch.delete(doc(db, "rooms", leavingRoomId, "members", member.id));
-          });
-          batch.delete(doc(db, "rooms", leavingRoomId));
-          roomDeleted = true;
         } else {
           batch.update(doc(db, "rooms", leavingRoomId), {
             [`adminUids.${leavingUser.uid}`]: deleteField(),
@@ -1343,9 +1049,7 @@ function App() {
           });
         }
       }
-      if (!roomDeleted) {
-        batch.delete(doc(db, "rooms", leavingRoomId, "members", leavingUser.uid));
-      }
+      batch.delete(doc(db, "rooms", leavingRoomId, "members", leavingUser.uid));
       await batch.commit();
     }
 
@@ -1361,8 +1065,8 @@ function App() {
     if (!activeRoomId) return;
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
     const shareData = {
-      title: "Join my ROCK BeatsParty room",
-      text: `Join ROCK BeatsParty room ${activeRoomId}`,
+      title: "Join my BP PartyBeats room",
+      text: `Join BP PartyBeats room ${activeRoomId}`,
       url: shareUrl
     };
     setMenuOpen(false);
@@ -1382,7 +1086,7 @@ function App() {
     }
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
     const lines = [
-      "ROCK BeatsParty Playlist",
+      "BP PartyBeats Playlist",
       `Room: ${activeRoomId}`,
       `Exported: ${new Date().toLocaleString()}`,
       "",
@@ -1396,7 +1100,7 @@ function App() {
     ];
     const playlistText = lines.join("\n");
     const shareData = {
-      title: `ROCK BeatsParty ${activeRoomId} playlist`,
+      title: `BP PartyBeats ${activeRoomId} playlist`,
       text: playlistText,
       url: shareUrl
     };
@@ -1409,39 +1113,6 @@ function App() {
     setToast("Playlist copied.");
   }
 
-  async function shareAnalytics() {
-    const lines = [
-      "ROCK BeatsParty Analytics",
-      `Room: ${activeRoomId}`,
-      `Generated: ${new Date().toLocaleString()}`,
-      "",
-      `Current people: ${analytics.currentMemberCount}`,
-      `People represented: ${analytics.participantCount}`,
-      `Songs: ${analytics.songCount}`,
-      `Reactions: ${analytics.reactionTotal}`,
-      `Comments: ${analytics.commentTotal}`,
-      "",
-      "People",
-      ...analytics.people.map((person) => {
-        const status = person.isCurrentMember ? "in room" : "previous";
-        return `${person.name} (${status}): ${person.songsAdded} songs, ${person.reactionsGiven} reactions, ${person.commentsMade} comments`;
-      }),
-      "",
-      "Top artists/channels",
-      ...(analytics.topArtists.length ? analytics.topArtists.map(([artist, count]) => `${artist}: ${count}`) : ["None yet"]),
-      "",
-      "Common title words",
-      ...(analytics.topTitleWords.length ? analytics.topTitleWords.map(([word, count]) => `${word}: ${count}`) : ["None yet"])
-    ];
-    const text = lines.join("\n");
-    if (navigator.share) {
-      await navigator.share({ title: `ROCK BeatsParty ${activeRoomId} analytics`, text }).catch(() => undefined);
-      return;
-    }
-    await navigator.clipboard?.writeText(text);
-    setToast("Analytics copied.");
-  }
-
   if (!firebaseReady) {
     return <SetupMissing />;
   }
@@ -1452,12 +1123,11 @@ function App() {
         <section className="landing-hero">
           <div className="brand-mark">
             <AppIcon />
-            <span>ROCK BeatsParty</span>
+            <span>BP PartyBeats</span>
           </div>
           <div className="landing-copy">
-            <h1>ROCK BeatsParty</h1>
+            <h1>BP PartyBeats</h1>
             <p>Start a room, pass around the code, and let everyone build the music queue from their phone.</p>
-            <span className="landing-version">Version {APP_VERSION}</span>
           </div>
 
           <div className="auth-panel">
@@ -1470,15 +1140,16 @@ function App() {
                 nickname={nickname}
                 setNickname={setNickname}
                 onGoogle={signInGoogle}
+                onNickname={signInNickname}
               />
             )}
           </div>
 
           <div className="room-card">
             <h2>Start or Join</h2>
-            <p className="muted">Sign in with Google to create a room. Guests can join with a nickname and room code.</p>
+            <p className="muted">Google users can create rooms. Guests can join with a nickname.</p>
             <div className="room-actions">
-              <button className="primary-action" onClick={createRoom} disabled={authLoading || !user || user.isAnonymous}>
+              <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous}>
                 <Wand2 aria-hidden="true" />
                 Create Room
               </button>
@@ -1489,7 +1160,7 @@ function App() {
                   placeholder="VIBE123"
                   maxLength={7}
                 />
-                <button onClick={() => joinRoomById()} disabled={authLoading}>
+                <button onClick={() => joinRoomById()} disabled={!user}>
                   <DoorOpen aria-hidden="true" />
                   Join
                 </button>
@@ -1508,14 +1179,14 @@ function App() {
   }
 
   return (
-    <main className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"} color-theme-${colorTheme}`}>
+    <main className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"}`}>
       <header className="app-topbar">
         <div className="topbar-brand">
           <div className="brand-dot">
             <AppIcon />
           </div>
           <div>
-            <strong>ROCK BeatsParty</strong>
+            <strong>BP PartyBeats</strong>
             <span>{activeRoomId}</span>
           </div>
         </div>
@@ -1544,14 +1215,6 @@ function App() {
               {activeNickname}
             </strong>
           </div>
-          <button
-            className="icon-button"
-            onClick={() => setNicknameOpen(true)}
-            title="Edit nickname"
-            type="button"
-          >
-            <Pencil aria-hidden="true" />
-          </button>
           <div className="menu-wrap">
             <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu">
               <MoreVertical aria-hidden="true" />
@@ -1562,17 +1225,9 @@ function App() {
                   <Info aria-hidden="true" />
                   About
                 </button>
-                <button onClick={() => { setAnalyticsOpen(true); setMenuOpen(false); }}>
-                  <BarChart3 aria-hidden="true" />
-                  Analytics
-                </button>
                 <button onClick={() => { setSettingsOpen(true); setMenuOpen(false); }}>
                   <SlidersHorizontal aria-hidden="true" />
                   Settings
-                </button>
-                <button onClick={() => { setColorThemeOpen(true); setMenuOpen(false); }}>
-                  <Palette aria-hidden="true" />
-                  Color themes
                 </button>
                 <button onClick={shareRoom}>
                   <Share2 aria-hidden="true" />
@@ -1618,10 +1273,6 @@ function App() {
               onCrossfade={playNextSong}
               crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
               crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
-              resumeSeconds={resumeSeconds}
-              resumeKey={resumeKey}
-              playbackStartedAtMs={playbackStartedAtMs}
-              volume={roomVolume}
             />
             <div className="player-actions">
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
@@ -1644,25 +1295,6 @@ function App() {
             </button>
           </div>
         ) : null}
-        {canControlRoomVolume && (
-          <div className="room-volume-control">
-            <label htmlFor="room-volume">
-              <span>
-                <Volume2 aria-hidden="true" />
-                Room volume
-              </span>
-              <strong>{roomVolume}</strong>
-            </label>
-            <input
-              id="room-volume"
-              type="range"
-              min="0"
-              max="100"
-              value={roomVolume}
-              onChange={(event) => updateRoomVolume(event.target.value)}
-            />
-          </div>
-        )}
       </section>
 
       <section className="add-panel">
@@ -1670,37 +1302,13 @@ function App() {
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={YOUTUBE_API_KEY ? "Search YouTube in app" : "Add VITE_YOUTUBE_API_KEY"}
+            placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
           />
-          <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching} type="submit">
+          <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
             <Search aria-hidden="true" />
             {searching ? "..." : "Search"}
           </button>
         </form>
-
-        <div className="external-search-panel">
-          <div>
-            <strong>Search YouTube Music</strong>
-            <span>Find a song, then paste the YouTube or YouTube Music link here.</span>
-          </div>
-          <div className="external-search-actions">
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Song or artist"
-            />
-            <a
-              className="primary-action"
-              href={youtubeSearchUrl(searchQuery || "music")}
-              onClick={() => window.setTimeout(() => setSearchQuery(""), 0)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <ExternalLink aria-hidden="true" />
-              Search
-            </a>
-          </div>
-        </div>
 
         {searchResults.length > 0 && (
           <div className="search-results">
@@ -1711,7 +1319,7 @@ function App() {
                   <strong>{result.title}</strong>
                   <span>{result.channelTitle}</span>
                 </div>
-                <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong} type="button">
+                <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong}>
                   <Plus aria-hidden="true" />
                   Add
                 </button>
@@ -1719,18 +1327,6 @@ function App() {
             ))}
           </div>
         )}
-
-        <form className="youtube-link-form" onSubmit={addYouTubeLink}>
-          <input
-            value={youtubeLink}
-            onChange={(event) => setYoutubeLink(event.target.value)}
-            placeholder="Paste YouTube or YouTube Music link"
-          />
-          <button className="mini-action" disabled={!youtubeLink.trim() || linkLoading || !canAddSong} type="submit">
-            <Plus aria-hidden="true" />
-            {linkLoading ? "..." : "Add Link"}
-          </button>
-        </form>
 
         <p className="cooldown-note">
           {isAdmin
@@ -1785,13 +1381,11 @@ function App() {
                   key={song.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    suppressNextTrackClick.current = song.id;
                     setMessageSongId("");
                     setEmojiSongId(song.id);
                   }}
                   onPointerDown={(event) => {
                     const timer = window.setTimeout(() => {
-                      suppressNextTrackClick.current = song.id;
                       setMessageSongId("");
                       setEmojiSongId(song.id);
                     }, 520);
@@ -1800,18 +1394,7 @@ function App() {
                   onPointerUp={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                   onPointerLeave={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                 >
-                  <button
-                    className="song-main"
-                    onClick={(event) => {
-                      if (suppressNextTrackClick.current === song.id) {
-                        event.preventDefault();
-                        suppressNextTrackClick.current = "";
-                        return;
-                      }
-                      if (isActiveDj) setNowPlaying(song.id);
-                    }}
-                    type="button"
-                  >
+                  <button className="song-main" onClick={() => isActiveDj && setNowPlaying(song.id)} type="button">
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
                       <b>{song.artist || "YouTube"}</b>
@@ -1980,115 +1563,6 @@ function App() {
         </div>
       )}
 
-      {analyticsOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <section className="about-modal analytics-modal">
-            <div className="modal-header">
-              <h2>Analytics</h2>
-              <button className="icon-button" onClick={() => setAnalyticsOpen(false)} title="Close" type="button">
-                <X aria-hidden="true" />
-              </button>
-            </div>
-            <div className="analytics-grid">
-              <div>
-                <span>Current</span>
-                <strong>{analytics.currentMemberCount}</strong>
-              </div>
-              <div>
-                <span>People</span>
-                <strong>{analytics.participantCount}</strong>
-              </div>
-              <div>
-                <span>Songs</span>
-                <strong>{analytics.songCount}</strong>
-              </div>
-              <div>
-                <span>Reactions</span>
-                <strong>{analytics.reactionTotal}</strong>
-              </div>
-              <div>
-                <span>Comments</span>
-                <strong>{analytics.commentTotal}</strong>
-              </div>
-              <div>
-                <span>Top DJ</span>
-                <strong>{analytics.topContributor?.name || "None"}</strong>
-              </div>
-            </div>
-            <section className="analytics-section">
-              <h3>People</h3>
-              {analytics.people.length ? analytics.people.map((person) => (
-                <div className="analytics-person" key={analyticsPersonKey(person.uid, person.name)}>
-                  <div>
-                    <strong>{person.name}</strong>
-                    <span>{person.isCurrentMember ? "In room" : "Previously active"}</span>
-                  </div>
-                  <span>{person.songsAdded} songs</span>
-                  <span>{person.reactionsGiven} reacts</span>
-                  <span>{person.commentsMade} comments</span>
-                </div>
-              )) : <p className="muted">No activity yet.</p>}
-            </section>
-            <section className="analytics-section">
-              <h3>Top Artists</h3>
-              <div className="analytics-tags">
-                {analytics.topArtists.length ? analytics.topArtists.map(([artist, count]) => (
-                  <span key={artist}>{artist} · {count}</span>
-                )) : <span>None yet</span>}
-              </div>
-            </section>
-            <section className="analytics-section">
-              <h3>Song Vibes</h3>
-              <div className="analytics-tags">
-                {analytics.topTitleWords.length ? analytics.topTitleWords.map(([word, count]) => (
-                  <span key={word}>{word} · {count}</span>
-                )) : <span>None yet</span>}
-              </div>
-            </section>
-            {analytics.topReactedSong && (
-              <section className="analytics-section">
-                <h3>Most Reacted</h3>
-                <p className="muted">{analytics.topReactedSong.artist || "YouTube"} · {analytics.topReactedSong.title}</p>
-              </section>
-            )}
-            <button className="primary-action" onClick={shareAnalytics} type="button">
-              <Share2 aria-hidden="true" />
-              Share Analytics
-            </button>
-          </section>
-        </div>
-      )}
-
-
-      {colorThemeOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <section className="about-modal color-theme-modal">
-            <div className="modal-header">
-              <h2>Color themes</h2>
-              <button className="icon-button" onClick={() => setColorThemeOpen(false)} title="Close">
-                <X aria-hidden="true" />
-              </button>
-            </div>
-            <p className="muted">Choose the app color style for this phone.</p>
-            <div className="color-theme-grid">
-              {COLOR_THEMES.map((item) => (
-                <button
-                  className={colorTheme === item.id ? "color-theme-option is-selected" : "color-theme-option"}
-                  data-theme-choice={item.id}
-                  key={item.id}
-                  onClick={() => setColorTheme(item.id)}
-                  type="button"
-                >
-                  <span className="theme-swatch" aria-hidden="true" />
-                  <strong>{item.name}</strong>
-                  <small>{item.note}</small>
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
-      )}
-
       {settingsOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <section className="about-modal settings-modal">
@@ -2106,14 +1580,14 @@ function App() {
               <button
                 className={cooldownEnabled ? "toggle-button is-on" : "toggle-button"}
                 onClick={() => updateCooldownEnabled(!cooldownEnabled)}
-                disabled={!canControlRoomSettings}
+                disabled={!isAdmin}
                 type="button"
               >
                 {cooldownEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes - 1)} disabled={!canControlRoomSettings || !cooldownEnabled || cooldownMinutes <= 1}>
+              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes - 1)} disabled={!isAdmin || !cooldownEnabled || cooldownMinutes <= 1}>
                 -
               </button>
               <input
@@ -2122,9 +1596,9 @@ function App() {
                 max="30"
                 value={cooldownMinutes}
                 onChange={(event) => updateCooldownMinutes(event.target.value)}
-                disabled={!canControlRoomSettings || !cooldownEnabled}
+                disabled={!isAdmin || !cooldownEnabled}
               />
-              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes + 1)} disabled={!canControlRoomSettings || !cooldownEnabled || cooldownMinutes >= 30}>
+              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes + 1)} disabled={!isAdmin || !cooldownEnabled || cooldownMinutes >= 30}>
                 +
               </button>
             </div>
@@ -2136,14 +1610,14 @@ function App() {
               <button
                 className={crossfadeEnabled ? "toggle-button is-on" : "toggle-button"}
                 onClick={() => updateCrossfadeEnabled(!crossfadeEnabled)}
-                disabled={!canControlRoomSettings}
+                disabled={!isAdmin}
                 type="button"
               >
                 {crossfadeEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds - 1)} disabled={!canControlRoomSettings || !crossfadeEnabled || crossfadeSeconds <= 1}>
+              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds - 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds <= 1}>
                 -
               </button>
               <input
@@ -2152,10 +1626,24 @@ function App() {
                 max="30"
                 value={crossfadeSeconds}
                 onChange={(event) => updateCrossfadeSeconds(event.target.value)}
-                disabled={!canControlRoomSettings || !crossfadeEnabled}
+                disabled={!isAdmin || !crossfadeEnabled}
               />
-              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!canControlRoomSettings || !crossfadeEnabled || crossfadeSeconds >= 30}>
+              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds >= 30}>
                 +
+              </button>
+            </div>
+            <div className="setting-row">
+              <div>
+                <strong>Auto-next similar track</strong>
+                <span>{autoNextEnabled ? "Add a similar track when the playlist ends" : "Stop when the playlist ends"}</span>
+              </div>
+              <button
+                className={autoNextEnabled ? "toggle-button is-on" : "toggle-button"}
+                onClick={() => updateAutoNextEnabled(!autoNextEnabled)}
+                disabled={!isAdmin}
+                type="button"
+              >
+                {autoNextEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="setting-row">
@@ -2166,14 +1654,14 @@ function App() {
               <button
                 className={trackNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
                 onClick={() => updateTrackNoticeEnabled(!trackNoticeEnabled)}
-                disabled={!canControlRoomSettings}
+                disabled={!isAdmin}
                 type="button"
               >
                 {trackNoticeEnabled ? "On" : "Off"}
               </button>
             </div>
             <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds - 1)} disabled={!canControlRoomSettings || !trackNoticeEnabled || trackNoticeSeconds <= 1}>
+              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds - 1)} disabled={!isAdmin || !trackNoticeEnabled || trackNoticeSeconds <= 1}>
                 -
               </button>
               <input
@@ -2182,9 +1670,9 @@ function App() {
                 max="30"
                 value={trackNoticeSeconds}
                 onChange={(event) => updateTrackNoticeSeconds(event.target.value)}
-                disabled={!canControlRoomSettings || !trackNoticeEnabled}
+                disabled={!isAdmin || !trackNoticeEnabled}
               />
-              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds + 1)} disabled={!canControlRoomSettings || !trackNoticeEnabled || trackNoticeSeconds >= 30}>
+              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds + 1)} disabled={!isAdmin || !trackNoticeEnabled || trackNoticeSeconds >= 30}>
                 +
               </button>
             </div>
@@ -2196,7 +1684,7 @@ function App() {
               <button
                 className={joinNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
                 onClick={() => updateJoinNoticeEnabled(!joinNoticeEnabled)}
-                disabled={!canControlRoomSettings}
+                disabled={!isAdmin}
                 type="button"
               >
                 {joinNoticeEnabled ? "On" : "Off"}
@@ -2265,14 +1753,14 @@ function App() {
                           <>
                             <Crown aria-label="Admin" />
                             {!isCurrentUser && (
-                              <button className="icon-button" onClick={() => demoteMember(member)} title="Remove admin" type="button">
-                                <Crown aria-hidden="true" />
+                              <button className="mini-action" onClick={() => demoteMember(member)}>
+                                Demote
                               </button>
                             )}
                           </>
                         ) : (
-                          <button className="icon-button" onClick={() => promoteMember(member)} disabled={member.isAnonymous} title="Make admin" type="button">
-                            <Crown aria-hidden="true" />
+                          <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
+                            Make Admin
                           </button>
                         )}
                         {!isCurrentUser && (
@@ -2286,32 +1774,7 @@ function App() {
                 })}
               </section>
             )}
-            {!canControlRoomSettings && <p className="muted">Only admins can change room settings.</p>}
-          </section>
-        </div>
-      )}
-
-      {nicknameOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <section className="about-modal nickname-modal">
-            <div className="modal-header">
-              <h2>Nickname</h2>
-              <button className="icon-button" onClick={() => setNicknameOpen(false)} title="Close" type="button">
-                <X aria-hidden="true" />
-              </button>
-            </div>
-            <form className="nickname-edit-form" onSubmit={saveOwnNickname}>
-              <input
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value.slice(0, 30))}
-                placeholder="Party nickname"
-                maxLength={30}
-                autoFocus
-              />
-              <button className="primary-action" type="submit" disabled={!nickname.trim()}>
-                Save
-              </button>
-            </form>
+            {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
           </section>
         </div>
       )}
@@ -2353,39 +1816,13 @@ function App() {
   );
 }
 
-function YouTubePlayer({
-  song,
-  onEnded,
-  onCrossfade,
-  crossfadeEnabled,
-  crossfadeSeconds,
-  resumeSeconds = 0,
-  resumeKey = "",
-  playbackStartedAtMs = 0,
-  volume = 100
-}) {
+function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfadeSeconds }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerRef = useRef(null);
   const playerTimerRef = useRef(null);
   const endedRef = useRef(onEnded);
   const crossfadeRef = useRef(onCrossfade);
   const crossfadeTriggeredRef = useRef(false);
-  const playbackOptionsRef = useRef({
-    crossfadeEnabled,
-    crossfadeSeconds,
-    resumeSeconds,
-    resumeKey,
-    playbackStartedAtMs,
-    volume
-  });
-  playbackOptionsRef.current = {
-    crossfadeEnabled,
-    crossfadeSeconds,
-    resumeSeconds,
-    resumeKey,
-    playbackStartedAtMs,
-    volume
-  };
 
   useEffect(() => {
     endedRef.current = onEnded;
@@ -2394,10 +1831,6 @@ function YouTubePlayer({
   useEffect(() => {
     crossfadeRef.current = onCrossfade;
   }, [onCrossfade]);
-
-  useEffect(() => {
-    playerRef.current?.setVolume?.(volume);
-  }, [volume]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2424,39 +1857,26 @@ function YouTubePlayer({
         },
         events: {
           onReady: (event) => {
-            event.target.setVolume?.(playbackOptionsRef.current.volume);
-            const options = playbackOptionsRef.current;
-            const savedResumeSeconds = readSavedResumeSeconds(options.resumeKey, options.playbackStartedAtMs);
-            const nextResumeSeconds = Math.max(options.resumeSeconds, savedResumeSeconds);
-            if (nextResumeSeconds > 2 && event.target.seekTo) {
-              const duration = event.target.getDuration?.() || 0;
-              const seekTo = duration > 0 ? Math.min(nextResumeSeconds, Math.max(0, duration - 2)) : nextResumeSeconds;
-              event.target.seekTo(seekTo, true);
-            }
+            event.target.setVolume?.(100);
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
-              event.target.setVolume?.(playbackOptionsRef.current.volume);
+              event.target.setVolume?.(100);
               if (playerTimerRef.current) {
                 window.clearInterval(playerTimerRef.current);
               }
               playerTimerRef.current = window.setInterval(() => {
-                if (!event.target.getCurrentTime) {
-                  return;
-                }
-                const current = event.target.getCurrentTime();
-                const options = playbackOptionsRef.current;
-                saveResumeSeconds(options.resumeKey, options.playbackStartedAtMs, current);
-                if (!options.crossfadeEnabled || !options.crossfadeSeconds || !event.target.getDuration) {
+                if (!crossfadeEnabled || !crossfadeSeconds || !event.target.getDuration || !event.target.getCurrentTime) {
                   return;
                 }
                 const duration = event.target.getDuration();
+                const current = event.target.getCurrentTime();
                 const remaining = duration - current;
                 if (
-                  options.crossfadeEnabled
-                  && options.crossfadeSeconds
+                  crossfadeEnabled
+                  && crossfadeSeconds
                   && duration
-                  && remaining <= options.crossfadeSeconds
+                  && remaining <= crossfadeSeconds
                   && !crossfadeTriggeredRef.current
                 ) {
                   crossfadeTriggeredRef.current = true;
@@ -2486,7 +1906,7 @@ function YouTubePlayer({
         window.clearInterval(playerTimerRef.current);
       }
     };
-  }, [song?.videoId]);
+  }, [song?.videoId, crossfadeEnabled, crossfadeSeconds]);
 
   if (!song?.videoId) {
     return (
@@ -2497,33 +1917,6 @@ function YouTubePlayer({
   }
 
   return <div className="youtube-frame" id={containerId.current} />;
-}
-
-function readSavedResumeSeconds(resumeKey, playbackStartedAtMs) {
-  if (!resumeKey) return 0;
-  try {
-    const saved = JSON.parse(localStorage.getItem(resumeKey) || "{}");
-    if (!saved?.seconds) return 0;
-    if (playbackStartedAtMs && saved.playbackStartedAtMs && saved.playbackStartedAtMs !== playbackStartedAtMs) {
-      return 0;
-    }
-    return Math.max(0, Number(saved.seconds) || 0);
-  } catch {
-    return 0;
-  }
-}
-
-function saveResumeSeconds(resumeKey, playbackStartedAtMs, seconds) {
-  if (!resumeKey || !Number.isFinite(seconds)) return;
-  try {
-    localStorage.setItem(resumeKey, JSON.stringify({
-      playbackStartedAtMs,
-      seconds: Math.max(0, seconds),
-      savedAt: Date.now()
-    }));
-  } catch {
-    // Local resume is best-effort; playback should continue without storage.
-  }
 }
 
 function loadYouTubeIframeApi() {
@@ -2543,7 +1936,7 @@ function loadYouTubeIframeApi() {
   return window.partyBeatsYouTubeApiPromise;
 }
 
-function SignedOut({ nickname, setNickname, onGoogle }) {
+function SignedOut({ nickname, setNickname, onGoogle, onNickname }) {
   return (
     <div className="signed-out">
       <button className="primary-action" onClick={onGoogle}>
@@ -2552,6 +1945,7 @@ function SignedOut({ nickname, setNickname, onGoogle }) {
       </button>
       <div className="nickname-row">
         <input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="Nickname" />
+        <button onClick={onNickname}>Join as Guest</button>
       </div>
     </div>
   );
@@ -2598,11 +1992,10 @@ function SetupMissing() {
   return (
     <main className="setup-missing">
       <AppIcon />
-      <h1>ROCK BeatsParty needs Firebase config</h1>
+      <h1>BP PartyBeats needs Firebase config</h1>
       <p>Copy .env.example to .env.local and fill in the values from your Firebase web app.</p>
     </main>
   );
 }
 
 createRoot(document.getElementById("root")).render(<App />);
-
