@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.10";
+const APP_VERSION = "2026.06.01.11";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -418,6 +418,9 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
+  const displaySongs = nowPlayingSong
+    ? [nowPlayingSong, ...songs.filter((song) => song.id !== nowPlayingSong.id)]
+    : songs;
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
@@ -1328,7 +1331,9 @@ function App() {
               <span>Drop the first track and set the tone.</span>
             </div>
           ) : (
-            songs.map((song, index) => {
+            displaySongs.map((song, displayIndex) => {
+              const queueIndex = songs.findIndex((item) => item.id === song.id);
+              const displayNumber = song.id === room.nowPlayingId ? 1 : displayIndex + 1;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
               const emojiCounts = EMOJIS.map((emoji) => ({
@@ -1359,7 +1364,7 @@ function App() {
                   onPointerLeave={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                 >
                   <button className="song-main" onClick={() => isActiveDj && setNowPlaying(song.id)} type="button">
-                    <span className="song-index">{index + 1}</span>
+                    <span className="song-index">{displayNumber}</span>
                     <span className="track-line">
                       <b>{song.artist || "YouTube"}</b>
                       <strong>{song.title}</strong>
@@ -1384,10 +1389,10 @@ function App() {
 
                   {isAdmin && (
                     <div className="admin-actions" onPointerDown={(event) => event.stopPropagation()}>
-                      <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={index === 0}>
+                      <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={queueIndex <= 0}>
                         <ArrowUp aria-hidden="true" />
                       </button>
-                      <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={index === songs.length - 1}>
+                      <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={queueIndex < 0 || queueIndex === songs.length - 1}>
                         <ArrowDown aria-hidden="true" />
                       </button>
                       {isActiveDj && (
