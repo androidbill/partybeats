@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["partybeats-icon.png"],
       manifest: {
-        name: "ROCK BeatsParty",
-        short_name: "ROCK BeatsParty",
+        name: "BP PartyBeats",
+        short_name: "BP PartyBeats",
         description: "Collaborative music queues for parties.",
         theme_color: "#12131a",
         background_color: "#f8f6ef",
