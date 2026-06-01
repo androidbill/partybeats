@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.15";
+const APP_VERSION = "2026.06.01.16";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -220,6 +220,22 @@ function extractYouTubeVideoId(value) {
 function cleanYouTubeVideoId(videoId) {
   const match = String(videoId || "").match(/^[A-Za-z0-9_-]{11}$/);
   return match ? match[0] : "";
+}
+
+function playlistTrackDisplay(song) {
+  const rawTitle = String(song?.title || "Untitled")
+    .replace(/\s*\[[^\]]*\]\s*/g, " ")
+    .replace(/\s*\([^)]*(official|video|audio|lyrics?|visualizer|hd|hq)[^)]*\)\s*/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const separator = rawTitle.match(/\s[-–—]\s/);
+  if (!separator) return { artist: "", title: rawTitle };
+  const artist = rawTitle.slice(0, separator.index).trim();
+  const title = rawTitle.slice(separator.index + separator[0].length).trim();
+  return {
+    artist,
+    title: title || rawTitle
+  };
 }
 
 function nextQueuedSong(songs, currentId) {
@@ -1413,6 +1429,7 @@ function App() {
           ) : (
             songs.map((song, index) => {
               const queueIndex = songs.findIndex((item) => item.id === song.id);
+              const trackDisplay = playlistTrackDisplay(song);
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
               const emojiCounts = EMOJIS.map((emoji) => ({
@@ -1446,8 +1463,8 @@ function App() {
                   <button className="song-main" onClick={() => isActiveDj && setNowPlaying(song.id)} type="button">
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
-                      <b>{song.artist || "YouTube"}</b>
-                      <strong>{song.title}</strong>
+                      {trackDisplay.artist && <b>{trackDisplay.artist}</b>}
+                      <strong>{trackDisplay.title}</strong>
                     </span>
                     <span className="uploaded-by">
                       Uploaded by {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
