@@ -904,7 +904,8 @@ input:focus {
 }
 
 .room-app.dark-mode .topbar-brand span,
-.room-app.dark-mode .session-chip span {
+.room-app.dark-mode .session-chip span,
+.room-app.dark-mode .topbar-version {
   color: #a7adbb;
 }
 
@@ -912,6 +913,13 @@ input:focus {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.topbar-version {
+  color: #696c78;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .session-chip {
@@ -1164,6 +1172,7 @@ input:focus {
   align-items: start;
   min-height: 46px;
   padding: 6px;
+  scroll-margin-top: 10px;
   touch-action: manipulation;
 }
 

@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.12";
+const APP_VERSION = "2026.06.01.14";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -269,6 +269,8 @@ function App() {
   const [restoreRoomId, setRestoreRoomId] = useState("");
   const [renameMemberId, setRenameMemberId] = useState("");
   const [renameDraft, setRenameDraft] = useState("");
+  const [selfRenameOpen, setSelfRenameOpen] = useState(false);
+  const [selfRenameDraft, setSelfRenameDraft] = useState("");
   const [nowPlayingNotice, setNowPlayingNotice] = useState(null);
   const [joinNotice, setJoinNotice] = useState(null);
   const [effectivePlaybackSettings, setEffectivePlaybackSettings] = useState({
@@ -277,6 +279,7 @@ function App() {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [theme, setTheme] = useState(savedTheme);
+  const songListRef = useRef(null);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
   const isDarkTheme = theme === "dark";
@@ -418,9 +421,6 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
-  const displaySongs = nowPlayingSong
-    ? [nowPlayingSong, ...songs.filter((song) => song.id !== nowPlayingSong.id)]
-    : songs;
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
@@ -465,6 +465,12 @@ function App() {
     const timer = window.setTimeout(() => setNowPlayingNotice(null), trackNoticeSeconds * 1000);
     return () => window.clearTimeout(timer);
   }, [activeRoomId, nowPlayingSong?.id]);
+
+  useEffect(() => {
+    if (!room?.nowPlayingId || !songListRef.current) return;
+    const row = songListRef.current.querySelector(`[data-song-id="${room.nowPlayingId}"]`);
+    row?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [room?.nowPlayingId]);
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -858,7 +864,43 @@ function App() {
     }
     setRenameMemberId("");
     setRenameDraft("");
+    setSelfRenameOpen(false);
+    setSelfRenameDraft("");
     setToast(`${member.name || "Member"} is now ${nextName}.`);
+  }
+
+  function openSelfRename() {
+    setSelfRenameDraft(activeNickname);
+    setSelfRenameOpen(true);
+  }
+
+  async function saveSelfRename(event) {
+    event.preventDefault();
+    const nextName = selfRenameDraft.trim().slice(0, 30);
+    if (!user || !activeRoomId || !nextName) return;
+    if (hasProfanity(nextName)) {
+      setToast("Nickname blocked for profanity.");
+      return;
+    }
+
+    const roomUpdate = {};
+    if (room?.adminUid === user.uid) {
+      roomUpdate.adminName = nextName;
+    }
+    if (room?.activeDjUid === user.uid) {
+      roomUpdate.activeDjName = nextName;
+    }
+
+    const batch = writeBatch(db);
+    batch.update(doc(db, "rooms", activeRoomId, "members", user.uid), { name: nextName });
+    if (Object.keys(roomUpdate).length > 0) {
+      batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
+    }
+    await batch.commit();
+    setNickname(nextName);
+    setSelfRenameOpen(false);
+    setSelfRenameDraft("");
+    setToast("Nickname updated.");
   }
 
   async function playNextSong() {
@@ -926,6 +968,8 @@ function App() {
     setMessageDraft("");
     setRenameMemberId("");
     setRenameDraft("");
+    setSelfRenameOpen(false);
+    setSelfRenameDraft("");
     setNowPlayingNotice(null);
     setJoinNotice(null);
     previousMemberIds.current = undefined;
@@ -1147,6 +1191,15 @@ function App() {
           >
             <UsersRound aria-hidden="true" />
           </button>
+          <button
+            className="icon-button"
+            onClick={openSelfRename}
+            title="Change nickname"
+            type="button"
+          >
+            <Pencil aria-hidden="true" />
+          </button>
+          <span className="topbar-version">{APP_VERSION}</span>
           <div className="session-chip">
             <span>{user.isAnonymous ? "Guest" : "Google"}</span>
             <strong>
@@ -1325,7 +1378,7 @@ function App() {
           </div>
         </div>
 
-        <div className="song-list">
+        <div className="song-list" ref={songListRef}>
           {songs.length === 0 ? (
             <div className="empty-state">
               <Music2 aria-hidden="true" />
@@ -1333,9 +1386,8 @@ function App() {
               <span>Drop the first track and set the tone.</span>
             </div>
           ) : (
-            displaySongs.map((song, displayIndex) => {
+            songs.map((song, index) => {
               const queueIndex = songs.findIndex((item) => item.id === song.id);
-              const displayNumber = song.id === room.nowPlayingId ? 1 : displayIndex + 1;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
               const emojiCounts = EMOJIS.map((emoji) => ({
@@ -1349,6 +1401,7 @@ function App() {
                     song.id === room.nowPlayingId ? "is-playing" : "",
                     emojiSongId === song.id ? "is-reacting" : ""
                   ].filter(Boolean).join(" ")}
+                  data-song-id={song.id}
                   key={song.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -1366,7 +1419,7 @@ function App() {
                   onPointerLeave={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                 >
                   <button className="song-main" onClick={() => isActiveDj && setNowPlaying(song.id)} type="button">
-                    <span className="song-index">{displayNumber}</span>
+                    <span className="song-index">{index + 1}</span>
                     <span className="track-line">
                       <b>{song.artist || "YouTube"}</b>
                       <strong>{song.title}</strong>
@@ -1530,6 +1583,39 @@ function App() {
                 );
               })}
             </section>
+          </section>
+        </div>
+      )}
+
+      {selfRenameOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal">
+            <div className="modal-header">
+              <h2>Nickname</h2>
+              <button
+                className="icon-button"
+                onClick={() => {
+                  setSelfRenameOpen(false);
+                  setSelfRenameDraft("");
+                }}
+                title="Close"
+                type="button"
+              >
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <form className="nickname-edit-form" onSubmit={saveSelfRename}>
+              <input
+                value={selfRenameDraft}
+                onChange={(event) => setSelfRenameDraft(event.target.value.slice(0, 30))}
+                placeholder="Nickname"
+                maxLength={30}
+                autoFocus
+              />
+              <button className="primary-action" type="submit" disabled={!selfRenameDraft.trim()}>
+                Save
+              </button>
+            </form>
           </section>
         </div>
       )}
