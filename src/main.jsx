@@ -7,7 +7,6 @@ import {
   DoorOpen,
   ExternalLink,
   Info,
-  LogIn,
   LogOut,
   MessageCircle,
   Moon,
@@ -115,7 +114,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.16";
+const APP_VERSION = "2026.06.01.17";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -556,6 +555,29 @@ function App() {
     }
   }
 
+  async function ensureUserForJoin() {
+    if (user) return user;
+    if (!firebaseReady) {
+      setToast("Add your Firebase config first.");
+      return null;
+    }
+    const cleanName = nickname.trim();
+    if (cleanName.length < 2) {
+      setToast("Choose a nickname with at least 2 characters.");
+      return null;
+    }
+    try {
+      const credential = await signInAnonymously(auth);
+      await updateProfile(credential.user, { displayName: cleanName });
+      setUser(credential.user);
+      setNickname(cleanName);
+      return credential.user;
+    } catch (error) {
+      setToast(authErrorMessage(error));
+      return null;
+    }
+  }
+
   async function createRoom() {
     if (!user || user.isAnonymous) {
       setToast("Sign in with Google to create a room.");
@@ -599,13 +621,13 @@ function App() {
   }
 
   async function joinRoomById(rawId = roomId, options = {}) {
-    if (!user) {
-      if (!options.silent) setToast("Sign in first.");
-      return;
-    }
     const nextRoomId = normalizeRoomId(rawId);
     if (!/^[A-Z]{4}\d{3}$/.test(nextRoomId)) {
       if (!options.silent) setToast("Room IDs look like VIBE123.");
+      return;
+    }
+    const joiningUser = user || await ensureUserForJoin();
+    if (!joiningUser) {
       return;
     }
 
@@ -620,11 +642,11 @@ function App() {
     }
 
     await setDoc(
-      doc(db, "rooms", nextRoomId, "members", user.uid),
+      doc(db, "rooms", nextRoomId, "members", joiningUser.uid),
       {
-        uid: user.uid,
+        uid: joiningUser.uid,
         name: activeNickname,
-        isAnonymous: user.isAnonymous,
+        isAnonymous: joiningUser.isAnonymous,
         joinedAt: serverTimestamp()
       },
       { merge: true }
@@ -1139,7 +1161,6 @@ function App() {
                 nickname={nickname}
                 setNickname={setNickname}
                 onGoogle={signInGoogle}
-                onNickname={signInNickname}
               />
             )}
           </div>
@@ -1159,7 +1180,7 @@ function App() {
                   placeholder="VIBE123"
                   maxLength={7}
                 />
-                <button onClick={() => joinRoomById()} disabled={!user}>
+                <button onClick={() => joinRoomById()} disabled={!user && nickname.trim().length < 2}>
                   <DoorOpen aria-hidden="true" />
                   Join
                 </button>
@@ -2016,17 +2037,14 @@ function loadYouTubeIframeApi() {
   return window.partyBeatsYouTubeApiPromise;
 }
 
-function SignedOut({ nickname, setNickname, onGoogle, onNickname }) {
+function SignedOut({ nickname, setNickname, onGoogle }) {
   return (
     <div className="signed-out">
-      <button className="primary-action" onClick={onGoogle}>
-        <LogIn aria-hidden="true" />
+      <button className="google-action" onClick={onGoogle}>
+        <span className="google-mark" aria-hidden="true">G</span>
         Continue with Google
       </button>
-      <div className="nickname-row">
-        <input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="Nickname" />
-        <button onClick={onNickname}>Join as Guest</button>
-      </div>
+      <input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="Nickname" maxLength={30} />
     </div>
   );
 }
