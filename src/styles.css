@@ -428,6 +428,10 @@ input:focus {
   background: #0c0d12;
 }
 
+.youtube-frame.is-hidden {
+  display: none;
+}
+
 .player-empty {
   display: grid;
   place-items: center;
@@ -1723,21 +1727,6 @@ input:focus {
   background: #f7c948;
 }
 
-.cooldown-controls {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.cooldown-controls input[type="range"] {
-  min-height: 38px;
-  padding: 0;
-  border: 0;
-  box-shadow: none;
-  accent-color: #f7c948;
-}
-
 .notice-stack {
   position: fixed;
   left: 50%;
@@ -2210,7 +2199,6 @@ input:focus {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--pb-link) 14%, transparent);
 }
 
-.cooldown-controls input[type="range"],
 .room-volume-control input[type="range"] {
   accent-color: var(--pb-highlight);
 }

@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.08";
+const APP_VERSION = "2026.06.01.09";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -642,7 +642,7 @@ function App() {
       messages: [],
       createdAt: serverTimestamp()
     });
-    if (!room?.nowPlayingId) {
+    if (!nowPlayingSong) {
       batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: songRef.id });
     }
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
@@ -1724,7 +1724,12 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
   const playerTimerRef = useRef(null);
   const endedRef = useRef(onEnded);
   const crossfadeRef = useRef(onCrossfade);
+  const crossfadeEnabledRef = useRef(crossfadeEnabled);
+  const crossfadeSecondsRef = useRef(crossfadeSeconds);
   const crossfadeTriggeredRef = useRef(false);
+  const currentVideoIdRef = useRef("");
+  const pendingVideoIdRef = useRef("");
+  const playerReadyRef = useRef(false);
 
   useEffect(() => {
     endedRef.current = onEnded;
@@ -1735,64 +1740,92 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
   }, [onCrossfade]);
 
   useEffect(() => {
+    crossfadeEnabledRef.current = crossfadeEnabled;
+    crossfadeSecondsRef.current = crossfadeSeconds;
+  }, [crossfadeEnabled, crossfadeSeconds]);
+
+  useEffect(() => {
     let cancelled = false;
 
+    function stopPlaybackTimer() {
+      if (playerTimerRef.current) {
+        window.clearInterval(playerTimerRef.current);
+        playerTimerRef.current = null;
+      }
+    }
+
+    function startPlaybackTimer(player) {
+      stopPlaybackTimer();
+      playerTimerRef.current = window.setInterval(() => {
+        const enabled = crossfadeEnabledRef.current;
+        const seconds = crossfadeSecondsRef.current;
+        if (!enabled || !seconds || !player.getDuration || !player.getCurrentTime) {
+          return;
+        }
+        const duration = player.getDuration();
+        const current = player.getCurrentTime();
+        const remaining = duration - current;
+        if (enabled && seconds && duration && remaining <= seconds && !crossfadeTriggeredRef.current) {
+          crossfadeTriggeredRef.current = true;
+          crossfadeRef.current?.();
+        }
+      }, 400);
+    }
+
+    function loadVideo(player, videoId) {
+      if (!videoId || currentVideoIdRef.current === videoId) return;
+      pendingVideoIdRef.current = videoId;
+      if (!playerReadyRef.current) return;
+      currentVideoIdRef.current = videoId;
+      crossfadeTriggeredRef.current = false;
+      if (player.loadVideoById) {
+        player.loadVideoById(videoId);
+      }
+    }
+
     async function loadPlayer() {
-      if (!song?.videoId) return;
+      const videoId = song?.videoId || "";
+      pendingVideoIdRef.current = videoId;
+      if (!videoId) {
+        currentVideoIdRef.current = "";
+        pendingVideoIdRef.current = "";
+        crossfadeTriggeredRef.current = false;
+        stopPlaybackTimer();
+        playerRef.current?.stopVideo?.();
+        return;
+      }
+
       await loadYouTubeIframeApi();
       if (cancelled) return;
 
-      if (playerRef.current?.destroy) {
-        playerRef.current.destroy();
+      if (playerRef.current) {
+        loadVideo(playerRef.current, videoId);
+        return;
       }
-      if (playerTimerRef.current) {
-        window.clearInterval(playerTimerRef.current);
-      }
-      crossfadeTriggeredRef.current = false;
 
       playerRef.current = new window.YT.Player(containerId.current, {
-        videoId: song.videoId,
         playerVars: {
           autoplay: 1,
           controls: 1,
-          rel: 0
+          enablejsapi: 1,
+          playsinline: 1,
+          rel: 0,
+          origin: window.location.origin
         },
         events: {
           onReady: (event) => {
-            event.target.setVolume?.(100);
+            playerReadyRef.current = true;
+            loadVideo(event.target, pendingVideoIdRef.current);
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
-              event.target.setVolume?.(100);
-              if (playerTimerRef.current) {
-                window.clearInterval(playerTimerRef.current);
-              }
-              playerTimerRef.current = window.setInterval(() => {
-                if (!crossfadeEnabled || !crossfadeSeconds || !event.target.getDuration || !event.target.getCurrentTime) {
-                  return;
-                }
-                const duration = event.target.getDuration();
-                const current = event.target.getCurrentTime();
-                const remaining = duration - current;
-                if (
-                  crossfadeEnabled
-                  && crossfadeSeconds
-                  && duration
-                  && remaining <= crossfadeSeconds
-                  && !crossfadeTriggeredRef.current
-                ) {
-                  crossfadeTriggeredRef.current = true;
-                  crossfadeRef.current?.();
-                }
-              }, 400);
+              startPlaybackTimer(event.target);
             }
-            if (event.data === window.YT.PlayerState.PAUSED && playerTimerRef.current) {
-              window.clearInterval(playerTimerRef.current);
+            if (event.data === window.YT.PlayerState.PAUSED) {
+              stopPlaybackTimer();
             }
             if (event.data === window.YT.PlayerState.ENDED) {
-              if (playerTimerRef.current) {
-                window.clearInterval(playerTimerRef.current);
-              }
+              stopPlaybackTimer();
               endedRef.current?.();
             }
           }
@@ -1804,21 +1837,31 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
 
     return () => {
       cancelled = true;
+      stopPlaybackTimer();
+    };
+  }, [song?.videoId]);
+
+  useEffect(() => {
+    return () => {
       if (playerTimerRef.current) {
         window.clearInterval(playerTimerRef.current);
       }
+      playerRef.current?.destroy?.();
+      playerRef.current = null;
+      playerReadyRef.current = false;
     };
-  }, [song?.videoId, crossfadeEnabled, crossfadeSeconds]);
+  }, []);
 
-  if (!song?.videoId) {
-    return (
-      <div className="player-empty">
-        <Music2 aria-hidden="true" />
-      </div>
-    );
-  }
-
-  return <div className="youtube-frame" id={containerId.current} />;
+  return (
+    <>
+      <div className={song?.videoId ? "youtube-frame" : "youtube-frame is-hidden"} id={containerId.current} />
+      {!song?.videoId && (
+        <div className="player-empty">
+          <Music2 aria-hidden="true" />
+        </div>
+      )}
+    </>
+  );
 }
 
 function loadYouTubeIframeApi() {
