@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.05";
+const APP_VERSION = "2026.06.01.08";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -223,9 +223,9 @@ function cleanYouTubeVideoId(videoId) {
 }
 
 function nextQueuedSong(songs, currentId) {
-  if (!songs.length) return null;
+  if (!songs.length || !currentId) return null;
   const currentIndex = songs.findIndex((song) => song.id === currentId);
-  if (currentIndex < 0) return songs[0];
+  if (currentIndex < 0) return null;
   return songs[currentIndex + 1] || null;
 }
 
@@ -273,7 +273,7 @@ function App() {
   const [joinNotice, setJoinNotice] = useState(null);
   const [effectivePlaybackSettings, setEffectivePlaybackSettings] = useState({
     songId: null,
-    crossfadeEnabled: true,
+    crossfadeEnabled: false,
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [theme, setTheme] = useState(savedTheme);
@@ -402,13 +402,13 @@ function App() {
   const activeDjUid = room?.activeDjUid || room?.adminUid || "";
   const activeDjName = room?.activeDjName || room?.adminName || "Room admin";
   const isActiveDj = Boolean(user && activeDjUid === user.uid);
-  const cooldownEnabled = room?.cooldownEnabled !== false;
+  const cooldownEnabled = room?.cooldownEnabled === true;
   const cooldownMinutes = Math.min(
     30,
     Math.max(1, Number(room?.cooldownMinutes) || Math.round((Number(room?.cooldownMs) || DEFAULT_COOLDOWN_MS) / 60000))
   );
   const cooldownMs = cooldownMinutes * 60 * 1000;
-  const crossfadeEnabled = room?.crossfadeEnabled !== false;
+  const crossfadeEnabled = room?.crossfadeEnabled === true;
   const crossfadeSeconds = Math.min(30, Math.max(1, Number(room?.crossfadeSeconds) || DEFAULT_CROSSFADE_SECONDS));
   const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
@@ -559,10 +559,10 @@ function App() {
       activeDjName: activeNickname,
       createdAt: serverTimestamp(),
       closed: false,
-      cooldownEnabled: true,
+      cooldownEnabled: false,
       cooldownMinutes: 3,
       cooldownMs: DEFAULT_COOLDOWN_MS,
-      crossfadeEnabled: true,
+      crossfadeEnabled: false,
       crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
       trackNoticeEnabled: true,
       trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
@@ -618,7 +618,7 @@ function App() {
       return;
     }
     if (!canAddSong) {
-      setToast(`Non-admins have a ${cooldownMinutes} minute song cooldown.`);
+      setToast("Song cooldown is on.");
       return;
     }
 
@@ -926,7 +926,7 @@ function App() {
     previousMemberIds.current = undefined;
     setEffectivePlaybackSettings({
       songId: null,
-      crossfadeEnabled: true,
+      crossfadeEnabled: false,
       crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
     });
     setRestoreRoomId("");
@@ -938,35 +938,14 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { cooldownEnabled: enabled });
   }
 
-  async function updateCooldownMinutes(minutes) {
-    if (!isAdmin || !activeRoomId) return;
-    const cleanMinutes = Math.min(30, Math.max(1, Number(minutes) || 1));
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      cooldownMinutes: cleanMinutes,
-      cooldownMs: cleanMinutes * 60 * 1000
-    });
-  }
-
   async function updateCrossfadeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeEnabled: enabled });
   }
 
-  async function updateCrossfadeSeconds(seconds) {
-    if (!isAdmin || !activeRoomId) return;
-    const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_CROSSFADE_SECONDS));
-    await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeSeconds: cleanSeconds });
-  }
-
   async function updateTrackNoticeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeEnabled: enabled });
-  }
-
-  async function updateTrackNoticeSeconds(seconds) {
-    if (!isAdmin || !activeRoomId) return;
-    const cleanSeconds = Math.min(30, Math.max(1, Number(seconds) || DEFAULT_TRACK_NOTICE_SECONDS));
-    await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeSeconds: cleanSeconds });
   }
 
   async function updateJoinNoticeEnabled(enabled) {
@@ -1560,7 +1539,7 @@ function App() {
             <div className="setting-row">
               <div>
                 <strong>Cooldown</strong>
-                <span>{cooldownEnabled ? `${cooldownMinutes} minutes between guest adds` : "Guests can add songs anytime"}</span>
+                <span>{cooldownEnabled ? "Guests wait between song adds" : "Guests can add songs anytime"}</span>
               </div>
               <button
                 className={cooldownEnabled ? "toggle-button is-on" : "toggle-button"}
@@ -1571,26 +1550,10 @@ function App() {
                 {cooldownEnabled ? "On" : "Off"}
               </button>
             </div>
-            <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes - 1)} disabled={!isAdmin || !cooldownEnabled || cooldownMinutes <= 1}>
-                -
-              </button>
-              <input
-                type="range"
-                min="1"
-                max="30"
-                value={cooldownMinutes}
-                onChange={(event) => updateCooldownMinutes(event.target.value)}
-                disabled={!isAdmin || !cooldownEnabled}
-              />
-              <button className="icon-button" onClick={() => updateCooldownMinutes(cooldownMinutes + 1)} disabled={!isAdmin || !cooldownEnabled || cooldownMinutes >= 30}>
-                +
-              </button>
-            </div>
             <div className="setting-row">
               <div>
                 <strong>Crossfade</strong>
-                <span>{crossfadeEnabled ? `Start next song ${crossfadeSeconds} seconds early` : "Next song starts after the current one ends"}</span>
+                <span>{crossfadeEnabled ? "Start the next song early" : "Next song starts after the current one ends"}</span>
               </div>
               <button
                 className={crossfadeEnabled ? "toggle-button is-on" : "toggle-button"}
@@ -1601,26 +1564,10 @@ function App() {
                 {crossfadeEnabled ? "On" : "Off"}
               </button>
             </div>
-            <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds - 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds <= 1}>
-                -
-              </button>
-              <input
-                type="range"
-                min="1"
-                max="30"
-                value={crossfadeSeconds}
-                onChange={(event) => updateCrossfadeSeconds(event.target.value)}
-                disabled={!isAdmin || !crossfadeEnabled}
-              />
-              <button className="icon-button" onClick={() => updateCrossfadeSeconds(crossfadeSeconds + 1)} disabled={!isAdmin || !crossfadeEnabled || crossfadeSeconds >= 30}>
-                +
-              </button>
-            </div>
             <div className="setting-row">
               <div>
                 <strong>Track notifications</strong>
-                <span>{trackNoticeEnabled ? `Show now-playing bubble for ${trackNoticeSeconds} seconds` : "Now-playing bubble is off"}</span>
+                <span>{trackNoticeEnabled ? "Show now-playing bubble" : "Now-playing bubble is off"}</span>
               </div>
               <button
                 className={trackNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
@@ -1629,22 +1576,6 @@ function App() {
                 type="button"
               >
                 {trackNoticeEnabled ? "On" : "Off"}
-              </button>
-            </div>
-            <div className="cooldown-controls">
-              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds - 1)} disabled={!isAdmin || !trackNoticeEnabled || trackNoticeSeconds <= 1}>
-                -
-              </button>
-              <input
-                type="range"
-                min="1"
-                max="30"
-                value={trackNoticeSeconds}
-                onChange={(event) => updateTrackNoticeSeconds(event.target.value)}
-                disabled={!isAdmin || !trackNoticeEnabled}
-              />
-              <button className="icon-button" onClick={() => updateTrackNoticeSeconds(trackNoticeSeconds + 1)} disabled={!isAdmin || !trackNoticeEnabled || trackNoticeSeconds >= 30}>
-                +
               </button>
             </div>
             <div className="setting-row">
