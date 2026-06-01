@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.03";
+const APP_VERSION = "2026.06.01.04";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -181,8 +181,45 @@ function youtubeWatchUrl(videoId) {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
+function youtubeMusicSearchUrl(queryText) {
+  const query = queryText.trim();
+  return query
+    ? `https://music.youtube.com/search?q=${encodeURIComponent(query)}`
+    : "https://music.youtube.com/";
+}
+
 function youtubeThumb(videoId) {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+function extractYouTubeVideoId(value) {
+  const rawValue = value.trim();
+  if (!rawValue) return "";
+
+  try {
+    const url = new URL(rawValue);
+    const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "");
+    if (host === "youtu.be") {
+      return url.pathname.split("/").filter(Boolean)[0] || "";
+    }
+    if (host === "youtube.com" || host === "music.youtube.com" || host === "youtube-nocookie.com") {
+      const watchId = url.searchParams.get("v");
+      if (watchId) return watchId;
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idIndex = parts.findIndex((part) => ["shorts", "embed", "live"].includes(part));
+      if (idIndex >= 0) return parts[idIndex + 1] || "";
+    }
+  } catch {
+    const match = rawValue.match(/(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([A-Za-z0-9_-]{11})/);
+    return match?.[1] || "";
+  }
+
+  return "";
+}
+
+function cleanYouTubeVideoId(videoId) {
+  const match = String(videoId || "").match(/^[A-Za-z0-9_-]{11}$/);
+  return match ? match[0] : "";
 }
 
 function nextQueuedSong(songs, currentId) {
@@ -218,6 +255,7 @@ function App() {
   const [members, setMembers] = useState([]);
   const [toast, setToast] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [youtubeLink, setYoutubeLink] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -606,6 +644,44 @@ function App() {
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     await batch.commit();
     setSearchResults([]);
+    setYoutubeLink("");
+  }
+
+  async function fetchYouTubeLinkDetails(videoId) {
+    try {
+      const url = youtubeWatchUrl(videoId);
+      const response = await fetch(`https://www.youtube.com/oembed?${new URLSearchParams({ url, format: "json" }).toString()}`);
+      if (!response.ok) throw new Error("YouTube details unavailable.");
+      const data = await response.json();
+      return {
+        videoId,
+        title: data.title || "YouTube track",
+        channelTitle: data.author_name || "YouTube",
+        thumbnail: data.thumbnail_url || youtubeThumb(videoId)
+      };
+    } catch {
+      return {
+        videoId,
+        title: "YouTube track",
+        channelTitle: "YouTube",
+        thumbnail: youtubeThumb(videoId)
+      };
+    }
+  }
+
+  async function addSongFromLink(event) {
+    event.preventDefault();
+    const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(youtubeLink));
+    if (!videoId) {
+      setToast("Paste a valid YouTube or YouTube Music song link.");
+      return;
+    }
+    const selectedVideo = await fetchYouTubeLinkDetails(videoId);
+    await addSong(null, selectedVideo);
+  }
+
+  function openExternalYouTubeMusicSearch() {
+    window.open(youtubeMusicSearchUrl(searchQuery), "_blank", "noopener,noreferrer");
   }
 
   async function searchYouTube(event) {
@@ -1173,6 +1249,36 @@ function App() {
       </section>
 
       <section className="add-panel">
+        <div className="external-search-panel">
+          <div>
+            <strong>Search outside the app</strong>
+            <span>Open YouTube Music, copy a song link, then paste it here. This avoids YouTube search quota.</span>
+          </div>
+          <div className="external-search-actions">
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search YouTube Music"
+            />
+            <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
+              <ExternalLink aria-hidden="true" />
+              Open
+            </button>
+          </div>
+        </div>
+
+        <form className="youtube-link-form" onSubmit={addSongFromLink}>
+          <input
+            value={youtubeLink}
+            onChange={(event) => setYoutubeLink(event.target.value)}
+            placeholder="Paste YouTube or YouTube Music link"
+          />
+          <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim()}>
+            <Plus aria-hidden="true" />
+            Add Link
+          </button>
+        </form>
+
         <form className="youtube-search" onSubmit={searchYouTube}>
           <input
             value={searchQuery}
