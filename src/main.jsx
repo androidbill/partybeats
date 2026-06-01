@@ -115,7 +115,7 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.04";
+const APP_VERSION = "2026.06.01.05";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -625,8 +625,9 @@ function App() {
     const title = selectedVideo?.title || "YouTube track";
     const thumbnail = selectedVideo?.thumbnail || youtubeThumb(videoId);
     const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
+    const songRef = doc(collection(db, "rooms", activeRoomId, "songs"));
     const batch = writeBatch(db);
-    batch.set(doc(collection(db, "rooms", activeRoomId, "songs")), {
+    batch.set(songRef, {
       title,
       artist: selectedVideo?.channelTitle || "YouTube",
       link: youtubeWatchUrl(videoId),
@@ -641,6 +642,9 @@ function App() {
       messages: [],
       createdAt: serverTimestamp()
     });
+    if (!room?.nowPlayingId) {
+      batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: songRef.id });
+    }
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     await batch.commit();
     setSearchResults([]);
