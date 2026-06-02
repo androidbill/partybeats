@@ -116,7 +116,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.05";
+const APP_VERSION = "2026.06.02.06";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -540,8 +540,16 @@ function App() {
   }, [nowPlayingSong?.id, crossfadeEnabled, crossfadeSeconds]);
 
   useEffect(() => {
-    if (!activeRoomId || !nowPlayingSong?.id) {
-      previousNowPlayingId.current = nowPlayingSong?.id || null;
+    if (!activeRoomId) {
+      previousNowPlayingId.current = undefined;
+      setNowPlayingNotice(null);
+      return undefined;
+    }
+    if (room?.nowPlayingId && !nowPlayingSong?.id) {
+      return undefined;
+    }
+    if (!nowPlayingSong?.id) {
+      previousNowPlayingId.current = null;
       setNowPlayingNotice(null);
       return undefined;
     }
@@ -584,6 +592,7 @@ function App() {
 
     const currentIds = new Set(members.map((member) => member.id));
     if (previousMemberIds.current === undefined) {
+      if (members.length === 0) return undefined;
       previousMemberIds.current = currentIds;
       return undefined;
     }
