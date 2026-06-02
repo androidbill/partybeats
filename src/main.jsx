@@ -9,9 +9,7 @@ import {
   ExternalLink,
   Info,
   LogOut,
-  Maximize2,
   MessageCircle,
-  Minimize2,
   Moon,
   MoreVertical,
   Music2,
@@ -118,7 +116,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.28";
+const APP_VERSION = "2026.06.01.29";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -293,14 +291,6 @@ function savedTheme() {
   }
 }
 
-function savedPlayerSize() {
-  try {
-    return localStorage.getItem("partybeats-player-size") || "normal";
-  } catch {
-    return "normal";
-  }
-}
-
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -338,10 +328,11 @@ function App() {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [theme, setTheme] = useState(savedTheme);
-  const [playerSize, setPlayerSize] = useState(savedPlayerSize);
   const songListRef = useRef(null);
+  const playerCardRef = useRef(null);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
+  const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const isDarkTheme = theme === "dark";
 
   useEffect(() => {
@@ -390,12 +381,12 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem("partybeats-player-size", playerSize);
-    } catch {
-      // Player size persistence is per-device and optional.
-    }
-  }, [playerSize]);
+    const handleFullscreenChange = () => {
+      setPlayerFullscreen(document.fullscreenElement === playerCardRef.current);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
@@ -987,6 +978,19 @@ function App() {
     }).catch(() => undefined);
   }
 
+  async function togglePlayerFullscreen() {
+    if (!playerCardRef.current) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      await playerCardRef.current.requestFullscreen();
+    } catch {
+      setToast("Fullscreen was blocked by the browser. Try the video fullscreen button.");
+    }
+  }
+
   async function takeOverDj() {
     if (!isAdmin || !activeRoomId || !user) return;
     await updateDoc(doc(db, "rooms", activeRoomId), {
@@ -1482,7 +1486,7 @@ function App() {
         </div>
       </header>
 
-      <section className={playerSize === "large" ? "now-playing-card is-large-player" : "now-playing-card"}>
+      <section ref={playerCardRef} className={playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card"}>
         <div>
           <span>{isActiveDj ? "Active DJ player" : "Now playing"}</span>
           <h1>{nowPlayingSong?.title || "Nothing playing yet"}</h1>
@@ -1512,12 +1516,12 @@ function App() {
             />
             <div className="player-actions">
               <button
-                className="mini-action player-size-toggle"
-                onClick={() => setPlayerSize((current) => current === "large" ? "normal" : "large")}
+                className="mini-action player-fullscreen-toggle"
+                onClick={togglePlayerFullscreen}
                 type="button"
               >
-                {playerSize === "large" ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
-                {playerSize === "large" ? "Normal" : "Large"}
+                {playerFullscreen ? <X aria-hidden="true" /> : <ExternalLink aria-hidden="true" />}
+                {playerFullscreen ? "Exit Fullscreen" : "Fullscreen"}
               </button>
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
                 <SkipForward aria-hidden="true" />

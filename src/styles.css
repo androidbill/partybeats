@@ -1171,17 +1171,31 @@ input:focus {
   font-size: 0.86rem;
 }
 
-.now-playing-card.is-large-player {
-  width: min(1180px, 100%);
+.now-playing-card.is-fullscreen-player,
+.now-playing-card:fullscreen {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: clamp(10px, 2vw, 22px);
+  border-radius: 0;
+  align-content: start;
+  background:
+    radial-gradient(circle at top left, rgba(247, 201, 72, 0.18), transparent 34%),
+    linear-gradient(135deg, #17181f, #10131a);
 }
 
-.now-playing-card.is-large-player .youtube-frame,
-.now-playing-card.is-large-player .youtube-frame iframe,
-.now-playing-card.is-large-player .player-empty {
-  max-height: min(72dvh, 720px);
+.now-playing-card.is-fullscreen-player .youtube-frame,
+.now-playing-card.is-fullscreen-player .youtube-frame iframe,
+.now-playing-card.is-fullscreen-player .player-empty,
+.now-playing-card:fullscreen .youtube-frame,
+.now-playing-card:fullscreen .youtube-frame iframe,
+.now-playing-card:fullscreen .player-empty {
+  aspect-ratio: 16 / 9;
+  max-height: calc(100dvh - 190px);
 }
 
-.player-size-toggle {
+.player-fullscreen-toggle {
   background: #39c6a3;
   color: #071f1a;
 }
@@ -2272,24 +2286,6 @@ input:focus {
   .now-playing-card {
     grid-row: 2 / 4;
     overflow: visible;
-  }
-
-  .now-playing-card.is-large-player {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .now-playing-card.is-large-player .youtube-frame,
-  .now-playing-card.is-large-player .youtube-frame iframe,
-  .now-playing-card.is-large-player .player-empty {
-    aspect-ratio: 16 / 9;
-    max-height: min(68dvh, 760px);
-  }
-
-  .room-app:has(.now-playing-card.is-large-player) .queue-panel {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    max-height: none;
   }
 
   .now-playing-card h1 {
