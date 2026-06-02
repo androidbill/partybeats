@@ -620,20 +620,6 @@ input:focus {
   font-weight: 800;
 }
 
-.search-result .result-meta b {
-  padding: 3px 6px;
-  border-radius: 999px;
-  color: #7a2600;
-  background: #ffe1cf;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-}
-
-.search-result.is-blocked {
-  border-color: rgba(122, 38, 0, 0.2);
-  background: #fff8f2;
-}
-
 .compact-empty {
   min-height: 142px;
   margin-bottom: 12px;
@@ -1128,16 +1114,6 @@ input:focus {
 
 .room-app.dark-mode .search-result .result-meta {
   color: #c4cad6;
-}
-
-.room-app.dark-mode .search-result .result-meta b {
-  color: #ffd6bd;
-  background: rgba(255, 126, 57, 0.22);
-}
-
-.room-app.dark-mode .search-result.is-blocked {
-  border-color: rgba(255, 126, 57, 0.28);
-  background: rgba(255, 126, 57, 0.08);
 }
 
 .room-app.dark-mode input {

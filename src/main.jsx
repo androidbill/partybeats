@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.10";
+const APP_VERSION = "2026.06.02.11";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -989,10 +989,13 @@ function App() {
         durationSeconds: null
       }));
       const durations = await fetchYouTubeDurations(nextResults.map((result) => result.videoId));
-      setSearchResults(nextResults.map((result) => ({
-        ...result,
-        durationSeconds: durations[result.videoId] || null
-      })));
+      const playableResults = nextResults
+        .map((result) => ({
+          ...result,
+          durationSeconds: durations[result.videoId] || null
+        }))
+        .filter((result) => Number(result.durationSeconds) > 0 && Number(result.durationSeconds) <= NON_ADMIN_MAX_SONG_SECONDS);
+      setSearchResults(playableResults);
     } catch (error) {
       setToast(error.message || "YouTube search failed.");
     } finally {
@@ -1976,23 +1979,21 @@ function App() {
                   <div className="search-results">
                     {searchResults.map((result) => {
                       const durationLabel = formatDuration(result.durationSeconds);
-                      const tooLongForGuest = !isAdmin && Number(result.durationSeconds) > NON_ADMIN_MAX_SONG_SECONDS;
                       const resultAddKey = `${activeRoomId}:${result.videoId}`;
                       const isAddingThisSong = addingSongKey === resultAddKey;
                       return (
-                        <article className={tooLongForGuest ? "search-result is-blocked" : "search-result"} key={result.videoId}>
+                        <article className="search-result" key={result.videoId}>
                           <img src={result.thumbnail} alt="" />
                           <div>
                             <strong>{result.title}</strong>
                             <span>{result.channelTitle}</span>
                             <span className="result-meta">
                               {durationLabel || "Length verifies on add"}
-                              {tooLongForGuest && <b>Over 10 min</b>}
                             </span>
                           </div>
-                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || tooLongForGuest || Boolean(addingSongKey)}>
+                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || Boolean(addingSongKey)}>
                             <Plus aria-hidden="true" />
-                            {isAddingThisSong ? "Adding" : tooLongForGuest ? "Admin" : "Add"}
+                            {isAddingThisSong ? "Adding" : "Add"}
                           </button>
                         </article>
                       );
