@@ -119,7 +119,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.18";
+const APP_VERSION = "2026.06.02.19";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -2138,7 +2138,7 @@ function App() {
                     Open
                   </button>
                 </div>
-                <button className="subtle-action external-tutorial-button" onClick={() => setExternalTutorialOpen(true)} type="button">
+                <button className="external-tutorial-button" onClick={() => setExternalTutorialOpen(true)} type="button">
                   <Info aria-hidden="true" />
                   How do I add a song?
                 </button>
