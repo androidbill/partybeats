@@ -1120,6 +1120,7 @@ input:focus {
 .activity-feed {
   display: flex;
   gap: 6px;
+  flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1135,7 +1136,9 @@ input:focus {
   gap: 5px;
   align-items: center;
   flex: 0 0 auto;
+  min-width: 0;
   max-width: min(320px, 78vw);
+  overflow: hidden;
   padding: 6px 9px;
   border-radius: 999px;
   color: #30333d;
@@ -1145,7 +1148,16 @@ input:focus {
   white-space: nowrap;
 }
 
+.activity-pill > span,
 .activity-empty {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-empty {
+  flex: 1 1 auto;
   color: #696c78;
 }
 
@@ -2535,6 +2547,10 @@ input:focus {
   .activity-strip {
     grid-column: 1 / -1;
     margin: 0;
+  }
+
+  .activity-pill {
+    max-width: min(260px, 24vw);
   }
 
   .now-playing-card,

@@ -119,7 +119,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.12";
+const APP_VERSION = "2026.06.02.13";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -1731,7 +1731,7 @@ function App() {
             {activityItems.map((item) => (
               <span className={`activity-pill ${item.type || "activity"}`} key={item.id}>
                 {item.isAnonymous === false && <GoogleBadge />}
-                {activityText(item)}
+                <span>{activityText(item)}</span>
               </span>
             ))}
           </div>
