@@ -119,7 +119,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.14";
+const APP_VERSION = "2026.06.02.15";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -340,6 +340,7 @@ function App() {
   const [roomPanelOpen, setRoomPanelOpen] = useState(false);
   const [roomPanelTab, setRoomPanelTab] = useState("room");
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState("");
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
@@ -2137,6 +2138,10 @@ function App() {
                     Open
                   </button>
                 </div>
+                <button className="subtle-action external-tutorial-button" onClick={() => setExternalTutorialOpen(true)} type="button">
+                  <Info aria-hidden="true" />
+                  How do I add a song?
+                </button>
                 <form className="youtube-link-form" onSubmit={addSongFromLink}>
                   <input
                     value={youtubeLink}
@@ -2152,6 +2157,10 @@ function App() {
             )}
           </section>
         </div>
+      )}
+
+      {externalTutorialOpen && (
+        <ExternalSearchTutorial onClose={() => setExternalTutorialOpen(false)} />
       )}
 
       {roomPanelOpen && (
@@ -2729,6 +2738,39 @@ function loadYouTubeIframeApi() {
   });
 
   return window.partyBeatsYouTubeApiPromise;
+}
+
+
+function ExternalSearchTutorial({ onClose }) {
+  return (
+    <div className="tutorial-backdrop" role="dialog" aria-modal="true" aria-labelledby="external-search-tutorial-title">
+      <section className="tutorial-card">
+        <div className="modal-header">
+          <div>
+            <h2 id="external-search-tutorial-title">Add Songs Using External Search</h2>
+            <p className="muted">Search YouTube Music, copy the song link, then paste it back into PartyBeats.</p>
+          </div>
+          <button className="icon-button" onClick={onClose} title="Close" type="button">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="tutorial-phone" aria-hidden="true">
+          <div className="tutorial-screen-label">PartyBeats</div>
+          <div className="tutorial-step step-1">1. Tap External Search</div>
+          <div className="tutorial-step step-2">2. Open YouTube Music</div>
+          <div className="tutorial-step step-3">3. Search for a song</div>
+          <div className="tutorial-step step-4">4. Tap Share</div>
+          <div className="tutorial-step step-5">5. Copy Link</div>
+          <div className="tutorial-step step-6">6. Paste link, then tap Add Link</div>
+        </div>
+
+        <button className="primary-action tutorial-done" onClick={onClose} type="button">
+          Got it
+        </button>
+      </section>
+    </div>
+  );
 }
 
 function SignedOut({ nickname, setNickname, onGoogle }) {

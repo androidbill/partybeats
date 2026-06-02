@@ -3290,3 +3290,135 @@ input:focus {
     linear-gradient(rgba(18, 19, 26, 0.28), rgba(18, 19, 26, 0.86)),
     url("https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80") center/cover no-repeat;
 }
+
+
+.external-tutorial-button {
+  width: 100%;
+}
+
+.tutorial-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 520;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.78);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tutorial-card {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  width: min(430px, 100%);
+  max-height: calc(100dvh - 32px);
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  color: #ffffff;
+  background: #151923;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+  overflow-y: auto;
+}
+
+.tutorial-card h2 {
+  margin: 0;
+}
+
+.tutorial-card .muted {
+  margin: 5px 0 0;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.tutorial-phone {
+  position: relative;
+  height: min(460px, 56dvh);
+  min-height: 360px;
+  border: 8px solid #080a0f;
+  border-radius: 30px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(99, 215, 255, 0.18), transparent 36%),
+    radial-gradient(circle at bottom left, rgba(255, 79, 147, 0.16), transparent 34%),
+    linear-gradient(180deg, #232b3d, #111620);
+}
+
+.tutorial-phone::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 92px;
+  height: 18px;
+  border-radius: 999px;
+  background: #080a0f;
+  transform: translateX(-50%);
+}
+
+.tutorial-screen-label {
+  position: absolute;
+  top: 48px;
+  left: 20px;
+  right: 20px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.tutorial-step {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 45%;
+  min-height: 58px;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  border-radius: 14px;
+  color: #12131a;
+  background: #f7c948;
+  font-weight: 950;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(24px) scale(0.96);
+  animation: tutorialStep 12s infinite;
+}
+
+.step-1 { animation-delay: 0s; }
+.step-2 { animation-delay: 2s; }
+.step-3 { animation-delay: 4s; }
+.step-4 { animation-delay: 6s; }
+.step-5 { animation-delay: 8s; }
+.step-6 { animation-delay: 10s; }
+
+.tutorial-done {
+  width: 100%;
+}
+
+@keyframes tutorialStep {
+  0%, 12% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  18%, 100% {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-step {
+    animation: none;
+  }
+
+  .tutorial-step.step-1 {
+    opacity: 1;
+    transform: none;
+  }
+}
