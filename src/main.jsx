@@ -115,7 +115,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.18";
+const APP_VERSION = "2026.06.01.19";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -1251,6 +1251,7 @@ function App() {
           <div>
             <strong>BP PartyBeats</strong>
             <span>{activeRoomId}</span>
+            <small className="topbar-version">{APP_VERSION}</small>
           </div>
         </div>
 
@@ -1279,7 +1280,6 @@ function App() {
           >
             <Pencil aria-hidden="true" />
           </button>
-          <span className="topbar-version">{APP_VERSION}</span>
           <div className="session-chip">
             <span>{user.isAnonymous ? "Guest" : "Google"}</span>
             <strong>
