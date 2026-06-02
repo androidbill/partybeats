@@ -47,6 +47,7 @@ import {
   deleteField,
   doc,
   getDoc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -118,7 +119,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.11";
+const APP_VERSION = "2026.06.02.12";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -325,6 +326,7 @@ function App() {
   const [room, setRoom] = useState(null);
   const [songs, setSongs] = useState([]);
   const [members, setMembers] = useState([]);
+  const [activityItems, setActivityItems] = useState([]);
   const [toast, setToast] = useState("");
   const [searchMode, setSearchMode] = useState("internal");
   const [searchQuery, setSearchQuery] = useState("");
@@ -423,12 +425,14 @@ function App() {
       setRoom(null);
       setSongs([]);
       setMembers([]);
+      setActivityItems([]);
       return undefined;
     }
 
     const roomRef = doc(db, "rooms", activeRoomId);
     const songsRef = query(collection(db, "rooms", activeRoomId, "songs"), orderBy("position", "asc"));
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
+    const activityRef = query(collection(db, "rooms", activeRoomId, "activity"), orderBy("createdAt", "desc"), limit(6));
 
     const handleRoomAccessLost = () => {
       setToast("You were removed from this room.");
@@ -455,10 +459,14 @@ function App() {
       }
       setMembers(nextMembers);
     }, handleRoomAccessLost);
+    const unsubActivity = onSnapshot(activityRef, (snap) => {
+      setActivityItems(snap.docs.map((item) => ({ id: item.id, ...item.data() })).reverse());
+    }, () => setActivityItems([]));
     return () => {
       unsubRoom();
       unsubSongs();
       unsubMembers();
+      unsubActivity();
     };
   }, [activeRoomId, user?.uid]);
 
@@ -549,6 +557,33 @@ function App() {
     : "No add yet";
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
+  const activeDjStatus = isActiveDj ? "This device is the Active DJ" : `Active DJ: ${activeDjName}`;
+
+  async function addActivity(type, label = "", roomOverride = activeRoomId, actorOverride = null) {
+    const activityUser = actorOverride || user;
+    if (!roomOverride || !activityUser) return;
+    await setDoc(doc(collection(db, "rooms", roomOverride, "activity")), {
+      type,
+      label: String(label || "").slice(0, 90),
+      uid: activityUser.uid,
+      name: (actorOverride?.name || activeNickname || nicknameFor(activityUser, "Guest")).slice(0, 30),
+      isAnonymous: Boolean(activityUser.isAnonymous),
+      createdAt: serverTimestamp(),
+      clientAt: Date.now()
+    }).catch(() => undefined);
+  }
+
+  function activityText(item) {
+    const actor = item.name || "Someone";
+    const label = item.label ? ` ${item.label}` : "";
+    if (item.type === "join") return `${actor} joined`;
+    if (item.type === "add") return `${actor} added${label}`;
+    if (item.type === "react") return `${actor} reacted${label}`;
+    if (item.type === "message") return `${actor} messaged${label}`;
+    if (item.type === "settings") return `${actor} changed${label}`;
+    if (item.type === "admin") return `${actor}${label}`;
+    return `${actor}${label}`;
+  }
 
   useEffect(() => {
     setEffectivePlaybackSettings((current) => {
@@ -777,16 +812,25 @@ function App() {
       return;
     }
 
+    const memberRef = doc(db, "rooms", nextRoomId, "members", joiningUser.uid);
+    const memberSnap = await getDoc(memberRef);
     await setDoc(
-      doc(db, "rooms", nextRoomId, "members", joiningUser.uid),
+      memberRef,
       {
         uid: joiningUser.uid,
         name: activeNickname,
         isAnonymous: joiningUser.isAnonymous,
-        joinedAt: serverTimestamp()
+        ...(memberSnap.exists() ? {} : { joinedAt: serverTimestamp() })
       },
       { merge: true }
     );
+    if (!memberSnap.exists()) {
+      await addActivity("join", "the party", nextRoomId, {
+        uid: joiningUser.uid,
+        isAnonymous: joiningUser.isAnonymous,
+        name: activeNickname
+      });
+    }
     setActiveRoomId(nextRoomId);
     setRoomId(nextRoomId);
     window.history.replaceState({}, "", `${window.location.pathname}?room=${nextRoomId}`);
@@ -860,6 +904,15 @@ function App() {
       batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
     }
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
+    batch.set(doc(collection(db, "rooms", activeRoomId, "activity")), {
+      type: "add",
+      label: title,
+      uid: user.uid,
+      name: activeNickname.slice(0, 30),
+      isAnonymous: user.isAnonymous,
+      createdAt: serverTimestamp(),
+      clientAt: Date.now()
+    });
     try {
       await batch.commit();
     } catch (error) {
@@ -1028,6 +1081,7 @@ function App() {
     await batch.commit();
     setNowPlayingNotice(null);
     setToast("Playlist cleared.");
+    await addActivity("admin", "cleared the playlist");
   }
 
   async function moveSong(song, direction) {
@@ -1039,6 +1093,7 @@ function App() {
       updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), { position: swapWith.position }),
       updateDoc(doc(db, "rooms", activeRoomId, "songs", swapWith.id), { position: song.position })
     ]);
+    await addActivity("admin", `moved ${decodeHtmlEntities(song.title || "a track")}`);
   }
 
   async function setNowPlaying(songId) {
@@ -1054,6 +1109,8 @@ function App() {
       playbackUpdatedAt: serverTimestamp(),
       playbackUpdatedBy: user.uid
     });
+    const selected = songs.find((song) => song.id === songId);
+    await addActivity("admin", `started ${decodeHtmlEntities(selected?.title || "a track")}`);
   }
 
   async function syncPlaybackState({ songId, seconds, state }) {
@@ -1088,6 +1145,7 @@ function App() {
       activeDjAt: serverTimestamp()
     });
     setToast("You are now the Active DJ.");
+    await addActivity("admin", "became Active DJ");
   }
 
   async function promoteMember(member) {
@@ -1097,6 +1155,7 @@ function App() {
       [`adminUids.${member.id}`]: true
     });
     setToast(`${member.name || "Member"} is now an admin.`);
+    await addActivity("admin", `made ${member.name || "member"} admin`);
   }
 
   async function demoteMember(member) {
@@ -1118,6 +1177,7 @@ function App() {
 
     await updateDoc(doc(db, "rooms", activeRoomId), roomUpdate);
     setToast(`${member.name || "Member"} is no longer an admin.`);
+    await addActivity("admin", `demoted ${member.name || "member"}`);
   }
 
   async function removeMember(member) {
@@ -1147,6 +1207,7 @@ function App() {
     batch.delete(doc(db, "rooms", activeRoomId, "members", member.id));
     await batch.commit();
     setToast(`${member.name || "Member"} was removed from the room.`);
+    await addActivity("admin", `removed ${member.name || "member"}`);
   }
 
   async function renameMember(member) {
@@ -1170,6 +1231,7 @@ function App() {
     setSelfRenameOpen(false);
     setSelfRenameDraft("");
     setToast(`${member.name || "Member"} is now ${nextName}.`);
+    await addActivity("admin", `renamed ${member.name || "member"} to ${nextName}`);
   }
 
   function openSelfRename() {
@@ -1204,6 +1266,7 @@ function App() {
     setSelfRenameOpen(false);
     setSelfRenameDraft("");
     setToast("Nickname updated.");
+    await addActivity("profile", `is now ${nextName}`);
   }
 
   async function playNextSong() {
@@ -1296,6 +1359,7 @@ function App() {
       return;
     }
     await updateDoc(songRef, { [path]: emoji });
+    await addActivity("react", `${emoji} to ${decodeHtmlEntities(song.title || "a track")}`);
   }
 
   async function sendSongMessage(song) {
@@ -1319,6 +1383,7 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), {
       messages: nextMessages
     });
+    await addActivity("message", `on ${decodeHtmlEntities(song.title || "a track")}`);
     setMessageDraft("");
     setMessageSongId("");
     setEmojiSongId("");
@@ -1329,6 +1394,7 @@ function App() {
     setRoom(null);
     setSongs([]);
     setMembers([]);
+    setActivityItems([]);
     setMenuOpen(false);
     setRoomPanelOpen(false);
     setRoomPanelTab("room");
@@ -1361,21 +1427,25 @@ function App() {
   async function updateCooldownEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { cooldownEnabled: enabled });
+    await addActivity("settings", `cooldown ${enabled ? "on" : "off"}`);
   }
 
   async function updateCrossfadeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeEnabled: enabled });
+    await addActivity("settings", `crossfade ${enabled ? "on" : "off"}`);
   }
 
   async function updateTrackNoticeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeEnabled: enabled });
+    await addActivity("settings", `track notifications ${enabled ? "on" : "off"}`);
   }
 
   async function updateJoinNoticeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { joinNoticeEnabled: enabled });
+    await addActivity("settings", `join notifications ${enabled ? "on" : "off"}`);
   }
 
   async function leaveRoom() {
@@ -1423,8 +1493,8 @@ function App() {
     if (!activeRoomId) return;
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
     const shareData = {
-      title: "Join my BP PartyBeats room",
-      text: `Join BP PartyBeats room ${activeRoomId}`,
+      title: "BP PartyBeats",
+      text: `Join my BP PartyBeats room ${activeRoomId}\nRoom ID: ${activeRoomId}`,
       url: shareUrl
     };
     setMenuOpen(false);
@@ -1432,8 +1502,12 @@ function App() {
       await navigator.share(shareData).catch(() => undefined);
       return;
     }
-    await navigator.clipboard?.writeText(`${shareData.text}\n${shareUrl}`);
-    setToast("Room link copied.");
+    try {
+      await navigator.clipboard?.writeText(`${shareData.text}\n${shareUrl}`);
+      setToast("Room invite copied.");
+    } catch {
+      setToast(`Room ${activeRoomId}: ${shareUrl}`);
+    }
   }
 
   async function copyRoomId() {
@@ -1554,11 +1628,23 @@ function App() {
           <div>
             <strong>BP PartyBeats</strong>
             <span>{activeRoomId}</span>
+            <span className="topbar-room-meta">{members.length} people · {activeDjStatus}</span>
             <small className="topbar-version">{APP_VERSION}</small>
           </div>
         </div>
 
         <div className="topbar-actions">
+          <button
+            className="icon-button qr-toggle"
+            onClick={() => {
+              setRoomPanelTab("room");
+              setRoomPanelOpen(true);
+            }}
+            title="Show room QR"
+            type="button"
+          >
+            <QrCode aria-hidden="true" />
+          </button>
           <button
             className="icon-button theme-toggle"
             onClick={() => setTheme(isDarkTheme ? "light" : "dark")}
@@ -1635,6 +1721,25 @@ function App() {
         </div>
       </header>
 
+      <section className="activity-strip" aria-label="Recent room activity">
+        <div>
+          <Activity aria-hidden="true" />
+          <strong>Live</strong>
+        </div>
+        {activityItems.length > 0 ? (
+          <div className="activity-feed">
+            {activityItems.map((item) => (
+              <span className={`activity-pill ${item.type || "activity"}`} key={item.id}>
+                {item.isAnonymous === false && <GoogleBadge />}
+                {activityText(item)}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="activity-empty">Room is ready.</span>
+        )}
+      </section>
+
       <section ref={playerCardRef} className={playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card"}>
         <div>
           <span>{isActiveDj ? "Active DJ player" : "Now playing"}</span>
@@ -1651,6 +1756,12 @@ function App() {
             Playing from {activeDjName}
             {isAdmin && !isActiveDj ? " · You can take over if the speaker moves to your phone." : ""}
           </p>
+          {!nowPlayingSong && (
+            <button className="mini-action player-empty-action" onClick={() => setAddSheetOpen(true)} type="button">
+              <Plus aria-hidden="true" />
+              Add First Track
+            </button>
+          )}
         </div>
         {isActiveDj ? (
           <>
@@ -1727,8 +1838,12 @@ function App() {
           {songs.length === 0 ? (
             <div className="empty-state">
               <Music2 aria-hidden="true" />
-              <strong>No songs yet</strong>
-              <span>Drop the first track and set the tone.</span>
+              <strong>Add the first track</strong>
+              <span>{roomNeedsFirstTrack ? "Anyone in the room can start the party." : "Drop a track and set the tone."}</span>
+              <button className="primary-action" onClick={() => setAddSheetOpen(true)} type="button">
+                <Plus aria-hidden="true" />
+                Add Song
+              </button>
             </div>
           ) : (
             songs.map((song, index) => {
@@ -2106,6 +2221,10 @@ function App() {
                   <div>
                     <span>People</span>
                     <strong>{members.length}</strong>
+                  </div>
+                  <div>
+                    <span>Active DJ</span>
+                    <strong>{activeDjName}</strong>
                   </div>
                   <div>
                     <span>Version</span>
