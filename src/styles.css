@@ -1245,8 +1245,13 @@ input:focus {
 }
 
 .player-fullscreen-toggle {
-  background: #39c6a3;
-  color: #071f1a;
+  color: #ffffff;
+  background: #2563eb;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+}
+
+.player-fullscreen-toggle svg {
+  color: #ffffff;
 }
 
 .playback-status {
