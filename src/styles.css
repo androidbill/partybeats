@@ -590,6 +590,36 @@ input:focus {
   font-size: 0.86rem;
 }
 
+.search-result .result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: #424550;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.search-result .result-meta b {
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: #7a2600;
+  background: #ffe1cf;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.search-result.is-blocked {
+  border-color: rgba(122, 38, 0, 0.2);
+  background: #fff8f2;
+}
+
+.compact-empty {
+  min-height: 142px;
+  margin-bottom: 12px;
+  padding: 18px;
+}
+
 .song-list {
   display: grid;
   gap: 12px;
@@ -1075,6 +1105,20 @@ input:focus {
   color: #f6f7fb;
 }
 
+.room-app.dark-mode .search-result .result-meta {
+  color: #c4cad6;
+}
+
+.room-app.dark-mode .search-result .result-meta b {
+  color: #ffd6bd;
+  background: rgba(255, 126, 57, 0.22);
+}
+
+.room-app.dark-mode .search-result.is-blocked {
+  border-color: rgba(255, 126, 57, 0.28);
+  background: rgba(255, 126, 57, 0.08);
+}
+
 .room-app.dark-mode input {
   color: #f6f7fb;
   border-color: rgba(255, 255, 255, 0.14);
@@ -1167,7 +1211,8 @@ input:focus {
   -webkit-overflow-scrolling: touch;
 }
 
-.search-tabs {
+.search-tabs,
+.panel-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
@@ -1177,7 +1222,12 @@ input:focus {
   background: rgba(23, 24, 31, 0.08);
 }
 
-.search-tabs button {
+.panel-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.search-tabs button,
+.panel-tabs button {
   min-height: 38px;
   border-radius: 6px;
   color: #696c78;
@@ -1186,20 +1236,24 @@ input:focus {
   font-weight: 900;
 }
 
-.search-tabs button.is-active {
+.search-tabs button.is-active,
+.panel-tabs button.is-active {
   color: #12131a;
   background: #f7c948;
 }
 
-.room-app.dark-mode .search-tabs {
+.room-app.dark-mode .search-tabs,
+.room-app.dark-mode .panel-tabs {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.room-app.dark-mode .search-tabs button {
+.room-app.dark-mode .search-tabs button,
+.room-app.dark-mode .panel-tabs button {
   color: #a7adbb;
 }
 
-.room-app.dark-mode .search-tabs button.is-active {
+.room-app.dark-mode .search-tabs button.is-active,
+.room-app.dark-mode .panel-tabs button.is-active {
   color: #12131a;
 }
 
@@ -1299,6 +1353,12 @@ input:focus {
   padding: 6px;
   scroll-margin-top: 10px;
   touch-action: manipulation;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
 .song-row,
@@ -1309,8 +1369,31 @@ input:focus {
 }
 
 .song-row.is-playing {
-  border-color: #39c6a3;
-  box-shadow: inset 3px 0 0 #39c6a3;
+  border-color: rgba(57, 198, 163, 0.72);
+  background:
+    linear-gradient(90deg, rgba(57, 198, 163, 0.18), rgba(255, 255, 255, 0.96) 42%),
+    #ffffff;
+  box-shadow:
+    inset 4px 0 0 #39c6a3,
+    0 10px 28px rgba(57, 198, 163, 0.14);
+}
+
+.song-row.is-selected {
+  border-color: rgba(247, 201, 72, 0.8);
+  box-shadow:
+    inset 4px 0 0 #f7c948,
+    0 12px 30px rgba(18, 19, 26, 0.1);
+}
+
+.song-row.is-playing.is-selected {
+  border-color: rgba(57, 198, 163, 0.85);
+  box-shadow:
+    inset 4px 0 0 #39c6a3,
+    0 12px 32px rgba(57, 198, 163, 0.18);
+}
+
+.song-row.is-played:not(.is-playing) {
+  opacity: 0.48;
 }
 
 .song-row.is-reacting {
@@ -1326,6 +1409,13 @@ input:focus {
 
 .room-app.dark-mode .song-row.is-playing {
   border-color: #39c6a3;
+  background:
+    linear-gradient(90deg, rgba(57, 198, 163, 0.18), rgba(23, 27, 37, 0.96) 42%),
+    #171b25;
+}
+
+.room-app.dark-mode .song-row.is-selected {
+  border-color: rgba(247, 201, 72, 0.78);
 }
 
 .room-app.dark-mode .song-row.is-reacting {
@@ -1377,11 +1467,23 @@ input:focus {
 }
 
 .track-line {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 7px;
   align-items: start;
   min-width: 0;
+}
+
+.track-line em {
+  align-self: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #07382f;
+  background: rgba(57, 198, 163, 0.26);
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 950;
+  text-transform: uppercase;
 }
 
 .track-line b,
@@ -1398,6 +1500,7 @@ input:focus {
 }
 
 .track-line strong {
+  flex: 1 1 180px;
   min-width: 0;
   font-size: 0.82rem;
   font-weight: 800;
@@ -1460,11 +1563,24 @@ input:focus {
   display: flex;
   flex-wrap: nowrap;
   gap: 4px;
+  animation: rowControlsIn 140ms ease both;
 }
 
 .admin-actions .icon-button {
   width: 32px;
   height: 32px;
+}
+
+@keyframes rowControlsIn {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .emoji-popover {
@@ -1642,6 +1758,16 @@ input:focus {
   height: 34px;
 }
 
+.people-panel .member-row.manageable {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.people-panel .member-row.manageable .member-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  padding-left: 36px;
+}
+
 .rename-member-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -1690,6 +1816,63 @@ input:focus {
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
+}
+
+.room-panel-backdrop {
+  padding: 0;
+  align-items: end;
+}
+
+.room-panel {
+  width: min(720px, 100%);
+  max-height: min(86dvh, 760px);
+  padding: 14px;
+  border-radius: 16px 16px 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.room-panel .modal-header {
+  align-items: flex-start;
+}
+
+.room-panel .modal-header div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.room-panel .modal-header p {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.room-panel-page {
+  display: grid;
+  gap: 14px;
+}
+
+.room-panel-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.room-panel-actions .mini-action {
+  min-height: 42px;
+}
+
+.room-qr {
+  width: 100%;
+  justify-items: center;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(57, 198, 163, 0.08);
+}
+
+.room-app.dark-mode .room-qr {
+  background: rgba(57, 198, 163, 0.12);
 }
 
 .room-app.dark-mode .about-modal {

@@ -115,7 +115,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.20";
+const APP_VERSION = "2026.06.01.23";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -247,6 +247,18 @@ function parseIsoDurationSeconds(value) {
   return (hours * 3600) + (minutes * 60) + seconds;
 }
 
+function formatDuration(seconds) {
+  const totalSeconds = Number(seconds);
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return "";
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = Math.floor(totalSeconds % 60);
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+  }
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
 function nextQueuedSong(songs, currentId) {
   if (!songs.length || !currentId) return null;
   const currentIndex = songs.findIndex((song) => song.id === currentId);
@@ -286,10 +298,10 @@ function App() {
   const [searching, setSearching] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [peopleOpen, setPeopleOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [roomPanelOpen, setRoomPanelOpen] = useState(false);
+  const [roomPanelTab, setRoomPanelTab] = useState("room");
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [selectedSongId, setSelectedSongId] = useState("");
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -448,6 +460,7 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
+  const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
@@ -742,6 +755,27 @@ function App() {
     }
   }
 
+  async function fetchYouTubeDurations(videoIds) {
+    const cleanIds = [...new Set((videoIds || []).map(cleanYouTubeVideoId).filter(Boolean))];
+    if (!YOUTUBE_API_KEY || cleanIds.length === 0) return {};
+    try {
+      const params = new URLSearchParams({
+        part: "contentDetails",
+        id: cleanIds.join(","),
+        key: YOUTUBE_API_KEY
+      });
+      const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || "YouTube duration lookup failed.");
+      return (data.items || []).reduce((durations, item) => {
+        durations[item.id] = parseIsoDurationSeconds(item.contentDetails?.duration);
+        return durations;
+      }, {});
+    } catch {
+      return {};
+    }
+  }
+
   async function fetchYouTubeLinkDetails(videoId) {
     try {
       const url = youtubeWatchUrl(videoId);
@@ -805,15 +839,18 @@ function App() {
       if (!response.ok) {
         throw new Error(data.error?.message || "YouTube search failed.");
       }
-      setSearchResults(
-        (data.items || []).map((item) => ({
-          videoId: item.id.videoId,
-          title: item.snippet.title,
-          channelTitle: item.snippet.channelTitle,
-          thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId),
-          durationSeconds: null
-        }))
-      );
+      const nextResults = (data.items || []).map((item) => ({
+        videoId: item.id.videoId,
+        title: item.snippet.title,
+        channelTitle: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId),
+        durationSeconds: null
+      }));
+      const durations = await fetchYouTubeDurations(nextResults.map((result) => result.videoId));
+      setSearchResults(nextResults.map((result) => ({
+        ...result,
+        durationSeconds: durations[result.videoId] || null
+      })));
     } catch (error) {
       setToast(error.message || "YouTube search failed.");
     } finally {
@@ -1043,10 +1080,10 @@ function App() {
     setSongs([]);
     setMembers([]);
     setMenuOpen(false);
-    setAboutOpen(false);
-    setPeopleOpen(false);
-    setSettingsOpen(false);
+    setRoomPanelOpen(false);
+    setRoomPanelTab("room");
     setAddSheetOpen(false);
+    setSelectedSongId("");
     setEmojiSongId("");
     setMessageSongId("");
     setMessageDraft("");
@@ -1142,6 +1179,12 @@ function App() {
     }
     await navigator.clipboard?.writeText(`${shareData.text}\n${shareUrl}`);
     setToast("Room link copied.");
+  }
+
+  async function copyRoomId() {
+    if (!activeRoomId) return;
+    await navigator.clipboard?.writeText(activeRoomId);
+    setToast("Room ID copied.");
   }
 
   async function exportPlaylist() {
@@ -1269,7 +1312,10 @@ function App() {
           </button>
           <button
             className="icon-button"
-            onClick={() => setPeopleOpen(true)}
+            onClick={() => {
+              setRoomPanelTab("people");
+              setRoomPanelOpen(true);
+            }}
             title="People in room"
             type="button"
           >
@@ -1296,11 +1342,11 @@ function App() {
             </button>
             {menuOpen && (
               <div className="overflow-menu">
-                <button onClick={() => { setAboutOpen(true); setMenuOpen(false); }}>
+                <button onClick={() => { setRoomPanelTab("room"); setRoomPanelOpen(true); setMenuOpen(false); }}>
                   <Info aria-hidden="true" />
-                  About
+                  Room
                 </button>
-                <button onClick={() => { setSettingsOpen(true); setMenuOpen(false); }}>
+                <button onClick={() => { setRoomPanelTab("settings"); setRoomPanelOpen(true); setMenuOpen(false); }}>
                   <SlidersHorizontal aria-hidden="true" />
                   Settings
                 </button>
@@ -1400,6 +1446,9 @@ function App() {
             songs.map((song, index) => {
               const queueIndex = songs.findIndex((item) => item.id === song.id);
               const trackDisplay = playlistTrackDisplay(song);
+              const isCurrentSong = song.id === room.nowPlayingId;
+              const isPlayedSong = nowPlayingIndex >= 0 && index < nowPlayingIndex;
+              const isSelectedSong = selectedSongId === song.id;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
               const emojiCounts = EMOJIS.map((emoji) => ({
@@ -1410,11 +1459,14 @@ function App() {
                 <article
                   className={[
                     "song-row",
-                    song.id === room.nowPlayingId ? "is-playing" : "",
+                    isCurrentSong ? "is-playing" : "",
+                    isPlayedSong ? "is-played" : "",
+                    isSelectedSong ? "is-selected" : "",
                     emojiSongId === song.id ? "is-reacting" : ""
                   ].filter(Boolean).join(" ")}
                   data-song-id={song.id}
                   key={song.id}
+                  onClick={() => setSelectedSongId((current) => current === song.id ? "" : song.id)}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     setMessageSongId("");
@@ -1430,9 +1482,10 @@ function App() {
                   onPointerUp={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                   onPointerLeave={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                 >
-                  <button className="song-main" onClick={() => isActiveDj && setNowPlaying(song.id)} type="button">
+                  <button className="song-main" type="button">
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
+                      {isCurrentSong && <em>Now</em>}
                       {trackDisplay.artist && <b>{trackDisplay.artist}</b>}
                       <strong>{trackDisplay.title}</strong>
                     </span>
@@ -1454,8 +1507,8 @@ function App() {
                     ))}
                   </div>
 
-                  {isAdmin && (
-                    <div className="admin-actions" onPointerDown={(event) => event.stopPropagation()}>
+                  {isAdmin && isSelectedSong && (
+                    <div className="admin-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                       <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={queueIndex <= 0}>
                         <ArrowUp aria-hidden="true" />
                       </button>
@@ -1534,74 +1587,6 @@ function App() {
           }}
           type="button"
         />
-      )}
-
-      {aboutOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <section className="about-modal">
-            <div className="modal-header">
-              <h2>About</h2>
-              <button className="icon-button" onClick={() => setAboutOpen(false)} title="Close">
-                <X aria-hidden="true" />
-              </button>
-            </div>
-            <div className="about-grid">
-              <div>
-                <span>Room ID</span>
-                <strong>{activeRoomId}</strong>
-              </div>
-              <div>
-                <span>People</span>
-                <strong>{members.length}</strong>
-              </div>
-              <div>
-                <span>Version</span>
-                <strong>{APP_VERSION}</strong>
-              </div>
-            </div>
-            {qrDataUrl && (
-              <div className="qr-block">
-                <img src={qrDataUrl} alt={`Join ${activeRoomId}`} />
-                <span>
-                  <QrCode aria-hidden="true" />
-                  Scan to join
-                </span>
-              </div>
-            )}
-          </section>
-        </div>
-      )}
-
-      {peopleOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <section className="about-modal people-modal">
-            <div className="modal-header">
-              <h2>People</h2>
-              <button className="icon-button" onClick={() => setPeopleOpen(false)} title="Close">
-                <X aria-hidden="true" />
-              </button>
-            </div>
-            <section className="people-panel visible-people">
-              {members.map((member) => {
-                const memberIsAdmin = isRoomAdminId(member.id);
-                const isCurrentUser = member.id === user.uid;
-                return (
-                  <div className="member-row" key={member.id}>
-                    <UserRound aria-hidden="true" />
-                    <div>
-                      <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name}{isCurrentUser ? " (You)" : ""}</strong>
-                      <span>
-                        {member.isAnonymous ? "Guest" : "Google"}
-                        {memberIsAdmin ? " · Admin" : ""}
-                      </span>
-                    </div>
-                    {memberIsAdmin && <Crown aria-label="Admin" />}
-                  </div>
-                );
-              })}
-            </section>
-          </section>
-        </div>
       )}
 
       {selfRenameOpen && (
@@ -1695,19 +1680,37 @@ function App() {
 
                 {searchResults.length > 0 && (
                   <div className="search-results">
-                    {searchResults.map((result) => (
-                      <article className="search-result" key={result.videoId}>
-                        <img src={result.thumbnail} alt="" />
-                        <div>
-                          <strong>{result.title}</strong>
-                          <span>{result.channelTitle}</span>
-                        </div>
-                        <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong}>
-                          <Plus aria-hidden="true" />
-                          Add
-                        </button>
-                      </article>
-                    ))}
+                    {searchResults.map((result) => {
+                      const durationLabel = formatDuration(result.durationSeconds);
+                      const lengthUnknownForGuest = !isAdmin && !Number(result.durationSeconds);
+                      const tooLongForGuest = !isAdmin && Number(result.durationSeconds) > NON_ADMIN_MAX_SONG_SECONDS;
+                      const blockedForGuest = lengthUnknownForGuest || tooLongForGuest;
+                      return (
+                        <article className={blockedForGuest ? "search-result is-blocked" : "search-result"} key={result.videoId}>
+                          <img src={result.thumbnail} alt="" />
+                          <div>
+                            <strong>{result.title}</strong>
+                            <span>{result.channelTitle}</span>
+                            <span className="result-meta">
+                              {durationLabel || "Length unverified"}
+                              {lengthUnknownForGuest && <b>Admin only</b>}
+                              {tooLongForGuest && <b>Over 10 min</b>}
+                            </span>
+                          </div>
+                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || blockedForGuest}>
+                            <Plus aria-hidden="true" />
+                            {blockedForGuest ? "Admin" : "Add"}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+                {!searching && searchResults.length === 0 && (
+                  <div className="empty-state compact-empty">
+                    <Search aria-hidden="true" />
+                    <strong>Search for a track</strong>
+                    <span>Results show duration before you add them.</span>
                   </div>
                 )}
               </>
@@ -1745,83 +1748,102 @@ function App() {
         </div>
       )}
 
-      {settingsOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <section className="about-modal settings-modal">
+      {roomPanelOpen && (
+        <div className="modal-backdrop room-panel-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal room-panel">
             <div className="modal-header">
-              <h2>Settings</h2>
-              <button className="icon-button" onClick={() => setSettingsOpen(false)} title="Close">
+              <div>
+                <h2>Room</h2>
+                <p className="muted">{activeRoomId} · {members.length} people</p>
+              </div>
+              <button className="icon-button" onClick={() => setRoomPanelOpen(false)} title="Close" type="button">
                 <X aria-hidden="true" />
               </button>
             </div>
-            <div className="setting-row">
-              <div>
-                <strong>Cooldown</strong>
-                <span>{cooldownEnabled ? "Guests wait between song adds" : "Guests can add songs anytime"}</span>
-              </div>
+
+            <div className="panel-tabs" role="tablist" aria-label="Room options">
               <button
-                className={cooldownEnabled ? "toggle-button is-on" : "toggle-button"}
-                onClick={() => updateCooldownEnabled(!cooldownEnabled)}
-                disabled={!isAdmin}
+                className={roomPanelTab === "room" ? "is-active" : ""}
+                onClick={() => setRoomPanelTab("room")}
                 type="button"
+                role="tab"
+                aria-selected={roomPanelTab === "room"}
               >
-                {cooldownEnabled ? "On" : "Off"}
+                Room
+              </button>
+              <button
+                className={roomPanelTab === "people" ? "is-active" : ""}
+                onClick={() => setRoomPanelTab("people")}
+                type="button"
+                role="tab"
+                aria-selected={roomPanelTab === "people"}
+              >
+                People
+              </button>
+              <button
+                className={roomPanelTab === "settings" ? "is-active" : ""}
+                onClick={() => setRoomPanelTab("settings")}
+                type="button"
+                role="tab"
+                aria-selected={roomPanelTab === "settings"}
+              >
+                Settings
               </button>
             </div>
-            <div className="setting-row">
-              <div>
-                <strong>Crossfade</strong>
-                <span>{crossfadeEnabled ? "Start the next song early" : "Next song starts after the current one ends"}</span>
+
+            {roomPanelTab === "room" && (
+              <div className="room-panel-page">
+                <div className="about-grid">
+                  <div>
+                    <span>Room ID</span>
+                    <strong>{activeRoomId}</strong>
+                  </div>
+                  <div>
+                    <span>People</span>
+                    <strong>{members.length}</strong>
+                  </div>
+                  <div>
+                    <span>Version</span>
+                    <strong>{APP_VERSION}</strong>
+                  </div>
+                </div>
+                {qrDataUrl && (
+                  <div className="qr-block room-qr">
+                    <img src={qrDataUrl} alt={`Join ${activeRoomId}`} />
+                    <span>
+                      <QrCode aria-hidden="true" />
+                      Scan to join
+                    </span>
+                  </div>
+                )}
+                <div className="room-panel-actions">
+                  <button className="mini-action" onClick={copyRoomId} type="button">
+                    <Info aria-hidden="true" />
+                    Copy ID
+                  </button>
+                  <button className="mini-action" onClick={shareRoom} type="button">
+                    <Share2 aria-hidden="true" />
+                    Share Room
+                  </button>
+                  <button className="mini-action" onClick={exportPlaylist} type="button">
+                    <Share2 aria-hidden="true" />
+                    Share Playlist
+                  </button>
+                </div>
               </div>
-              <button
-                className={crossfadeEnabled ? "toggle-button is-on" : "toggle-button"}
-                onClick={() => updateCrossfadeEnabled(!crossfadeEnabled)}
-                disabled={!isAdmin}
-                type="button"
-              >
-                {crossfadeEnabled ? "On" : "Off"}
-              </button>
-            </div>
-            <div className="setting-row">
-              <div>
-                <strong>Track notifications</strong>
-                <span>{trackNoticeEnabled ? "Show now-playing bubble" : "Now-playing bubble is off"}</span>
-              </div>
-              <button
-                className={trackNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
-                onClick={() => updateTrackNoticeEnabled(!trackNoticeEnabled)}
-                disabled={!isAdmin}
-                type="button"
-              >
-                {trackNoticeEnabled ? "On" : "Off"}
-              </button>
-            </div>
-            <div className="setting-row">
-              <div>
-                <strong>Join notifications</strong>
-                <span>{joinNoticeEnabled ? "Show when someone joins the party" : "Join bubbles are off"}</span>
-              </div>
-              <button
-                className={joinNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
-                onClick={() => updateJoinNoticeEnabled(!joinNoticeEnabled)}
-                disabled={!isAdmin}
-                type="button"
-              >
-                {joinNoticeEnabled ? "On" : "Off"}
-              </button>
-            </div>
-            {isAdmin && (
-              <section className="people-panel settings-people">
-                <h2>People</h2>
+            )}
+
+            {roomPanelTab === "people" && (
+              <section className="people-panel visible-people">
                 {members.map((member) => {
                   const memberIsAdmin = isRoomAdminId(member.id);
                   const isCurrentUser = member.id === user.uid;
                   const isRenaming = renameMemberId === member.id;
                   return (
-                    <div className="member-row" key={member.id}>
+                    <div className={isAdmin ? "member-row manageable" : "member-row"} key={member.id}>
                       <UserRound aria-hidden="true" />
                       <div>
-                        {isRenaming ? (
+                        {isAdmin && isRenaming ? (
                           <form className="rename-member-form" onSubmit={(event) => { event.preventDefault(); renameMember(member); }}>
                             <input
                               value={renameDraft}
@@ -1855,46 +1877,111 @@ function App() {
                           </>
                         )}
                       </div>
-                      <div className="member-actions">
-                        {!isRenaming && (
-                          <button
-                            className="icon-button"
-                            onClick={() => {
-                              setRenameMemberId(member.id);
-                              setRenameDraft(member.name || "");
-                            }}
-                            title="Rename nickname"
-                            type="button"
-                          >
-                            <Pencil aria-hidden="true" />
-                          </button>
-                        )}
-                        {memberIsAdmin ? (
-                          <>
-                            <Crown aria-label="Admin" />
-                            {!isCurrentUser && (
-                              <button className="mini-action" onClick={() => demoteMember(member)}>
-                                Demote
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous}>
-                            Make Admin
-                          </button>
-                        )}
-                        {!isCurrentUser && (
-                          <button className="icon-button danger" onClick={() => removeMember(member)} title="Remove from room">
-                            <Trash2 aria-hidden="true" />
-                          </button>
-                        )}
-                      </div>
+                      {isAdmin ? (
+                        <div className="member-actions">
+                          {!isRenaming && (
+                            <button
+                              className="icon-button"
+                              onClick={() => {
+                                setRenameMemberId(member.id);
+                                setRenameDraft(member.name || "");
+                              }}
+                              title="Rename nickname"
+                              type="button"
+                            >
+                              <Pencil aria-hidden="true" />
+                            </button>
+                          )}
+                          {memberIsAdmin ? (
+                            <>
+                              <Crown aria-label="Admin" />
+                              {!isCurrentUser && (
+                                <button className="mini-action" onClick={() => demoteMember(member)} type="button">
+                                  Demote
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <button className="mini-action" onClick={() => promoteMember(member)} disabled={member.isAnonymous} type="button">
+                              Make Admin
+                            </button>
+                          )}
+                          {!isCurrentUser && (
+                            <button className="icon-button danger" onClick={() => removeMember(member)} title="Remove from room" type="button">
+                              <Trash2 aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        memberIsAdmin && <Crown aria-label="Admin" />
+                      )}
                     </div>
                   );
                 })}
               </section>
             )}
-            {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
+
+            {roomPanelTab === "settings" && (
+              <div className="room-panel-page">
+                <div className="setting-row">
+                  <div>
+                    <strong>Cooldown</strong>
+                    <span>{cooldownEnabled ? "Guests wait between song adds" : "Guests can add songs anytime"}</span>
+                  </div>
+                  <button
+                    className={cooldownEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateCooldownEnabled(!cooldownEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {cooldownEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Crossfade</strong>
+                    <span>{crossfadeEnabled ? "Start the next song early" : "Next song starts after the current one ends"}</span>
+                  </div>
+                  <button
+                    className={crossfadeEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateCrossfadeEnabled(!crossfadeEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {crossfadeEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Track notifications</strong>
+                    <span>{trackNoticeEnabled ? "Show now-playing bubble" : "Now-playing bubble is off"}</span>
+                  </div>
+                  <button
+                    className={trackNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateTrackNoticeEnabled(!trackNoticeEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {trackNoticeEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Join notifications</strong>
+                    <span>{joinNoticeEnabled ? "Show when someone joins the party" : "Join bubbles are off"}</span>
+                  </div>
+                  <button
+                    className={joinNoticeEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateJoinNoticeEnabled(!joinNoticeEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {joinNoticeEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
+              </div>
+            )}
           </section>
         </div>
       )}
