@@ -1093,97 +1093,10 @@ input:focus {
   background: rgba(23, 24, 31, 0.06);
 }
 
-.activity-strip {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  min-width: 0;
-  margin: 0 0 10px;
-  padding: 7px;
-  border: 1px solid rgba(23, 24, 31, 0.08);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  overflow: hidden;
-}
-
-.activity-strip > div:first-child {
-  display: inline-flex;
-  gap: 5px;
-  align-items: center;
-  flex: 0 0 auto;
-  color: #39c6a3;
-  font-size: 0.72rem;
-  font-weight: 950;
-  text-transform: uppercase;
-}
-
-.activity-pill,
-.activity-empty {
-  display: inline-flex;
-  gap: 5px;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  padding: 6px 9px;
-  border-radius: 999px;
-  color: #30333d;
-  background: rgba(23, 24, 31, 0.06);
-  font-size: 0.72rem;
-  font-weight: 850;
-  white-space: nowrap;
-}
-
-.activity-pill > span,
-.activity-empty {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.activity-empty {
-  color: #696c78;
-}
-
-.activity-pill.add,
-.activity-pill.react,
-.activity-pill.message {
-  background: rgba(57, 198, 163, 0.16);
-}
-
-.activity-pill.settings,
-.activity-pill.admin {
-  background: rgba(247, 201, 72, 0.22);
-}
-
 .room-app.dark-mode .overflow-menu {
   border-color: rgba(255, 255, 255, 0.11);
   background: #171b25;
   box-shadow: 0 20px 54px rgba(0, 0, 0, 0.38);
-}
-
-.room-app.dark-mode .activity-strip {
-  border-color: rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.room-app.dark-mode .activity-pill,
-.room-app.dark-mode .activity-empty {
-  color: #dce1ed;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.room-app.dark-mode .activity-pill.add,
-.room-app.dark-mode .activity-pill.react,
-.room-app.dark-mode .activity-pill.message {
-  background: rgba(57, 198, 163, 0.2);
-}
-
-.room-app.dark-mode .activity-pill.settings,
-.room-app.dark-mode .activity-pill.admin {
-  background: rgba(247, 201, 72, 0.18);
 }
 
 .room-app.dark-mode .overflow-menu button {
@@ -2518,7 +2431,7 @@ input:focus {
   .room-app {
     display: grid;
     grid-template-columns: minmax(420px, 0.85fr) minmax(420px, 1.15fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 14px;
     height: 100dvh;
     min-height: 0;
@@ -2528,11 +2441,6 @@ input:focus {
   .app-topbar {
     grid-column: 1 / -1;
     margin-bottom: 0;
-  }
-
-  .activity-strip {
-    grid-column: 1 / -1;
-    margin: 0;
   }
 
   .now-playing-card,
@@ -2552,13 +2460,13 @@ input:focus {
   }
 
   .now-playing-card {
-    grid-row: 3 / 4;
+    grid-row: 2 / 3;
     overflow: visible;
   }
 
   .queue-panel {
     grid-column: 2;
-    grid-row: 3 / 4;
+    grid-row: 2 / 3;
   }
 
   .now-playing-card h1 {
@@ -2803,19 +2711,6 @@ input:focus {
   .topbar-actions .icon-button {
     width: 34px;
     height: 34px;
-  }
-
-  .activity-strip {
-    flex: 0 0 auto;
-    margin-bottom: 8px;
-    padding: 6px;
-  }
-
-  .activity-pill,
-  .activity-empty {
-    max-width: 72vw;
-    padding: 5px 8px;
-    font-size: 0.68rem;
   }
 
   .now-playing-card,
