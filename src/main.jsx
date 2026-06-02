@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.21";
+const APP_VERSION = "2026.06.02.22";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -179,6 +179,26 @@ function authErrorMessage(error) {
     return "Google sign-in was closed before it finished.";
   }
   return error?.message || "Sign-in failed. Check Firebase Authentication setup.";
+}
+
+function roomJoinErrorMessage(error) {
+  if (error?.code === "permission-denied") {
+    return "Could not join this room. Check that Firestore rules are published and the room is open.";
+  }
+  if (error?.code === "not-found") {
+    return "That room does not exist yet.";
+  }
+  if (error?.code === "unavailable") {
+    return "Could not reach Firestore. Check your connection and try again.";
+  }
+  return error?.message || "Could not join the room. Try again.";
+}
+
+function roomListenerErrorMessage(error) {
+  if (error?.code === "permission-denied") {
+    return "Room access denied. Check Firestore rules or rejoin the room.";
+  }
+  return error?.message || "Room connection was lost.";
 }
 
 function youtubeWatchUrl(videoId) {
@@ -431,8 +451,8 @@ function App() {
     const songsRef = query(collection(db, "rooms", activeRoomId, "songs"), orderBy("position", "asc"));
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
 
-    const handleRoomAccessLost = () => {
-      setToast("You were removed from this room.");
+    const handleRoomAccessLost = (error) => {
+      setToast(error ? roomListenerErrorMessage(error) : "You were removed from this room.");
       clearRoomState();
     };
 
@@ -778,34 +798,38 @@ function App() {
       return;
     }
 
-    const roomSnap = await getDoc(doc(db, "rooms", nextRoomId));
-    if (!roomSnap.exists()) {
-      if (!options.silent) setToast("That room does not exist yet.");
-      return;
-    }
-    if (roomSnap.data().closed) {
-      if (!options.silent) setToast("That room has been closed.");
-      return;
-    }
+    try {
+      const roomSnap = await getDoc(doc(db, "rooms", nextRoomId));
+      if (!roomSnap.exists()) {
+        if (!options.silent) setToast("That room does not exist yet.");
+        return;
+      }
+      if (roomSnap.data().closed) {
+        if (!options.silent) setToast("That room has been closed.");
+        return;
+      }
 
-    const memberRef = doc(db, "rooms", nextRoomId, "members", joiningUser.uid);
-    const memberSnap = await getDoc(memberRef);
-    const savedMemberName = memberSnap.exists() ? (memberSnap.data().name || "").trim() : "";
-    const roomNickname = (savedMemberName || activeNickname).slice(0, 30);
-    await setDoc(
-      memberRef,
-      {
-        uid: joiningUser.uid,
-        isAnonymous: joiningUser.isAnonymous,
-        ...(memberSnap.exists() ? {} : { name: roomNickname }),
-        ...(memberSnap.exists() ? {} : { joinedAt: serverTimestamp() })
-      },
-      { merge: true }
-    );
-    setNickname(roomNickname);
-    setActiveRoomId(nextRoomId);
-    setRoomId(nextRoomId);
-    window.history.replaceState({}, "", `${window.location.pathname}?room=${nextRoomId}`);
+      const memberRef = doc(db, "rooms", nextRoomId, "members", joiningUser.uid);
+      const memberSnap = await getDoc(memberRef);
+      const savedMemberName = memberSnap.exists() ? (memberSnap.data().name || "").trim() : "";
+      const roomNickname = (savedMemberName || activeNickname).slice(0, 30);
+      await setDoc(
+        memberRef,
+        {
+          uid: joiningUser.uid,
+          isAnonymous: joiningUser.isAnonymous,
+          ...(memberSnap.exists() ? {} : { name: roomNickname }),
+          ...(memberSnap.exists() ? {} : { joinedAt: serverTimestamp() })
+        },
+        { merge: true }
+      );
+      setNickname(roomNickname);
+      setActiveRoomId(nextRoomId);
+      setRoomId(nextRoomId);
+      window.history.replaceState({}, "", `${window.location.pathname}?room=${nextRoomId}`);
+    } catch (error) {
+      if (!options.silent) setToast(roomJoinErrorMessage(error));
+    }
   }
 
   async function addSong(event, selectedVideo = null) {
