@@ -450,6 +450,7 @@ input:focus {
   color: rgba(255, 255, 255, 0.68);
 }
 
+.player-frame,
 .youtube-frame,
 .youtube-frame iframe,
 .player-empty {
@@ -461,8 +462,19 @@ input:focus {
   background: #0c0d12;
 }
 
-.youtube-frame.is-hidden {
-  display: none;
+.player-frame {
+  display: grid;
+}
+
+.player-frame > * {
+  grid-area: 1 / 1;
+}
+
+.player-frame.is-empty .youtube-frame {
+  visibility: hidden;
+  height: 0;
+  min-height: 0;
+  pointer-events: none;
 }
 
 .player-empty {
@@ -1191,8 +1203,10 @@ input:focus {
 .now-playing-card.is-fullscreen-player .youtube-frame,
 .now-playing-card.is-fullscreen-player .youtube-frame iframe,
 .now-playing-card.is-fullscreen-player .player-empty,
+.now-playing-card.is-fullscreen-player .player-frame,
 .now-playing-card:fullscreen .youtube-frame,
 .now-playing-card:fullscreen .youtube-frame iframe,
+.now-playing-card:fullscreen .player-frame,
 .now-playing-card:fullscreen .player-empty {
   width: 100%;
   height: 100%;
@@ -1202,6 +1216,8 @@ input:focus {
 }
 
 .now-playing-card.is-fullscreen-player .youtube-frame,
+.now-playing-card.is-fullscreen-player .player-frame,
+.now-playing-card:fullscreen .player-frame,
 .now-playing-card:fullscreen .youtube-frame {
   align-self: stretch;
 }
@@ -2336,6 +2352,7 @@ input:focus {
     font-size: 0.76rem;
   }
 
+  .player-frame,
   .youtube-frame,
   .youtube-frame iframe,
   .player-empty {
@@ -2343,9 +2360,11 @@ input:focus {
     max-height: 24dvh;
   }
 
+  .now-playing-card.is-fullscreen-player .player-frame,
   .now-playing-card.is-fullscreen-player .youtube-frame,
   .now-playing-card.is-fullscreen-player .youtube-frame iframe,
   .now-playing-card.is-fullscreen-player .player-empty,
+  .now-playing-card:fullscreen .player-frame,
   .now-playing-card:fullscreen .youtube-frame,
   .now-playing-card:fullscreen .youtube-frame iframe,
   .now-playing-card:fullscreen .player-empty {
@@ -2582,6 +2601,7 @@ input:focus {
     line-height: 1.25;
   }
 
+  .player-frame,
   .youtube-frame,
   .youtube-frame iframe,
   .player-empty {
@@ -2953,6 +2973,7 @@ input:focus {
     font-size: 0.7rem;
   }
 
+  .player-frame,
   .youtube-frame,
   .youtube-frame iframe,
   .player-empty {

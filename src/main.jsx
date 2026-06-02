@@ -116,7 +116,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.30";
+const APP_VERSION = "2026.06.02.01";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -2332,6 +2332,9 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
         crossfadeTriggeredRef.current = false;
         stopPlaybackTimer();
         playerRef.current?.stopVideo?.();
+        playerRef.current?.destroy?.();
+        playerRef.current = null;
+        playerReadyRef.current = false;
         return;
       }
 
@@ -2401,14 +2404,14 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
   }, []);
 
   return (
-    <>
-      <div className={song?.videoId ? "youtube-frame" : "youtube-frame is-hidden"} id={containerId.current} />
+    <div className={song?.videoId ? "player-frame" : "player-frame is-empty"}>
+      <div className="youtube-frame" id={containerId.current} />
       {!song?.videoId && (
         <div className="player-empty">
           <Music2 aria-hidden="true" />
         </div>
       )}
-    </>
+    </div>
   );
 }
 
