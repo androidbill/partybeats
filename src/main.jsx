@@ -116,7 +116,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.03";
+const APP_VERSION = "2026.06.02.04";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -307,9 +307,9 @@ function adminMapFor(room) {
 
 function savedTheme() {
   try {
-    return localStorage.getItem("partybeats-theme") || "light";
+    return localStorage.getItem("partybeats-theme") || "dark";
   } catch {
-    return "light";
+    return "dark";
   }
 }
 
