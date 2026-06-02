@@ -118,7 +118,8 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.09";
+const APP_VERSION = "2026.06.02.10";
+const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -527,7 +528,10 @@ function App() {
     songId: room?.playbackSongId || room?.nowPlayingId || null,
     seconds: Math.max(0, Number(room?.playbackSeconds) || 0),
     state: room?.playbackState || "playing",
-    updatedAt: room?.playbackUpdatedAt?.toMillis?.() || 0
+    updatedAt: room?.playbackUpdatedAt?.toMillis?.() || 0,
+    command: room?.playbackCommand || "",
+    commandId: room?.playbackCommandId || "",
+    commandAt: room?.playbackCommandAt?.toMillis?.() || 0
   };
   const livePlaybackSeconds = playbackState.state === "playing" && playbackState.updatedAt
     ? playbackState.seconds + Math.max(0, (Date.now() - playbackState.updatedAt) / 1000)
@@ -1256,6 +1260,9 @@ function App() {
       playbackSeconds: 0,
       playbackState: "playing",
       playbackUpdatedAt: serverTimestamp(),
+      playbackCommand: "restart",
+      playbackCommandId: `${user.uid}-${Date.now()}`,
+      playbackCommandAt: serverTimestamp(),
       playbackUpdatedBy: user.uid
     });
     setToast("Track restarted.");
@@ -2414,15 +2421,16 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
   useEffect(() => {
     const player = playerRef.current;
     if (!song?.id || !playerReadyRef.current || !player || playbackState?.songId !== song.id) return;
-    if (!playbackState?.updatedAt || lastAppliedPlaybackCommandRef.current === playbackState.updatedAt) return;
-    if (playbackState.state !== "playing" || Number(playbackState.seconds) > 1) return;
+    if (playbackState.command !== "restart" || !playbackState.commandId) return;
+    if (lastAppliedPlaybackCommandRef.current === playbackState.commandId) return;
+    if (!playbackState.commandAt || Date.now() - playbackState.commandAt > PLAYBACK_COMMAND_WINDOW_MS) return;
 
-    lastAppliedPlaybackCommandRef.current = playbackState.updatedAt;
+    lastAppliedPlaybackCommandRef.current = playbackState.commandId;
     crossfadeTriggeredRef.current = false;
     lastPlaybackReportRef.current = 0;
     player.seekTo?.(0, true);
     player.playVideo?.();
-  }, [song?.id, playbackState?.songId, playbackState?.seconds, playbackState?.state, playbackState?.updatedAt]);
+  }, [song?.id, playbackState?.songId, playbackState?.command, playbackState?.commandId, playbackState?.commandAt]);
 
   useEffect(() => {
     crossfadeEnabledRef.current = crossfadeEnabled;
