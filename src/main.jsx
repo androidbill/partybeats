@@ -119,7 +119,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.13";
+const APP_VERSION = "2026.06.02.14";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -558,6 +558,7 @@ function App() {
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
   const activeDjStatus = isActiveDj ? "This device is the Active DJ" : `Active DJ: ${activeDjName}`;
+  const latestActivity = activityItems.at(-1) || null;
 
   async function addActivity(type, label = "", roomOverride = activeRoomId, actorOverride = null) {
     const activityUser = actorOverride || user;
@@ -1726,15 +1727,11 @@ function App() {
           <Activity aria-hidden="true" />
           <strong>Live</strong>
         </div>
-        {activityItems.length > 0 ? (
-          <div className="activity-feed">
-            {activityItems.map((item) => (
-              <span className={`activity-pill ${item.type || "activity"}`} key={item.id}>
-                {item.isAnonymous === false && <GoogleBadge />}
-                <span>{activityText(item)}</span>
-              </span>
-            ))}
-          </div>
+        {latestActivity ? (
+          <span className={`activity-pill ${latestActivity.type || "activity"}`} key={latestActivity.id}>
+            {latestActivity.isAnonymous === false && <GoogleBadge />}
+            <span>{activityText(latestActivity)}</span>
+          </span>
         ) : (
           <span className="activity-empty">Room is ready.</span>
         )}

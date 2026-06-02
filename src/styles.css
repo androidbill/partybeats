@@ -1117,27 +1117,14 @@ input:focus {
   text-transform: uppercase;
 }
 
-.activity-feed {
-  display: flex;
-  gap: 6px;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.activity-feed::-webkit-scrollbar {
-  display: none;
-}
-
 .activity-pill,
 .activity-empty {
   display: inline-flex;
   gap: 5px;
   align-items: center;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: min(320px, 78vw);
+  max-width: 100%;
   overflow: hidden;
   padding: 6px 9px;
   border-radius: 999px;
@@ -1157,7 +1144,6 @@ input:focus {
 }
 
 .activity-empty {
-  flex: 1 1 auto;
   color: #696c78;
 }
 
@@ -2547,10 +2533,6 @@ input:focus {
   .activity-strip {
     grid-column: 1 / -1;
     margin: 0;
-  }
-
-  .activity-pill {
-    max-width: min(260px, 24vw);
   }
 
   .now-playing-card,
