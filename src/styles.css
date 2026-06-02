@@ -2961,15 +2961,16 @@ input:focus {
   }
 
   .search-result {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: 74px minmax(0, 1fr) auto;
+    gap: 8px;
     align-items: center;
-    padding: 10px;
+    padding: 7px;
   }
 
   .search-result img,
   .search-result .song-thumb {
-    display: none;
+    display: block;
+    width: 74px;
   }
 
   .search-result strong {
@@ -2993,9 +2994,14 @@ input:focus {
 
 @media (max-width: 390px) {
   .search-result {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
-    padding: 9px;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .search-result img,
+  .search-result .song-thumb {
+    width: 64px;
   }
 
   .search-result strong {
