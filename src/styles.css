@@ -3424,45 +3424,24 @@ input:focus {
 }
 
 
-/* Tutorial visual refresh */
-.tutorial-card {
-  background: #0d1117 !important;
+/* Tutorial button visibility fix */
+.tutorial-button {
+  background: #f7c948 !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+  font-size: 1.05rem !important;
+  border: 2px solid rgba(0,0,0,0.15);
+  box-shadow: 0 0 18px rgba(247,201,72,0.45);
+  text-shadow: 0 0 8px rgba(0,0,0,0.9);
+}
+
+.tutorial-button,
+.tutorial-button *,
+.tutorial-button span,
+.tutorial-button svg {
   color: #ffffff !important;
 }
 
-.tutorial-card h2 {
-  margin-top: 0;
-  color: #ffd84d;
-  font-size: 1.6rem;
-  text-align: center;
-}
-
-.tutorial-card p {
-  color: #ffffff;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.tutorial-phone {
-  border: 8px solid #1f2633;
-  box-shadow:
-    0 0 0 2px rgba(255,216,77,0.3),
-    0 0 40px rgba(255,216,77,0.25);
-  background: linear-gradient(180deg, #25324a, #131923);
-}
-
-.tutorial-step {
-  background: linear-gradient(135deg, #ffd84d, #ffb300) !important;
-  color: #000000 !important;
-  font-size: 1.15rem;
-  font-weight: 900;
-  box-shadow:
-    0 0 30px rgba(255,216,77,0.6),
-    0 10px 30px rgba(0,0,0,0.35);
-}
-
-.tutorial-button {
-  background: #f7c948 !important;
-  color: #12131a !important;
-  font-weight: 900;
+.tutorial-button svg {
+  stroke-width: 2.5;
 }
