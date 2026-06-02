@@ -17,9 +17,11 @@ import {
   Play,
   Plus,
   QrCode,
+  RotateCcw,
   Search,
   Share2,
   SlidersHorizontal,
+  Square,
   Sun,
   SkipForward,
   Trash2,
@@ -116,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.08";
+const APP_VERSION = "2026.06.02.09";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -358,6 +360,7 @@ function App() {
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
   const noticeRoomId = useRef("");
+  const lastPlayedSongId = useRef("");
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const isDarkTheme = theme === "dark";
 
@@ -517,6 +520,9 @@ function App() {
   const roomNeedsFirstTrack = songs.length === 0 && !room?.nowPlayingId;
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
   const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
+  const replaySong = nowPlayingIndex > 0
+    ? songs[nowPlayingIndex - 1]
+    : songs.find((song) => song.id === lastPlayedSongId.current) || null;
   const playbackState = {
     songId: room?.playbackSongId || room?.nowPlayingId || null,
     seconds: Math.max(0, Number(room?.playbackSeconds) || 0),
@@ -543,6 +549,9 @@ function App() {
   useEffect(() => {
     setEffectivePlaybackSettings((current) => {
       const songId = nowPlayingSong?.id || null;
+      if (songId) {
+        lastPlayedSongId.current = songId;
+      }
       if (current.songId === songId) return current;
       return {
         songId,
@@ -1218,6 +1227,56 @@ function App() {
     });
   }
 
+  async function stopPlayback() {
+    if (!isActiveDj || !activeRoomId) {
+      setToast("Only the Active DJ can control playback.");
+      return;
+    }
+    if (room?.nowPlayingId) {
+      lastPlayedSongId.current = room.nowPlayingId;
+    }
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: null,
+      playbackSongId: null,
+      playbackSeconds: 0,
+      playbackState: "stopped",
+      playbackUpdatedAt: serverTimestamp(),
+      playbackUpdatedBy: user.uid
+    });
+    setToast("Playback stopped.");
+  }
+
+  async function restartTrack() {
+    if (!isActiveDj || !activeRoomId || !room?.nowPlayingId) {
+      setToast("Choose a track to restart.");
+      return;
+    }
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      playbackSongId: room.nowPlayingId,
+      playbackSeconds: 0,
+      playbackState: "playing",
+      playbackUpdatedAt: serverTimestamp(),
+      playbackUpdatedBy: user.uid
+    });
+    setToast("Track restarted.");
+  }
+
+  async function replayLastSong() {
+    if (!isActiveDj || !activeRoomId || !replaySong?.id) {
+      setToast("No previous track to replay.");
+      return;
+    }
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: replaySong.id,
+      playbackSongId: replaySong.id,
+      playbackSeconds: 0,
+      playbackState: "playing",
+      playbackUpdatedAt: serverTimestamp(),
+      playbackUpdatedBy: user.uid
+    });
+    setToast(`Replaying: ${decodeHtmlEntities(replaySong.title || "track")}`);
+  }
+
   async function reactToSong(song, emoji) {
     if (!user || !activeRoomId) return;
     const songRef = doc(db, "rooms", activeRoomId, "songs", song.id);
@@ -1602,6 +1661,18 @@ function App() {
               >
                 {playerFullscreen ? <X aria-hidden="true" /> : <ExternalLink aria-hidden="true" />}
                 {playerFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              </button>
+              <button className="mini-action stop-action" onClick={stopPlayback} disabled={!nowPlayingSong} type="button">
+                <Square aria-hidden="true" />
+                Stop
+              </button>
+              <button className="mini-action" onClick={restartTrack} disabled={!nowPlayingSong} type="button">
+                <RotateCcw aria-hidden="true" />
+                Restart
+              </button>
+              <button className="mini-action" onClick={replayLastSong} disabled={!replaySong} type="button">
+                <RotateCcw aria-hidden="true" />
+                Replay Last
               </button>
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
                 <SkipForward aria-hidden="true" />
@@ -2324,6 +2395,7 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
   const pendingVideoIdRef = useRef("");
   const pauseAfterLoadRef = useRef(false);
   const lastPlaybackReportRef = useRef(0);
+  const lastAppliedPlaybackCommandRef = useRef(0);
   const playerReadyRef = useRef(false);
 
   useEffect(() => {
@@ -2338,6 +2410,19 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
     playbackRef.current = playbackState;
     playbackUpdateRef.current = onPlaybackUpdate;
   }, [playbackState, onPlaybackUpdate]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!song?.id || !playerReadyRef.current || !player || playbackState?.songId !== song.id) return;
+    if (!playbackState?.updatedAt || lastAppliedPlaybackCommandRef.current === playbackState.updatedAt) return;
+    if (playbackState.state !== "playing" || Number(playbackState.seconds) > 1) return;
+
+    lastAppliedPlaybackCommandRef.current = playbackState.updatedAt;
+    crossfadeTriggeredRef.current = false;
+    lastPlaybackReportRef.current = 0;
+    player.seekTo?.(0, true);
+    player.playVideo?.();
+  }, [song?.id, playbackState?.songId, playbackState?.seconds, playbackState?.state, playbackState?.updatedAt]);
 
   useEffect(() => {
     crossfadeEnabledRef.current = crossfadeEnabled;

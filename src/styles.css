@@ -258,6 +258,14 @@ input:focus {
   background: #17181f;
 }
 
+.stop-action {
+  background: #c83256;
+}
+
+.stop-action:disabled {
+  background: rgba(200, 50, 86, 0.36);
+}
+
 .subtle-action {
   color: #17181f;
   background: rgba(23, 24, 31, 0.08);
