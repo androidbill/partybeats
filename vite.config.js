@@ -12,12 +12,16 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["partybeats-icon.png"],
       manifest: {
+        id: ".",
         name: "BP PartyBeats",
         short_name: "BP PartyBeats",
         description: "Collaborative music queues for parties.",
         theme_color: "#12131a",
         background_color: "#f8f6ef",
         display: "standalone",
+        orientation: "portrait-primary",
+        categories: ["music", "entertainment", "social"],
+        scope: ".",
         start_url: ".",
         icons: [
           {
