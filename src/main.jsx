@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  Activity,
   ArrowDown,
   ArrowUp,
   Crown,
@@ -115,7 +116,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.26";
+const APP_VERSION = "2026.06.01.27";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -257,6 +258,15 @@ function formatDuration(seconds) {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
   }
   return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "Never";
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return "Unknown";
+  }
 }
 
 function nextQueuedSong(songs, currentId) {
@@ -468,6 +478,20 @@ function App() {
     state: room?.playbackState || "playing",
     updatedAt: room?.playbackUpdatedAt?.toMillis?.() || 0
   };
+  const livePlaybackSeconds = playbackState.state === "playing" && playbackState.updatedAt
+    ? playbackState.seconds + Math.max(0, (Date.now() - playbackState.updatedAt) / 1000)
+    : playbackState.seconds;
+  const playbackPositionLabel = formatDuration(livePlaybackSeconds);
+  const playbackStatusText = !nowPlayingSong
+    ? "Stopped. Add or select a track to start the room."
+    : playbackState.state === "paused"
+      ? `Paused at ${playbackPositionLabel || "0:00"}. Tap play on the Active DJ player to resume.`
+      : playbackState.state === "stopped"
+        ? "Stopped. The next track starts when the Active DJ chooses one."
+        : `Playing${playbackPositionLabel ? ` near ${playbackPositionLabel}` : ""}.`;
+  const lastAddedLabel = memberRecord?.lastAddedAt?.toMillis
+    ? formatDateTime(memberRecord.lastAddedAt.toMillis())
+    : "No add yet";
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
@@ -1411,6 +1435,12 @@ function App() {
                   <SlidersHorizontal aria-hidden="true" />
                   Settings
                 </button>
+                {isAdmin && (
+                  <button onClick={() => { setRoomPanelTab("diagnostics"); setRoomPanelOpen(true); setMenuOpen(false); }}>
+                    <Activity aria-hidden="true" />
+                    Diagnostics
+                  </button>
+                )}
                 <button onClick={shareRoom}>
                   <Share2 aria-hidden="true" />
                   Share
@@ -1441,6 +1471,9 @@ function App() {
             {nowPlayingSong
               ? `${nowPlayingSong.artist || "YouTube"} · added by ${nowPlayingSong.addedByName || "Guest"}`
               : "The Active DJ starts playback from the phone connected to the speaker."}
+          </p>
+          <p className={`playback-status ${playbackState.state}`}>
+            {playbackStatusText}
           </p>
           <p className="dj-note">
             Playing from {activeDjName}
@@ -1851,6 +1884,17 @@ function App() {
               >
                 Settings
               </button>
+              {isAdmin && (
+                <button
+                  className={roomPanelTab === "diagnostics" ? "is-active" : ""}
+                  onClick={() => setRoomPanelTab("diagnostics")}
+                  type="button"
+                  role="tab"
+                  aria-selected={roomPanelTab === "diagnostics"}
+                >
+                  Diagnostics
+                </button>
+              )}
             </div>
 
             {roomPanelTab === "room" && (
@@ -2042,6 +2086,65 @@ function App() {
                   </button>
                 </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
+              </div>
+            )}
+
+            {isAdmin && roomPanelTab === "diagnostics" && (
+              <div className="room-panel-page diagnostics-page">
+                <div className="diagnostics-grid">
+                  <div>
+                    <span>Auth</span>
+                    <strong>{user.isAnonymous ? "Guest" : "Google"}</strong>
+                    <small>{user.uid}</small>
+                  </div>
+                  <div>
+                    <span>Room</span>
+                    <strong>{activeRoomId}</strong>
+                    <small>{room?.closed ? "Closed" : "Open"}</small>
+                  </div>
+                  <div>
+                    <span>Active DJ</span>
+                    <strong>{activeDjName}</strong>
+                    <small>{activeDjUid || "None"}</small>
+                  </div>
+                  <div>
+                    <span>Playback</span>
+                    <strong>{playbackState.state}</strong>
+                    <small>{playbackPositionLabel || "0:00"} · {formatDateTime(playbackState.updatedAt)}</small>
+                  </div>
+                  <div>
+                    <span>Now Playing ID</span>
+                    <strong>{room?.nowPlayingId || "None"}</strong>
+                    <small>{nowPlayingSong?.videoId || "No video loaded"}</small>
+                  </div>
+                  <div>
+                    <span>Queue</span>
+                    <strong>{songs.length} songs</strong>
+                    <small>{members.length} people in room</small>
+                  </div>
+                  <div>
+                    <span>Add Status</span>
+                    <strong>{canAddSong ? "Can add" : `Cooldown ${Math.ceil(cooldownRemaining / 1000)}s`}</strong>
+                    <small>Last add: {lastAddedLabel}</small>
+                  </div>
+                  <div>
+                    <span>Settings</span>
+                    <strong>
+                      {cooldownEnabled ? "Cooldown on" : "Cooldown off"}
+                    </strong>
+                    <small>
+                      Crossfade {crossfadeEnabled ? "on" : "off"} · Notices {trackNoticeEnabled ? "on" : "off"}
+                    </small>
+                  </div>
+                  <div>
+                    <span>Build</span>
+                    <strong>{APP_VERSION}</strong>
+                    <small>{window.location.origin}</small>
+                  </div>
+                </div>
+                <p className="muted">
+                  Use this during phone testing to confirm auth, room, Active DJ, playback, and cooldown state.
+                </p>
               </div>
             )}
           </section>
