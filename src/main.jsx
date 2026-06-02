@@ -116,7 +116,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.02";
+const APP_VERSION = "2026.06.02.03";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -223,8 +223,30 @@ function cleanYouTubeVideoId(videoId) {
   return match ? match[0] : "";
 }
 
+function decodeHtmlEntities(value) {
+  const text = String(value || "");
+  if (!/[&][#a-z0-9]+;/i.test(text)) return text;
+  const named = {
+    amp: "&",
+    apos: "'",
+    gt: ">",
+    lt: "<",
+    nbsp: " ",
+    quot: "\""
+  };
+  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity) => {
+    const key = entity.toLowerCase();
+    if (key[0] === "#") {
+      const isHex = key[1] === "x";
+      const code = Number.parseInt(key.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+    }
+    return named[key] || match;
+  });
+}
+
 function playlistTrackDisplay(song) {
-  const rawTitle = String(song?.title || "Untitled")
+  const rawTitle = decodeHtmlEntities(song?.title || "Untitled")
     .replace(/\s*\[[^\]]*\]\s*/g, " ")
     .replace(/\s*\([^)]*(official|video|audio|lyrics?|visualizer|hd|hq)[^)]*\)\s*/gi, " ")
     .replace(/\s+/g, " ")
@@ -539,8 +561,8 @@ function App() {
     const uploader = memberById(nowPlayingSong.addedByUid);
     setNowPlayingNotice({
       id: nowPlayingSong.id,
-      title: nowPlayingSong.title || "Untitled",
-      artist: nowPlayingSong.artist || "YouTube",
+      title: decodeHtmlEntities(nowPlayingSong.title || "Untitled"),
+      artist: decodeHtmlEntities(nowPlayingSong.artist || "YouTube"),
       addedBy: uploader?.name || nowPlayingSong.addedByName || "Guest"
     });
     const timer = window.setTimeout(() => setNowPlayingNotice(null), trackNoticeSeconds * 1000);
@@ -748,14 +770,15 @@ function App() {
       return;
     }
 
-    const title = selectedVideo?.title || "YouTube track";
+    const title = decodeHtmlEntities(selectedVideo?.title || "YouTube track");
+    const channelTitle = decodeHtmlEntities(selectedVideo?.channelTitle || "YouTube");
     const thumbnail = selectedVideo?.thumbnail || youtubeThumb(videoId);
     const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
     const songRef = doc(collection(db, "rooms", activeRoomId, "songs"));
     const batch = writeBatch(db);
     batch.set(songRef, {
       title,
-      artist: selectedVideo?.channelTitle || "YouTube",
+      artist: channelTitle,
       link: youtubeWatchUrl(videoId),
       provider: "youtube",
       videoId,
@@ -840,8 +863,8 @@ function App() {
       const data = await response.json();
       return {
         videoId,
-        title: data.title || "YouTube track",
-        channelTitle: data.author_name || "YouTube",
+        title: decodeHtmlEntities(data.title || "YouTube track"),
+        channelTitle: decodeHtmlEntities(data.author_name || "YouTube"),
         thumbnail: data.thumbnail_url || youtubeThumb(videoId)
       };
     } catch {
@@ -897,8 +920,8 @@ function App() {
       }
       const nextResults = (data.items || []).map((item) => ({
         videoId: item.id.videoId,
-        title: item.snippet.title,
-        channelTitle: item.snippet.channelTitle,
+        title: decodeHtmlEntities(item.snippet.title),
+        channelTitle: decodeHtmlEntities(item.snippet.channelTitle),
         thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId),
         durationSeconds: null
       }));
@@ -1308,8 +1331,10 @@ function App() {
       `Exported: ${new Date().toLocaleString()}`,
       "",
       ...songs.flatMap((song, index) => {
+        const exportedTrack = playlistTrackDisplay(song);
+        const exportedArtist = exportedTrack.artist || decodeHtmlEntities(song.artist || "YouTube");
         return [
-          `${index + 1}. ${song.artist || "YouTube"} - ${song.title || "Untitled"}`,
+          `${index + 1}. ${exportedArtist} - ${exportedTrack.title || "Untitled"}`,
           song.link ? `   Link: ${song.link}` : "",
           ""
         ].filter(Boolean);
@@ -1489,10 +1514,10 @@ function App() {
       <section ref={playerCardRef} className={playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card"}>
         <div>
           <span>{isActiveDj ? "Active DJ player" : "Now playing"}</span>
-          <h1>{nowPlayingSong?.title || "Nothing playing yet"}</h1>
+          <h1>{nowPlayingSong ? decodeHtmlEntities(nowPlayingSong.title || "Untitled") : "Nothing playing yet"}</h1>
           <p>
             {nowPlayingSong
-              ? `${nowPlayingSong.artist || "YouTube"} · added by ${nowPlayingSong.addedByName || "Guest"}`
+              ? `${decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
               : "The Active DJ starts playback from the phone connected to the speaker."}
           </p>
           <p className={`playback-status ${playbackState.state}`}>
