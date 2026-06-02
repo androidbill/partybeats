@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.23";
+const APP_VERSION = "2026.06.02.24";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -2718,7 +2718,7 @@ function ExternalSearchTutorial({ onClose }) {
           <div className="tutorial-step step-1">1. Tap External Search</div>
           <div className="tutorial-step step-2">2. Open YouTube Music</div>
           <div className="tutorial-step step-3">3. Search for a song</div>
-          <div className="tutorial-step step-4">4. Tap Share</div>
+          <div className="tutorial-step step-4">4. Tap 3 Dot Menu beside song, then Tap Share</div>
           <div className="tutorial-step step-5">5. Copy Link</div>
           <div className="tutorial-step step-6">6. Paste link, then tap Add Link</div>
         </div>
