@@ -1171,6 +1171,21 @@ input:focus {
   font-size: 0.86rem;
 }
 
+.now-playing-card.is-large-player {
+  width: min(1180px, 100%);
+}
+
+.now-playing-card.is-large-player .youtube-frame,
+.now-playing-card.is-large-player .youtube-frame iframe,
+.now-playing-card.is-large-player .player-empty {
+  max-height: min(72dvh, 720px);
+}
+
+.player-size-toggle {
+  background: #39c6a3;
+  color: #071f1a;
+}
+
 .playback-status {
   display: inline-flex;
   width: fit-content;
@@ -2257,6 +2272,24 @@ input:focus {
   .now-playing-card {
     grid-row: 2 / 4;
     overflow: visible;
+  }
+
+  .now-playing-card.is-large-player {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .now-playing-card.is-large-player .youtube-frame,
+  .now-playing-card.is-large-player .youtube-frame iframe,
+  .now-playing-card.is-large-player .player-empty {
+    aspect-ratio: 16 / 9;
+    max-height: min(68dvh, 760px);
+  }
+
+  .room-app:has(.now-playing-card.is-large-player) .queue-panel {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    max-height: none;
   }
 
   .now-playing-card h1 {
