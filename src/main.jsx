@@ -115,7 +115,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.19";
+const APP_VERSION = "2026.06.01.20";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -289,6 +289,7 @@ function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -721,6 +722,7 @@ function App() {
     await batch.commit();
     setSearchResults([]);
     setYoutubeLink("");
+    setAddSheetOpen(false);
   }
 
   async function fetchYouTubeDurationSeconds(videoId) {
@@ -1044,6 +1046,7 @@ function App() {
     setAboutOpen(false);
     setPeopleOpen(false);
     setSettingsOpen(false);
+    setAddSheetOpen(false);
     setEmojiSongId("");
     setMessageSongId("");
     setMessageDraft("");
@@ -1369,102 +1372,6 @@ function App() {
         ) : null}
       </section>
 
-      <section className="add-panel">
-        <div className="search-tabs" role="tablist" aria-label="Song search mode">
-          <button
-            className={searchMode === "internal" ? "is-active" : ""}
-            onClick={() => setSearchMode("internal")}
-            type="button"
-            role="tab"
-            aria-selected={searchMode === "internal"}
-          >
-            Internal Search
-          </button>
-          <button
-            className={searchMode === "external" ? "is-active" : ""}
-            onClick={() => setSearchMode("external")}
-            type="button"
-            role="tab"
-            aria-selected={searchMode === "external"}
-          >
-            External Search
-          </button>
-        </div>
-
-        {searchMode === "internal" ? (
-          <>
-            <form className="youtube-search" onSubmit={searchYouTube}>
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
-              />
-              <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
-                <Search aria-hidden="true" />
-                {searching ? "..." : "Search"}
-              </button>
-            </form>
-
-            {searchResults.length > 0 && (
-              <div className="search-results">
-                {searchResults.map((result) => (
-                  <article className="search-result" key={result.videoId}>
-                    <img src={result.thumbnail} alt="" />
-                    <div>
-                      <strong>{result.title}</strong>
-                      <span>{result.channelTitle}</span>
-                    </div>
-                    <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong}>
-                      <Plus aria-hidden="true" />
-                      Add
-                    </button>
-                  </article>
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="external-search-panel">
-            <div>
-              <strong>Search outside the app</strong>
-              <span>Open YouTube Music, copy a song link, then paste it here. This avoids YouTube search quota.</span>
-            </div>
-            <div className="external-search-actions">
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search YouTube Music"
-              />
-              <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
-                <ExternalLink aria-hidden="true" />
-                Open
-              </button>
-            </div>
-            <form className="youtube-link-form" onSubmit={addSongFromLink}>
-              <input
-                value={youtubeLink}
-                onChange={(event) => setYoutubeLink(event.target.value)}
-                placeholder="Paste YouTube or YouTube Music link"
-              />
-              <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim()}>
-                <Plus aria-hidden="true" />
-                Add Link
-              </button>
-            </form>
-          </div>
-        )}
-
-        <p className="cooldown-note">
-          {isAdmin
-            ? `Admin controls are enabled. Cooldown is ${cooldownEnabled ? `${cooldownMinutes} min` : "off"}.`
-            : !cooldownEnabled
-              ? "Cooldown is off."
-              : canAddSong
-                ? "You can add a song now."
-                : `Next add in ${Math.ceil(cooldownRemaining / 1000)}s.`}
-        </p>
-      </section>
-
       <section className="queue-panel">
         <div className="queue-header">
           <div>
@@ -1611,6 +1518,11 @@ function App() {
         </div>
       </section>
 
+      <button className="add-song-fab" onClick={() => setAddSheetOpen(true)} type="button">
+        <Plus aria-hidden="true" />
+        Add Song
+      </button>
+
       {emojiSongId && (
         <button
           className="emoji-dismiss-layer"
@@ -1721,6 +1633,114 @@ function App() {
                 Save
               </button>
             </form>
+          </section>
+        </div>
+      )}
+
+      {addSheetOpen && (
+        <div className="modal-backdrop add-sheet-backdrop" role="dialog" aria-modal="true">
+          <section className="add-panel add-sheet">
+            <div className="modal-header">
+              <div>
+                <h2>Add Song</h2>
+                <p className="muted">
+                  {isAdmin
+                    ? `Admin adds are unlimited. Cooldown is ${cooldownEnabled ? `${cooldownMinutes} min` : "off"}.`
+                    : !cooldownEnabled
+                      ? "Cooldown is off."
+                      : canAddSong
+                        ? "You can add a song now."
+                        : `Next add in ${Math.ceil(cooldownRemaining / 1000)}s.`}
+                </p>
+              </div>
+              <button className="icon-button" onClick={() => setAddSheetOpen(false)} title="Close" type="button">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="search-tabs" role="tablist" aria-label="Song search mode">
+              <button
+                className={searchMode === "internal" ? "is-active" : ""}
+                onClick={() => setSearchMode("internal")}
+                type="button"
+                role="tab"
+                aria-selected={searchMode === "internal"}
+              >
+                Internal Search
+              </button>
+              <button
+                className={searchMode === "external" ? "is-active" : ""}
+                onClick={() => setSearchMode("external")}
+                type="button"
+                role="tab"
+                aria-selected={searchMode === "external"}
+              >
+                External Search
+              </button>
+            </div>
+
+            {searchMode === "internal" ? (
+              <>
+                <form className="youtube-search" onSubmit={searchYouTube}>
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
+                  />
+                  <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
+                    <Search aria-hidden="true" />
+                    {searching ? "..." : "Search"}
+                  </button>
+                </form>
+
+                {searchResults.length > 0 && (
+                  <div className="search-results">
+                    {searchResults.map((result) => (
+                      <article className="search-result" key={result.videoId}>
+                        <img src={result.thumbnail} alt="" />
+                        <div>
+                          <strong>{result.title}</strong>
+                          <span>{result.channelTitle}</span>
+                        </div>
+                        <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong}>
+                          <Plus aria-hidden="true" />
+                          Add
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="external-search-panel">
+                <div>
+                  <strong>Search outside the app</strong>
+                  <span>Open YouTube Music, copy a song link, then paste it here. This avoids YouTube search quota.</span>
+                </div>
+                <div className="external-search-actions">
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search YouTube Music"
+                  />
+                  <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
+                    <ExternalLink aria-hidden="true" />
+                    Open
+                  </button>
+                </div>
+                <form className="youtube-link-form" onSubmit={addSongFromLink}>
+                  <input
+                    value={youtubeLink}
+                    onChange={(event) => setYoutubeLink(event.target.value)}
+                    placeholder="Paste YouTube or YouTube Music link"
+                  />
+                  <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim()}>
+                    <Plus aria-hidden="true" />
+                    Add Link
+                  </button>
+                </form>
+              </div>
+            )}
           </section>
         </div>
       )}

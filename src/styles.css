@@ -8,13 +8,20 @@
   -webkit-font-smoothing: antialiased;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  overflow-x: hidden;
 }
 
 body {
   margin: 0;
-  min-width: 320px;
+  width: 100%;
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -811,7 +818,8 @@ input:focus {
   align-content: end;
   gap: 18px;
   min-height: 100dvh;
-  width: min(100%, 100vw);
+  width: 100%;
+  max-width: 100%;
   padding: max(22px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
   color: #ffffff;
 }
@@ -839,6 +847,9 @@ input:focus {
 
 .room-app {
   min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   padding: max(10px, env(safe-area-inset-top)) 10px max(18px, env(safe-area-inset-bottom));
   background: #f8f6ef;
 }
@@ -856,7 +867,9 @@ input:focus {
   gap: 10px;
   align-items: center;
   justify-content: space-between;
-  margin: -10px -10px 10px;
+  width: calc(100% + 20px);
+  max-width: calc(100% + 20px);
+  margin: -10px 0 10px -10px;
   padding: max(10px, env(safe-area-inset-top)) 10px 10px;
   background: rgba(248, 246, 239, 0.92);
   backdrop-filter: blur(16px);
@@ -881,6 +894,8 @@ input:focus {
   display: flex;
   gap: 9px;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .brand-dot {
@@ -917,6 +932,10 @@ input:focus {
   font-size: 0.98rem;
 }
 
+.topbar-brand div:last-child {
+  min-width: 0;
+}
+
 .topbar-brand span,
 .session-chip span {
   color: #696c78;
@@ -942,8 +961,9 @@ input:focus {
 }
 
 .topbar-version {
+  display: block;
   color: #696c78;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -1075,7 +1095,11 @@ input:focus {
   gap: 12px;
   padding: 16px;
   color: #ffffff;
-  background: #17181f;
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at top left, rgba(247, 201, 72, 0.18), transparent 34%),
+    linear-gradient(135deg, #17181f, #10131a);
+  box-shadow: 0 20px 58px rgba(18, 19, 26, 0.26);
 }
 
 .now-playing-card span {
@@ -1107,6 +1131,40 @@ input:focus {
 .queue-panel,
 .people-panel {
   padding: 12px;
+}
+
+.add-song-fab {
+  position: fixed;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 25;
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 0 18px;
+  border-radius: 999px;
+  color: #12131a;
+  background: #f7c948;
+  font-weight: 900;
+  box-shadow: 0 18px 46px rgba(18, 19, 26, 0.28);
+}
+
+.add-sheet-backdrop {
+  align-items: end;
+  padding: 0;
+}
+
+.add-sheet {
+  width: min(720px, 100%);
+  max-height: min(82dvh, 720px);
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px 16px 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .search-tabs {
@@ -1228,6 +1286,7 @@ input:focus {
 
 .song-list {
   gap: 7px;
+  padding-bottom: 74px;
 }
 
 .song-row {
@@ -1898,6 +1957,10 @@ input:focus {
   .modal-backdrop {
     place-items: center;
   }
+
+  .add-sheet-backdrop {
+    place-items: end center;
+  }
 }
 
 @media (min-width: 980px) {
@@ -1917,7 +1980,6 @@ input:focus {
   }
 
   .now-playing-card,
-  .add-panel,
   .queue-panel {
     width: 100%;
     margin: 0;
@@ -1929,18 +1991,12 @@ input:focus {
     padding: 10px;
   }
 
-  .add-panel {
-    align-self: start;
-    padding: 10px;
-  }
-
-  .now-playing-card,
-  .add-panel {
+  .now-playing-card {
     grid-column: 1;
   }
 
   .now-playing-card {
-    grid-row: 2;
+    grid-row: 2 / 4;
     overflow: visible;
   }
 
@@ -1977,14 +2033,7 @@ input:focus {
     font-size: 0.86rem;
   }
 
-  .add-panel {
-    grid-row: 3;
-    max-height: calc(100dvh - 430px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .add-panel .youtube-search {
+  .add-sheet .youtube-search {
     margin-bottom: 8px;
   }
 
@@ -2029,11 +2078,28 @@ input:focus {
 }
 
 @media (max-width: 520px) {
+  .app-shell,
+  .landing-shell,
+  .room-app {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .room-app {
+    display: flex;
+    flex-direction: column;
+    height: 100svh;
+    min-height: 100svh;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+
   .landing-hero {
     align-content: center;
-    gap: 10px;
+    gap: 8px;
     min-height: 100svh;
-    padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
   }
 
   .brand-mark {
@@ -2062,7 +2128,7 @@ input:focus {
 
   .auth-panel,
   .room-card {
-    padding: 12px;
+    padding: 10px;
   }
 
   .room-card h2 {
@@ -2088,7 +2154,7 @@ input:focus {
   }
 
   input {
-    min-height: 40px;
+    min-height: 38px;
     padding: 0 10px;
     font-size: 0.95rem;
   }
@@ -2098,7 +2164,7 @@ input:focus {
   .join-row button,
   .subtle-action,
   .mini-action {
-    min-height: 40px;
+    min-height: 38px;
     padding: 0 12px;
     font-size: 0.9rem;
   }
@@ -2109,6 +2175,94 @@ input:focus {
 
   .topbar-actions .session-chip {
     display: none;
+  }
+
+  .app-topbar {
+    flex: 0 0 auto;
+    width: calc(100% + 16px);
+    max-width: calc(100% + 16px);
+    margin: -8px 0 8px -8px;
+    gap: 6px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .topbar-brand {
+    gap: 7px;
+  }
+
+  .brand-dot,
+  .brand-dot .app-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .topbar-brand strong,
+  .topbar-brand span,
+  .topbar-version {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-brand strong {
+    font-size: 0.9rem;
+  }
+
+  .topbar-brand span {
+    font-size: 0.7rem;
+  }
+
+  .topbar-version {
+    font-size: 0.62rem;
+  }
+
+  .topbar-actions {
+    flex: 0 0 auto;
+    gap: 5px;
+  }
+
+  .topbar-actions .icon-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .now-playing-card,
+  .queue-panel {
+    width: 100%;
+    margin: 0 0 8px;
+  }
+
+  .now-playing-card {
+    flex: 0 0 auto;
+  }
+
+  .now-playing-card {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .now-playing-card h1 {
+    font-size: clamp(1rem, 6vw, 1.45rem);
+  }
+
+  .now-playing-card p {
+    font-size: 0.78rem;
+    line-height: 1.25;
+  }
+
+  .youtube-frame,
+  .youtube-frame iframe,
+  .player-empty {
+    max-height: 24svh;
+  }
+
+  .queue-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-bottom: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .song-main {
@@ -2477,12 +2631,12 @@ input:focus {
     font-size: 0.78rem;
   }
 
-  .add-panel {
-    max-height: calc(100dvh - 340px);
+  .add-sheet {
+    max-height: min(82dvh, 720px);
     padding: 8px;
   }
 
-  .add-panel .youtube-search,
+  .add-sheet .youtube-search,
   .external-search-panel,
   .youtube-link-form {
     margin-bottom: 8px;
