@@ -116,7 +116,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.06";
+const APP_VERSION = "2026.06.02.07";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -344,6 +344,7 @@ function App() {
   const [selfRenameDraft, setSelfRenameDraft] = useState("");
   const [nowPlayingNotice, setNowPlayingNotice] = useState(null);
   const [joinNotice, setJoinNotice] = useState(null);
+  const [noticeBaselineReady, setNoticeBaselineReady] = useState(false);
   const [effectivePlaybackSettings, setEffectivePlaybackSettings] = useState({
     songId: null,
     crossfadeEnabled: false,
@@ -354,6 +355,7 @@ function App() {
   const playerCardRef = useRef(null);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
+  const noticeRoomId = useRef("");
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const isDarkTheme = theme === "dark";
 
@@ -464,6 +466,15 @@ function App() {
   }, [activeRoomId]);
 
   useEffect(() => {
+    noticeRoomId.current = activeRoomId;
+    previousNowPlayingId.current = undefined;
+    previousMemberIds.current = undefined;
+    setNowPlayingNotice(null);
+    setJoinNotice(null);
+    setNoticeBaselineReady(false);
+  }, [activeRoomId]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get("room");
     if (roomParam) {
@@ -540,11 +551,24 @@ function App() {
   }, [nowPlayingSong?.id, crossfadeEnabled, crossfadeSeconds]);
 
   useEffect(() => {
+    if (!activeRoomId || noticeBaselineReady || !room || members.length === 0) return;
+    if (room.id !== activeRoomId) return;
+    if (room.nowPlayingId && !songs.some((song) => song.id === room.nowPlayingId)) return;
+
+    previousMemberIds.current = new Set(members.map((member) => member.id));
+    previousNowPlayingId.current = room.nowPlayingId || null;
+    setJoinNotice(null);
+    setNowPlayingNotice(null);
+    setNoticeBaselineReady(true);
+  }, [activeRoomId, noticeBaselineReady, room?.id, room?.nowPlayingId, members, songs]);
+
+  useEffect(() => {
     if (!activeRoomId) {
       previousNowPlayingId.current = undefined;
       setNowPlayingNotice(null);
       return undefined;
     }
+    if (!noticeBaselineReady) return undefined;
     if (room?.nowPlayingId && !nowPlayingSong?.id) {
       return undefined;
     }
@@ -575,7 +599,7 @@ function App() {
     });
     const timer = window.setTimeout(() => setNowPlayingNotice(null), trackNoticeSeconds * 1000);
     return () => window.clearTimeout(timer);
-  }, [activeRoomId, nowPlayingSong?.id]);
+  }, [activeRoomId, noticeBaselineReady, nowPlayingSong?.id]);
 
   useEffect(() => {
     if (!room?.nowPlayingId || !songListRef.current) return;
@@ -589,6 +613,7 @@ function App() {
       setJoinNotice(null);
       return undefined;
     }
+    if (!noticeBaselineReady) return undefined;
 
     const currentIds = new Set(members.map((member) => member.id));
     if (previousMemberIds.current === undefined) {
@@ -607,7 +632,7 @@ function App() {
     });
     const timer = window.setTimeout(() => setJoinNotice(null), DEFAULT_JOIN_NOTICE_SECONDS * 1000);
     return () => window.clearTimeout(timer);
-  }, [activeRoomId, members, joinNoticeEnabled]);
+  }, [activeRoomId, noticeBaselineReady, members, joinNoticeEnabled]);
 
   async function signInGoogle() {
     if (!firebaseReady) {
@@ -1234,6 +1259,9 @@ function App() {
     setNowPlayingNotice(null);
     setJoinNotice(null);
     previousMemberIds.current = undefined;
+    previousNowPlayingId.current = undefined;
+    noticeRoomId.current = "";
+    setNoticeBaselineReady(false);
     setEffectivePlaybackSettings({
       songId: null,
       crossfadeEnabled: false,
