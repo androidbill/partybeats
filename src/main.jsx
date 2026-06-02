@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.20";
+const APP_VERSION = "2026.06.02.21";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -473,6 +473,15 @@ function App() {
   }, [activeRoomId]);
 
   useEffect(() => {
+    if (!activeRoomId || !user?.uid) return;
+    const selfMember = members.find((member) => member.id === user.uid);
+    const roomNickname = (selfMember?.name || "").trim();
+    if (roomNickname && roomNickname !== nickname) {
+      setNickname(roomNickname);
+    }
+  }, [activeRoomId, members, user?.uid, nickname]);
+
+  useEffect(() => {
     noticeRoomId.current = activeRoomId;
     previousNowPlayingId.current = undefined;
     previousMemberIds.current = undefined;
@@ -781,16 +790,19 @@ function App() {
 
     const memberRef = doc(db, "rooms", nextRoomId, "members", joiningUser.uid);
     const memberSnap = await getDoc(memberRef);
+    const savedMemberName = memberSnap.exists() ? (memberSnap.data().name || "").trim() : "";
+    const roomNickname = (savedMemberName || activeNickname).slice(0, 30);
     await setDoc(
       memberRef,
       {
         uid: joiningUser.uid,
-        name: activeNickname,
         isAnonymous: joiningUser.isAnonymous,
+        ...(memberSnap.exists() ? {} : { name: roomNickname }),
         ...(memberSnap.exists() ? {} : { joinedAt: serverTimestamp() })
       },
       { merge: true }
     );
+    setNickname(roomNickname);
     setActiveRoomId(nextRoomId);
     setRoomId(nextRoomId);
     window.history.replaceState({}, "", `${window.location.pathname}?room=${nextRoomId}`);
