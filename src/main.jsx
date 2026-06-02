@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.22";
+const APP_VERSION = "2026.06.02.23";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -810,16 +810,21 @@ function App() {
       }
 
       const memberRef = doc(db, "rooms", nextRoomId, "members", joiningUser.uid);
-      const memberSnap = await getDoc(memberRef);
-      const savedMemberName = memberSnap.exists() ? (memberSnap.data().name || "").trim() : "";
+      let memberSnap = null;
+      try {
+        memberSnap = await getDoc(memberRef);
+      } catch (error) {
+        if (error?.code !== "permission-denied") throw error;
+      }
+      const savedMemberName = memberSnap?.exists() ? (memberSnap.data().name || "").trim() : "";
       const roomNickname = (savedMemberName || activeNickname).slice(0, 30);
       await setDoc(
         memberRef,
         {
           uid: joiningUser.uid,
           isAnonymous: joiningUser.isAnonymous,
-          ...(memberSnap.exists() ? {} : { name: roomNickname }),
-          ...(memberSnap.exists() ? {} : { joinedAt: serverTimestamp() })
+          ...(memberSnap?.exists() ? {} : { name: roomNickname }),
+          ...(memberSnap?.exists() ? {} : { joinedAt: serverTimestamp() })
         },
         { merge: true }
       );
