@@ -115,7 +115,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.01.23";
+const APP_VERSION = "2026.06.01.26";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -458,9 +458,16 @@ function App() {
   const memberRecord = members.find((member) => member.id === user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
-  const canAddSong = isAdmin || cooldownRemaining === 0;
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
+  const roomNeedsFirstTrack = songs.length === 0 && !room?.nowPlayingId;
+  const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
   const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
+  const playbackState = {
+    songId: room?.playbackSongId || room?.nowPlayingId || null,
+    seconds: Math.max(0, Number(room?.playbackSeconds) || 0),
+    state: room?.playbackState || "playing",
+    updatedAt: room?.playbackUpdatedAt?.toMillis?.() || 0
+  };
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
 
@@ -729,10 +736,25 @@ function App() {
       createdAt: serverTimestamp()
     });
     if (!nowPlayingSong) {
-      batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: songRef.id });
+      const roomUpdate = { nowPlayingId: songRef.id };
+      if (isActiveDj) {
+        roomUpdate.playbackSongId = songRef.id;
+        roomUpdate.playbackSeconds = 0;
+        roomUpdate.playbackState = "playing";
+        roomUpdate.playbackUpdatedAt = serverTimestamp();
+        roomUpdate.playbackUpdatedBy = user.uid;
+      }
+      batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
     }
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (error) {
+      setToast(error.code === "permission-denied"
+        ? "Could not add that song. Check cooldown, song length, or room permissions."
+        : "Could not add that song. Try again.");
+      return;
+    }
     setSearchResults([]);
     setYoutubeLink("");
     setAddSheetOpen(false);
@@ -872,7 +894,14 @@ function App() {
     songs.forEach((song) => {
       batch.delete(doc(db, "rooms", activeRoomId, "songs", song.id));
     });
-    batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+    batch.update(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: null,
+      playbackSongId: null,
+      playbackSeconds: 0,
+      playbackState: "stopped",
+      playbackUpdatedAt: serverTimestamp(),
+      playbackUpdatedBy: user.uid
+    });
     await batch.commit();
     setNowPlayingNotice(null);
     setToast("Playlist cleared.");
@@ -894,7 +923,25 @@ function App() {
       setToast("Only the Active DJ can control playback.");
       return;
     }
-    await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: songId });
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: songId,
+      playbackSongId: songId,
+      playbackSeconds: 0,
+      playbackState: "playing",
+      playbackUpdatedAt: serverTimestamp(),
+      playbackUpdatedBy: user.uid
+    });
+  }
+
+  async function syncPlaybackState({ songId, seconds, state }) {
+    if (!isActiveDj || !activeRoomId || !user || !songId || songId !== room?.nowPlayingId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      playbackSongId: songId,
+      playbackSeconds: Math.max(0, Math.floor(Number(seconds) || 0)),
+      playbackState: state,
+      playbackUpdatedAt: serverTimestamp(),
+      playbackUpdatedBy: user.uid
+    }).catch(() => undefined);
   }
 
   async function takeOverDj() {
@@ -1030,11 +1077,25 @@ function App() {
     }
     const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
     if (nextSong) {
-      await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: nextSong.id });
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: nextSong.id,
+        playbackSongId: nextSong.id,
+        playbackSeconds: 0,
+        playbackState: "playing",
+        playbackUpdatedAt: serverTimestamp(),
+        playbackUpdatedBy: user.uid
+      });
       return;
     }
 
-    await updateDoc(doc(db, "rooms", activeRoomId), { nowPlayingId: null });
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      nowPlayingId: null,
+      playbackSongId: null,
+      playbackSeconds: 0,
+      playbackState: "stopped",
+      playbackUpdatedAt: serverTimestamp(),
+      playbackUpdatedBy: user.uid
+    });
   }
 
   async function reactToSong(song, emoji) {
@@ -1394,6 +1455,8 @@ function App() {
               onCrossfade={playNextSong}
               crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
               crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
+              playbackState={playbackState}
+              onPlaybackUpdate={syncPlaybackState}
             />
             <div className="player-actions">
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
@@ -1631,6 +1694,8 @@ function App() {
                 <p className="muted">
                   {isAdmin
                     ? `Admin adds are unlimited. Cooldown is ${cooldownEnabled ? `${cooldownMinutes} min` : "off"}.`
+                    : roomNeedsFirstTrack
+                      ? "Anyone can add the first track."
                     : !cooldownEnabled
                       ? "Cooldown is off."
                       : canAddSong
@@ -1682,24 +1747,21 @@ function App() {
                   <div className="search-results">
                     {searchResults.map((result) => {
                       const durationLabel = formatDuration(result.durationSeconds);
-                      const lengthUnknownForGuest = !isAdmin && !Number(result.durationSeconds);
                       const tooLongForGuest = !isAdmin && Number(result.durationSeconds) > NON_ADMIN_MAX_SONG_SECONDS;
-                      const blockedForGuest = lengthUnknownForGuest || tooLongForGuest;
                       return (
-                        <article className={blockedForGuest ? "search-result is-blocked" : "search-result"} key={result.videoId}>
+                        <article className={tooLongForGuest ? "search-result is-blocked" : "search-result"} key={result.videoId}>
                           <img src={result.thumbnail} alt="" />
                           <div>
                             <strong>{result.title}</strong>
                             <span>{result.channelTitle}</span>
                             <span className="result-meta">
-                              {durationLabel || "Length unverified"}
-                              {lengthUnknownForGuest && <b>Admin only</b>}
+                              {durationLabel || "Length verifies on add"}
                               {tooLongForGuest && <b>Over 10 min</b>}
                             </span>
                           </div>
-                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || blockedForGuest}>
+                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || tooLongForGuest}>
                             <Plus aria-hidden="true" />
-                            {blockedForGuest ? "Admin" : "Add"}
+                            {tooLongForGuest ? "Admin" : "Add"}
                           </button>
                         </article>
                       );
@@ -2023,17 +2085,22 @@ function App() {
   );
 }
 
-function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfadeSeconds }) {
+function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfadeSeconds, playbackState, onPlaybackUpdate }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerRef = useRef(null);
   const playerTimerRef = useRef(null);
   const endedRef = useRef(onEnded);
   const crossfadeRef = useRef(onCrossfade);
+  const playbackRef = useRef(playbackState);
+  const playbackUpdateRef = useRef(onPlaybackUpdate);
   const crossfadeEnabledRef = useRef(crossfadeEnabled);
   const crossfadeSecondsRef = useRef(crossfadeSeconds);
   const crossfadeTriggeredRef = useRef(false);
   const currentVideoIdRef = useRef("");
+  const currentSongIdRef = useRef("");
   const pendingVideoIdRef = useRef("");
+  const pauseAfterLoadRef = useRef(false);
+  const lastPlaybackReportRef = useRef(0);
   const playerReadyRef = useRef(false);
 
   useEffect(() => {
@@ -2043,6 +2110,11 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
   useEffect(() => {
     crossfadeRef.current = onCrossfade;
   }, [onCrossfade]);
+
+  useEffect(() => {
+    playbackRef.current = playbackState;
+    playbackUpdateRef.current = onPlaybackUpdate;
+  }, [playbackState, onPlaybackUpdate]);
 
   useEffect(() => {
     crossfadeEnabledRef.current = crossfadeEnabled;
@@ -2059,14 +2131,36 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
       }
     }
 
+    function resumeSeconds() {
+      const saved = playbackRef.current || {};
+      if (!song?.id || saved.songId !== song.id) return 0;
+      const baseSeconds = Math.max(0, Number(saved.seconds) || 0);
+      if (saved.state !== "playing" || !saved.updatedAt) return baseSeconds;
+      return baseSeconds + Math.max(0, (Date.now() - saved.updatedAt) / 1000);
+    }
+
+    function reportPlayback(player, state, force = false) {
+      if (!song?.id || !player?.getCurrentTime) return;
+      const now = Date.now();
+      if (!force && now - lastPlaybackReportRef.current < 5000) return;
+      lastPlaybackReportRef.current = now;
+      playbackUpdateRef.current?.({
+        songId: song.id,
+        seconds: player.getCurrentTime(),
+        state
+      });
+    }
+
     function startPlaybackTimer(player) {
       stopPlaybackTimer();
       playerTimerRef.current = window.setInterval(() => {
-        const enabled = crossfadeEnabledRef.current;
-        const seconds = crossfadeSecondsRef.current;
-        if (!enabled || !seconds || !player.getDuration || !player.getCurrentTime) {
+        if (!player.getDuration || !player.getCurrentTime) {
           return;
         }
+        reportPlayback(player, "playing");
+        const enabled = crossfadeEnabledRef.current;
+        const seconds = crossfadeSecondsRef.current;
+        if (!enabled || !seconds) return;
         const duration = player.getDuration();
         const current = player.getCurrentTime();
         const remaining = duration - current;
@@ -2078,13 +2172,19 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
     }
 
     function loadVideo(player, videoId) {
-      if (!videoId || currentVideoIdRef.current === videoId) return;
+      if (!videoId || (currentVideoIdRef.current === videoId && currentSongIdRef.current === song?.id)) return;
       pendingVideoIdRef.current = videoId;
       if (!playerReadyRef.current) return;
       currentVideoIdRef.current = videoId;
+      currentSongIdRef.current = song?.id || "";
       crossfadeTriggeredRef.current = false;
+      lastPlaybackReportRef.current = 0;
+      pauseAfterLoadRef.current = playbackRef.current?.songId === song?.id && playbackRef.current?.state === "paused";
       if (player.loadVideoById) {
-        player.loadVideoById(videoId);
+        player.loadVideoById({
+          videoId,
+          startSeconds: resumeSeconds()
+        });
       }
     }
 
@@ -2093,6 +2193,7 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
       pendingVideoIdRef.current = videoId;
       if (!videoId) {
         currentVideoIdRef.current = "";
+        currentSongIdRef.current = "";
         pendingVideoIdRef.current = "";
         crossfadeTriggeredRef.current = false;
         stopPlaybackTimer();
@@ -2124,10 +2225,18 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
+              if (pauseAfterLoadRef.current) {
+                pauseAfterLoadRef.current = false;
+                event.target.pauseVideo?.();
+                reportPlayback(event.target, "paused", true);
+                return;
+              }
+              reportPlayback(event.target, "playing", true);
               startPlaybackTimer(event.target);
             }
             if (event.data === window.YT.PlayerState.PAUSED) {
               stopPlaybackTimer();
+              reportPlayback(event.target, "paused", true);
             }
             if (event.data === window.YT.PlayerState.ENDED) {
               stopPlaybackTimer();
@@ -2144,7 +2253,7 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
       cancelled = true;
       stopPlaybackTimer();
     };
-  }, [song?.videoId]);
+  }, [song?.id, song?.videoId]);
 
   useEffect(() => {
     return () => {
