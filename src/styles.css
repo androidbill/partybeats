@@ -1494,6 +1494,16 @@ input:focus {
     0 12px 30px rgba(18, 19, 26, 0.1);
 }
 
+.song-row.is-up-next:not(.is-playing) {
+  border-color: rgba(247, 201, 72, 0.48);
+}
+
+.song-row.is-recently-added {
+  animation:
+    songRowIn 220ms ease both,
+    addedPulse 1800ms ease both;
+}
+
 .song-row.is-playing.is-selected {
   border-color: rgba(57, 198, 163, 0.85);
   box-shadow:
@@ -1526,6 +1536,10 @@ input:focus {
 
 .room-app.dark-mode .song-row.is-selected {
   border-color: rgba(247, 201, 72, 0.78);
+}
+
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing) {
+  border-color: rgba(247, 201, 72, 0.5);
 }
 
 .room-app.dark-mode .song-row.is-reacting {
@@ -1594,6 +1608,21 @@ input:focus {
   font-style: normal;
   font-weight: 950;
   text-transform: uppercase;
+}
+
+.song-row.is-up-next .track-line em {
+  color: #12131a;
+  background: rgba(247, 201, 72, 0.82);
+}
+
+.song-row.is-played .track-line em {
+  color: #d9dde8;
+  background: rgba(105, 108, 120, 0.38);
+}
+
+.song-row.is-recently-added .track-line em {
+  color: #071f1a;
+  background: #39c6a3;
 }
 
 .track-line b,
@@ -1702,6 +1731,26 @@ input:focus {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes addedPulse {
+  0% {
+    box-shadow:
+      inset 4px 0 0 #39c6a3,
+      0 0 0 rgba(57, 198, 163, 0);
+  }
+
+  28% {
+    box-shadow:
+      inset 4px 0 0 #39c6a3,
+      0 0 0 6px rgba(57, 198, 163, 0.18);
+  }
+
+  100% {
+    box-shadow:
+      inset 4px 0 0 transparent,
+      0 0 0 rgba(57, 198, 163, 0);
   }
 }
 

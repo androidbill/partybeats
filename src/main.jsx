@@ -116,7 +116,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.07";
+const APP_VERSION = "2026.06.02.08";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -328,6 +328,8 @@ function App() {
   const [youtubeLink, setYoutubeLink] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [addingSongKey, setAddingSongKey] = useState("");
+  const [recentlyAddedSongId, setRecentlyAddedSongId] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [roomPanelOpen, setRoomPanelOpen] = useState(false);
@@ -782,25 +784,32 @@ function App() {
     if (!user || !activeRoomId) return;
 
     const videoId = selectedVideo?.videoId;
+    const addKey = `${activeRoomId}:${videoId || "none"}`;
     if (!videoId) {
       setToast("Choose a YouTube search result.");
       return;
     }
+    if (addingSongKey === addKey) return;
     if (!canAddSong) {
-      setToast("Song cooldown is on.");
+      setToast(cooldownRemaining > 0
+        ? `Cooldown active: ${Math.ceil(cooldownRemaining / 1000)}s left.`
+        : "Song cooldown is on.");
       return;
     }
 
+    setAddingSongKey(addKey);
     let durationSeconds = Number(selectedVideo?.durationSeconds) || null;
     if (!durationSeconds && YOUTUBE_API_KEY) {
       durationSeconds = await fetchYouTubeDurationSeconds(videoId);
     }
     if (!isAdmin && !durationSeconds) {
       setToast("Could not verify song length. Ask an admin to add this track.");
+      setAddingSongKey("");
       return;
     }
     if (!isAdmin && durationSeconds > NON_ADMIN_MAX_SONG_SECONDS) {
       setToast("Only admins can add songs longer than 10 minutes.");
+      setAddingSongKey("");
       return;
     }
 
@@ -844,8 +853,15 @@ function App() {
       setToast(error.code === "permission-denied"
         ? "Could not add that song. Check cooldown, song length, or room permissions."
         : "Could not add that song. Try again.");
+      setAddingSongKey("");
       return;
     }
+    setRecentlyAddedSongId(songRef.id);
+    window.setTimeout(() => {
+      setRecentlyAddedSongId((current) => current === songRef.id ? "" : current);
+    }, 2600);
+    setToast(!nowPlayingSong ? `Now playing: ${title}` : `Added to queue: ${title}`);
+    setAddingSongKey("");
     setSearchResults([]);
     setYoutubeLink("");
     setAddSheetOpen(false);
@@ -1248,6 +1264,8 @@ function App() {
     setRoomPanelOpen(false);
     setRoomPanelTab("room");
     setAddSheetOpen(false);
+    setAddingSongKey("");
+    setRecentlyAddedSongId("");
     setSelectedSongId("");
     setEmojiSongId("");
     setMessageSongId("");
@@ -1637,6 +1655,8 @@ function App() {
               const trackDisplay = playlistTrackDisplay(song);
               const isCurrentSong = song.id === room.nowPlayingId;
               const isPlayedSong = nowPlayingIndex >= 0 && index < nowPlayingIndex;
+              const isUpNextSong = nowPlayingIndex >= 0 && index === nowPlayingIndex + 1;
+              const isRecentlyAddedSong = recentlyAddedSongId === song.id;
               const isSelectedSong = selectedSongId === song.id;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
@@ -1650,6 +1670,8 @@ function App() {
                     "song-row",
                     isCurrentSong ? "is-playing" : "",
                     isPlayedSong ? "is-played" : "",
+                    isUpNextSong ? "is-up-next" : "",
+                    isRecentlyAddedSong ? "is-recently-added" : "",
                     isSelectedSong ? "is-selected" : "",
                     emojiSongId === song.id ? "is-reacting" : ""
                   ].filter(Boolean).join(" ")}
@@ -1675,6 +1697,9 @@ function App() {
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
                       {isCurrentSong && <em>Now</em>}
+                      {isUpNextSong && <em>Up next</em>}
+                      {isPlayedSong && <em>Played</em>}
+                      {isRecentlyAddedSong && <em>Added</em>}
                       {trackDisplay.artist && <b>{trackDisplay.artist}</b>}
                       <strong>{trackDisplay.title}</strong>
                     </span>
@@ -1874,6 +1899,8 @@ function App() {
                     {searchResults.map((result) => {
                       const durationLabel = formatDuration(result.durationSeconds);
                       const tooLongForGuest = !isAdmin && Number(result.durationSeconds) > NON_ADMIN_MAX_SONG_SECONDS;
+                      const resultAddKey = `${activeRoomId}:${result.videoId}`;
+                      const isAddingThisSong = addingSongKey === resultAddKey;
                       return (
                         <article className={tooLongForGuest ? "search-result is-blocked" : "search-result"} key={result.videoId}>
                           <img src={result.thumbnail} alt="" />
@@ -1885,9 +1912,9 @@ function App() {
                               {tooLongForGuest && <b>Over 10 min</b>}
                             </span>
                           </div>
-                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || tooLongForGuest}>
+                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || tooLongForGuest || Boolean(addingSongKey)}>
                             <Plus aria-hidden="true" />
-                            {tooLongForGuest ? "Admin" : "Add"}
+                            {isAddingThisSong ? "Adding" : tooLongForGuest ? "Admin" : "Add"}
                           </button>
                         </article>
                       );
@@ -1925,9 +1952,9 @@ function App() {
                     onChange={(event) => setYoutubeLink(event.target.value)}
                     placeholder="Paste YouTube or YouTube Music link"
                   />
-                  <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim()}>
+                  <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)}>
                     <Plus aria-hidden="true" />
-                    Add Link
+                    {addingSongKey ? "Adding..." : "Add Link"}
                   </button>
                 </form>
               </div>
