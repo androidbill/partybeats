@@ -121,7 +121,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.13";
+const APP_VERSION = "2026.06.03.14";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -506,6 +506,20 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeRoomId) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    songListRef.current?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+  }, [activeRoomId]);
+
+  useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
       setRoom(null);
       setSongs([]);
@@ -807,10 +821,10 @@ function App() {
   }, [activeRoomId, noticeBaselineReady, nowPlayingSong?.id]);
 
   useEffect(() => {
-    if (!room?.nowPlayingId || !songListRef.current) return;
+    if (!noticeBaselineReady || songsLoading || !room?.nowPlayingId || !songListRef.current) return;
     const row = songListRef.current.querySelector(`[data-song-id="${room.nowPlayingId}"]`);
     row?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [room?.nowPlayingId]);
+  }, [noticeBaselineReady, songsLoading, room?.nowPlayingId]);
 
   useEffect(() => {
     if (!activeRoomId) {
