@@ -121,7 +121,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.16";
+const APP_VERSION = "2026.06.03.17";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -722,15 +722,6 @@ function App() {
     ? playbackState.seconds + Math.max(0, (Date.now() - playbackState.updatedAt) / 1000)
     : playbackState.seconds;
   const playbackPositionLabel = formatDuration(livePlaybackSeconds);
-  const playbackStatusText = nowPlayingSyncing
-    ? "Syncing current track..."
-    : !nowPlayingSong
-    ? "Stopped. Add or select a track to start the room."
-    : playbackState.state === "paused"
-      ? `Paused at ${playbackPositionLabel || "0:00"}. Tap play on the Active DJ player to resume.`
-      : playbackState.state === "stopped"
-        ? "Stopped. The next track starts when the Active DJ chooses one."
-        : `Playing${playbackPositionLabel ? ` near ${playbackPositionLabel}` : ""}.`;
   const lastAddedLabel = memberRecord?.lastAddedAt?.toMillis
     ? formatDateTime(memberRecord.lastAddedAt.toMillis())
     : "No add yet";
@@ -2043,9 +2034,6 @@ function App() {
               : nowPlayingSyncing
                 ? "Fetching the song that is already playing in this room."
               : "The Active DJ starts playback from the phone connected to the speaker."}
-          </p>
-          <p className={`playback-status ${playbackState.state}`}>
-            {playbackStatusText}
           </p>
           <p className="dj-note">
             Playing from {activeDjName}

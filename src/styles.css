@@ -3552,12 +3552,6 @@ input:focus {
   color: rgba(255, 255, 255, 0.78);
 }
 
-.now-playing-card.has-track .playback-status.playing {
-  color: #071f1a;
-  background: #39c6a3;
-  box-shadow: 0 0 0 1px rgba(57, 198, 163, 0.18), 0 10px 26px rgba(57, 198, 163, 0.22);
-}
-
 .player-frame,
 .youtube-frame,
 .youtube-frame iframe,
@@ -3604,10 +3598,9 @@ input:focus {
 }
 
 .queue-header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  padding: 2px 0 8px;
+  position: static;
+  z-index: auto;
+  padding: 2px 0 10px;
   background: inherit;
 }
 
