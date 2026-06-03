@@ -121,7 +121,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.15";
+const APP_VERSION = "2026.06.03.16";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -430,6 +430,7 @@ function App() {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [theme, setTheme] = useState(savedTheme);
+  const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
   const playerCardRef = useRef(null);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
@@ -520,6 +521,7 @@ function App() {
   useEffect(() => {
     if (!activeRoomId) return;
     resetWindowScroll();
+    queuePanelRef.current?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
     songListRef.current?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
     const frame = window.requestAnimationFrame(resetWindowScroll);
     const shortTimer = window.setTimeout(resetWindowScroll, 80);
@@ -833,12 +835,13 @@ function App() {
   }, [activeRoomId, noticeBaselineReady, nowPlayingSong?.id]);
 
   useEffect(() => {
-    if (!noticeBaselineReady || songsLoading || !room?.nowPlayingId || !songListRef.current) return;
+    if (!noticeBaselineReady || songsLoading || !room?.nowPlayingId || !songListRef.current || !queuePanelRef.current) return;
     resetWindowScroll();
     const row = songListRef.current.querySelector(`[data-song-id="${room.nowPlayingId}"]`);
     if (!row) return;
-    songListRef.current.scrollTo({
-      top: Math.max(0, row.offsetTop - songListRef.current.offsetTop),
+    const panel = queuePanelRef.current;
+    panel.scrollTo({
+      top: Math.max(0, row.offsetTop - panel.offsetTop),
       left: 0,
       behavior: "smooth"
     });
@@ -2109,7 +2112,7 @@ function App() {
         ) : null}
       </section>
 
-      <section className="queue-panel">
+      <section className="queue-panel" ref={queuePanelRef}>
         <div className="queue-header">
           <div>
             <h2>Playlist</h2>
