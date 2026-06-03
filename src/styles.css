@@ -1858,6 +1858,16 @@ input:focus {
   cursor: default;
 }
 
+.emoji-action-sheet {
+  position: fixed;
+  left: 50%;
+  right: auto;
+  bottom: max(92px, calc(env(safe-area-inset-bottom) + 74px));
+  z-index: 90;
+  width: min(calc(100vw - 24px), 360px);
+  transform: translateX(-50%);
+}
+
 .reaction-message {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

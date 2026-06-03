@@ -119,7 +119,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.08";
+const APP_VERSION = "2026.06.03.09";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -608,6 +608,7 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
+  const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
   const roomNeedsFirstTrack = songs.length === 0 && !room?.nowPlayingId;
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
   const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
@@ -2072,54 +2073,6 @@ function App() {
                       </button>
                     </div>
                   )}
-
-                  {emojiSongId === song.id && (
-                    <div
-                      className="emoji-popover"
-                      onClick={(event) => event.stopPropagation()}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onPointerUp={(event) => event.stopPropagation()}
-                      onTouchStart={(event) => event.stopPropagation()}
-                      onTouchEnd={(event) => event.stopPropagation()}
-                      onMouseDown={(event) => event.stopPropagation()}
-                      onMouseUp={(event) => event.stopPropagation()}
-                    >
-                      {EMOJIS.map((emoji) => (
-                        <button
-                          className={song.emojiByUser?.[user.uid] === emoji ? "selected" : ""}
-                          key={emoji}
-                          {...popoverPressProps(`${song.id}:emoji:${emoji}`, () => {
-                            reactToSong(song, emoji);
-                            setEmojiSongId("");
-                          })}
-                          type="button"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                      <button
-                        className={messageSongId === song.id ? "selected" : ""}
-                        {...popoverPressProps(`${song.id}:message`, () => setMessageSongId(song.id))}
-                        type="button"
-                        title="Send message"
-                      >
-                        <MessageCircle aria-hidden="true" />
-                      </button>
-                      {messageSongId === song.id && (
-                        <form className="reaction-message" onSubmit={(event) => { event.preventDefault(); sendSongMessage(song); }}>
-                          <input
-                            value={messageDraft}
-                            onChange={(event) => setMessageDraft(event.target.value.slice(0, 90))}
-                            placeholder="90 character message"
-                            maxLength={90}
-                          />
-                          <button className="mini-action" type="submit" disabled={!messageDraft.trim()}>
-                            Send
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  )}
                 </article>
               );
             })
@@ -2143,6 +2096,56 @@ function App() {
           }}
           type="button"
         />
+      )}
+
+      {reactionSong && (
+        <div
+          className="emoji-popover emoji-action-sheet"
+          role="dialog"
+          aria-label="React to song"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onTouchEnd={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseUp={(event) => event.stopPropagation()}
+        >
+          {EMOJIS.map((emoji) => (
+            <button
+              className={reactionSong.emojiByUser?.[user.uid] === emoji ? "selected" : ""}
+              key={emoji}
+              {...popoverPressProps(`${reactionSong.id}:emoji:${emoji}`, () => {
+                reactToSong(reactionSong, emoji);
+                setEmojiSongId("");
+              })}
+              type="button"
+            >
+              {emoji}
+            </button>
+          ))}
+          <button
+            className={messageSongId === reactionSong.id ? "selected" : ""}
+            {...popoverPressProps(`${reactionSong.id}:message`, () => setMessageSongId(reactionSong.id))}
+            type="button"
+            title="Send message"
+          >
+            <MessageCircle aria-hidden="true" />
+          </button>
+          {messageSongId === reactionSong.id && (
+            <form className="reaction-message" onSubmit={(event) => { event.preventDefault(); sendSongMessage(reactionSong); }}>
+              <input
+                value={messageDraft}
+                onChange={(event) => setMessageDraft(event.target.value.slice(0, 90))}
+                placeholder="90 character message"
+                maxLength={90}
+              />
+              <button className="mini-action" type="submit" disabled={!messageDraft.trim()}>
+                Send
+              </button>
+            </form>
+          )}
+        </div>
       )}
 
       {selfRenameOpen && (
