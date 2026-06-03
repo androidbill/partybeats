@@ -117,8 +117,9 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
+const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.32";
+const APP_VERSION = "2026.06.03.01";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -356,6 +357,22 @@ function savedTheme() {
   }
 }
 
+function roomExpiresAtDate() {
+  return new Date(Date.now() + ROOM_INACTIVITY_MS);
+}
+
+function roomActivityUpdate() {
+  return {
+    lastActivityAt: serverTimestamp(),
+    expiresAt: roomExpiresAtDate()
+  };
+}
+
+function isRoomExpired(roomData) {
+  const expiresAtMs = roomData?.expiresAt?.toMillis?.() || 0;
+  return Boolean(expiresAtMs && expiresAtMs <= Date.now());
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -483,6 +500,11 @@ function App() {
         clearRoomState();
         return;
       }
+      if (isRoomExpired(nextRoom)) {
+        setToast("Room expired after 48 hours of inactivity.");
+        clearRoomState();
+        return;
+      }
       setRoom(nextRoom);
     }, handleRoomAccessLost);
     const unsubSongs = onSnapshot(songsRef, (snap) => {
@@ -511,6 +533,22 @@ function App() {
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
     QRCode.toDataURL(shareUrl, { margin: 1, width: 180 }).then(setQrDataUrl).catch(() => setQrDataUrl(""));
   }, [activeRoomId]);
+
+  useEffect(() => {
+    const expiresAtMs = room?.expiresAt?.toMillis?.() || 0;
+    if (!activeRoomId || !expiresAtMs) return undefined;
+    const delay = expiresAtMs - Date.now();
+    if (delay <= 0) {
+      setToast("Room expired after 48 hours of inactivity.");
+      clearRoomState();
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      setToast("Room expired after 48 hours of inactivity.");
+      clearRoomState();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [activeRoomId, room?.expiresAt]);
 
   useEffect(() => {
     if (!activeRoomId || !user?.uid) return;
@@ -625,6 +663,11 @@ function App() {
     .filter((song) => song.reactionCount > 0 || song.messageCount > 0)
     .sort((a, b) => (b.reactionCount + b.messageCount) - (a.reactionCount + a.messageCount))
     .slice(0, 5);
+
+  async function touchRoomActivity(roomOverride = activeRoomId) {
+    if (!roomOverride || !user) return;
+    await updateDoc(doc(db, "rooms", roomOverride), roomActivityUpdate()).catch(() => undefined);
+  }
 
   useEffect(() => {
     setEffectivePlaybackSettings((current) => {
@@ -818,6 +861,7 @@ function App() {
       activeDjUid: user.uid,
       activeDjName: activeNickname,
       createdAt: serverTimestamp(),
+      ...roomActivityUpdate(),
       closed: false,
       cooldownEnabled: false,
       cooldownMinutes: 3,
@@ -853,6 +897,10 @@ function App() {
         if (!options.silent) setToast("That room has been closed.");
         return;
       }
+      if (isRoomExpired(roomSnap.data())) {
+        if (!options.silent) setToast("That room expired after 48 hours of inactivity.");
+        return;
+      }
 
       const memberRef = doc(db, "rooms", nextRoomId, "members", joiningUser.uid);
       let memberSnap = null;
@@ -873,6 +921,7 @@ function App() {
         },
         { merge: true }
       );
+      await updateDoc(doc(db, "rooms", nextRoomId), roomActivityUpdate()).catch(() => undefined);
       setNickname(roomNickname);
       setActiveRoomId(nextRoomId);
       setRoomId(nextRoomId);
@@ -952,6 +1001,7 @@ function App() {
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     try {
       await batch.commit();
+      await touchRoomActivity();
     } catch (error) {
       setToast(error.code === "permission-denied"
         ? "Could not add that song. Check cooldown, song length, or room permissions."
@@ -1096,6 +1146,7 @@ function App() {
   async function removeSong(songId) {
     if (!isAdmin) return;
     await deleteDoc(doc(db, "rooms", activeRoomId, "songs", songId));
+    await touchRoomActivity();
   }
 
   async function clearPlaylist() {
@@ -1113,7 +1164,8 @@ function App() {
       playbackSeconds: 0,
       playbackState: "stopped",
       playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid
+      playbackUpdatedBy: user.uid,
+      ...roomActivityUpdate()
     });
     await batch.commit();
     setNowPlayingNotice(null);
@@ -1129,6 +1181,7 @@ function App() {
       updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), { position: swapWith.position }),
       updateDoc(doc(db, "rooms", activeRoomId, "songs", swapWith.id), { position: song.position })
     ]);
+    await touchRoomActivity();
   }
 
   async function setNowPlaying(songId) {
@@ -1142,7 +1195,8 @@ function App() {
       playbackSeconds: 0,
       playbackState: "playing",
       playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid
+      playbackUpdatedBy: user.uid,
+      ...roomActivityUpdate()
     });
   }
 
@@ -1175,7 +1229,8 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), {
       activeDjUid: user.uid,
       activeDjName: activeNickname,
-      activeDjAt: serverTimestamp()
+      activeDjAt: serverTimestamp(),
+      ...roomActivityUpdate()
     });
     setToast("You are now the Active DJ.");
   }
@@ -1184,7 +1239,8 @@ function App() {
     if (!isAdmin || !member || member.isAnonymous) return;
     await updateDoc(doc(db, "rooms", activeRoomId), {
       [`adminUids.${user.uid}`]: true,
-      [`adminUids.${member.id}`]: true
+      [`adminUids.${member.id}`]: true,
+      ...roomActivityUpdate()
     });
     setToast(`${member.name || "Member"} is now an admin.`);
   }
@@ -1206,7 +1262,7 @@ function App() {
       roomUpdate.adminName = activeNickname;
     }
 
-    await updateDoc(doc(db, "rooms", activeRoomId), roomUpdate);
+    await updateDoc(doc(db, "rooms", activeRoomId), { ...roomUpdate, ...roomActivityUpdate() });
     setToast(`${member.name || "Member"} is no longer an admin.`);
   }
 
@@ -1232,10 +1288,11 @@ function App() {
       roomUpdate.activeDjName = activeNickname;
     }
     if (Object.keys(roomUpdate).length > 0) {
-      batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
+      batch.update(doc(db, "rooms", activeRoomId), { ...roomUpdate, ...roomActivityUpdate() });
     }
     batch.delete(doc(db, "rooms", activeRoomId, "members", member.id));
     await batch.commit();
+    await touchRoomActivity();
     setToast(`${member.name || "Member"} was removed from the room.`);
   }
 
@@ -1250,7 +1307,7 @@ function App() {
       name: nextName
     });
     if (room?.activeDjUid === member.id) {
-      await updateDoc(doc(db, "rooms", activeRoomId), { activeDjName: nextName });
+      await updateDoc(doc(db, "rooms", activeRoomId), { activeDjName: nextName, ...roomActivityUpdate() });
     }
     if (member.id === user.uid) {
       setNickname(nextName);
@@ -1260,6 +1317,7 @@ function App() {
     setSelfRenameOpen(false);
     setSelfRenameDraft("");
     setToast(`${member.name || "Member"} is now ${nextName}.`);
+    await touchRoomActivity();
   }
 
   function openSelfRename() {
@@ -1287,13 +1345,14 @@ function App() {
     const batch = writeBatch(db);
     batch.update(doc(db, "rooms", activeRoomId, "members", user.uid), { name: nextName });
     if (Object.keys(roomUpdate).length > 0) {
-      batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
+      batch.update(doc(db, "rooms", activeRoomId), { ...roomUpdate, ...roomActivityUpdate() });
     }
     await batch.commit();
     setNickname(nextName);
     setSelfRenameOpen(false);
     setSelfRenameDraft("");
     setToast("Nickname updated.");
+    await touchRoomActivity();
   }
 
   async function playNextSong() {
@@ -1309,7 +1368,8 @@ function App() {
         playbackSeconds: 0,
         playbackState: "playing",
         playbackUpdatedAt: serverTimestamp(),
-        playbackUpdatedBy: user.uid
+        playbackUpdatedBy: user.uid,
+        ...roomActivityUpdate()
       });
       return;
     }
@@ -1320,7 +1380,8 @@ function App() {
       playbackSeconds: 0,
       playbackState: "stopped",
       playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid
+      playbackUpdatedBy: user.uid,
+      ...roomActivityUpdate()
     });
   }
 
@@ -1338,7 +1399,8 @@ function App() {
       playbackSeconds: 0,
       playbackState: "stopped",
       playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid
+      playbackUpdatedBy: user.uid,
+      ...roomActivityUpdate()
     });
     setToast("Playback stopped.");
   }
@@ -1356,7 +1418,8 @@ function App() {
       playbackCommand: "restart",
       playbackCommandId: `${user.uid}-${Date.now()}`,
       playbackCommandAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid
+      playbackUpdatedBy: user.uid,
+      ...roomActivityUpdate()
     });
     setToast("Track restarted.");
   }
@@ -1372,7 +1435,8 @@ function App() {
       playbackSeconds: 0,
       playbackState: "playing",
       playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid
+      playbackUpdatedBy: user.uid,
+      ...roomActivityUpdate()
     });
     setToast(`Replaying: ${decodeHtmlEntities(replaySong.title || "track")}`);
   }
@@ -1383,9 +1447,11 @@ function App() {
     const path = `emojiByUser.${user.uid}`;
     if (song.emojiByUser?.[user.uid] === emoji) {
       await updateDoc(songRef, { [path]: deleteField() });
+      await touchRoomActivity();
       return;
     }
     await updateDoc(songRef, { [path]: emoji });
+    await touchRoomActivity();
   }
 
   async function sendSongMessage(song) {
@@ -1409,6 +1475,7 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), {
       messages: nextMessages
     });
+    await touchRoomActivity();
     setMessageDraft("");
     setMessageSongId("");
     setEmojiSongId("");
@@ -1450,22 +1517,22 @@ function App() {
 
   async function updateCooldownEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
-    await updateDoc(doc(db, "rooms", activeRoomId), { cooldownEnabled: enabled });
+    await updateDoc(doc(db, "rooms", activeRoomId), { cooldownEnabled: enabled, ...roomActivityUpdate() });
   }
 
   async function updateCrossfadeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
-    await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeEnabled: enabled });
+    await updateDoc(doc(db, "rooms", activeRoomId), { crossfadeEnabled: enabled, ...roomActivityUpdate() });
   }
 
   async function updateTrackNoticeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
-    await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeEnabled: enabled });
+    await updateDoc(doc(db, "rooms", activeRoomId), { trackNoticeEnabled: enabled, ...roomActivityUpdate() });
   }
 
   async function updateJoinNoticeEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
-    await updateDoc(doc(db, "rooms", activeRoomId), { joinNoticeEnabled: enabled });
+    await updateDoc(doc(db, "rooms", activeRoomId), { joinNoticeEnabled: enabled, ...roomActivityUpdate() });
   }
 
   async function leaveRoom() {
@@ -1493,7 +1560,8 @@ function App() {
                   activeDjUid: remainingAdmins[0].id,
                   activeDjName: remainingAdmins[0].name || "Google user"
                 }
-              : {})
+              : {}),
+            ...roomActivityUpdate()
           });
         }
       }
