@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.27";
+const APP_VERSION = "2026.06.02.28";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -214,8 +214,9 @@ function youtubeMusicSearchUrl(queryText) {
 
 function lyricsSearchUrl(song) {
   const track = playlistTrackDisplay(song);
+  const artist = track.artist || decodeHtmlEntities(song?.artist || "");
   const query = [
-    track.artist,
+    artist,
     track.title || decodeHtmlEntities(song?.title || ""),
     "lyrics"
   ].filter(Boolean).join(" ");
