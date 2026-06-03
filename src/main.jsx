@@ -48,6 +48,7 @@ import {
   deleteField,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -120,7 +121,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.11";
+const APP_VERSION = "2026.06.03.12";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -383,6 +384,9 @@ function App() {
   const [room, setRoom] = useState(null);
   const [songs, setSongs] = useState([]);
   const [members, setMembers] = useState([]);
+  const [roomLoading, setRoomLoading] = useState(false);
+  const [songsLoading, setSongsLoading] = useState(false);
+  const [membersLoading, setMembersLoading] = useState(false);
   const [toast, setToast] = useState("");
   const [searchMode, setSearchMode] = useState("internal");
   const [searchQuery, setSearchQuery] = useState("");
@@ -506,8 +510,16 @@ function App() {
       setRoom(null);
       setSongs([]);
       setMembers([]);
+      setRoomLoading(false);
+      setSongsLoading(false);
+      setMembersLoading(false);
       return undefined;
     }
+
+    let active = true;
+    setRoomLoading(!room || room.id !== activeRoomId);
+    setSongsLoading(true);
+    setMembersLoading(true);
 
     const roomRef = doc(db, "rooms", activeRoomId);
     const songsRef = query(collection(db, "rooms", activeRoomId, "songs"), orderBy("position", "asc"));
@@ -519,6 +531,7 @@ function App() {
     };
 
     const unsubRoom = onSnapshot(roomRef, (snap) => {
+      if (!active) return;
       const nextRoom = snap.exists() ? { id: snap.id, ...snap.data() } : null;
       if (nextRoom?.closed) {
         setToast("Room closed because the last admin left.");
@@ -531,19 +544,46 @@ function App() {
         return;
       }
       setRoom(nextRoom);
+      setRoomLoading(false);
     }, handleRoomAccessLost);
+
+    getDocs(songsRef)
+      .then((snap) => {
+        if (!active) return;
+        setSongs(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
+        setSongsLoading(false);
+      })
+      .catch(() => {
+        if (active) setSongsLoading(false);
+      });
+
+    getDocs(membersRef)
+      .then((snap) => {
+        if (!active) return;
+        setMembers(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
+        setMembersLoading(false);
+      })
+      .catch(() => {
+        if (active) setMembersLoading(false);
+      });
+
     const unsubSongs = onSnapshot(songsRef, (snap) => {
+      if (!active) return;
       setSongs(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
+      setSongsLoading(false);
     }, handleRoomAccessLost);
     const unsubMembers = onSnapshot(membersRef, (snap) => {
+      if (!active) return;
       const nextMembers = snap.docs.map((item) => ({ id: item.id, ...item.data() }));
       if (user?.uid && !nextMembers.some((member) => member.id === user.uid)) {
         handleRoomAccessLost();
         return;
       }
       setMembers(nextMembers);
+      setMembersLoading(false);
     }, handleRoomAccessLost);
     return () => {
+      active = false;
       unsubRoom();
       unsubSongs();
       unsubMembers();
@@ -633,7 +673,9 @@ function App() {
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
-  const roomNeedsFirstTrack = songs.length === 0 && !room?.nowPlayingId;
+  const roomSyncing = roomLoading || songsLoading || membersLoading;
+  const nowPlayingSyncing = Boolean(room?.nowPlayingId && !nowPlayingSong && songsLoading);
+  const roomNeedsFirstTrack = !songsLoading && songs.length === 0 && !room?.nowPlayingId;
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
   const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
   const replaySong = nowPlayingIndex > 0
@@ -652,7 +694,9 @@ function App() {
     ? playbackState.seconds + Math.max(0, (Date.now() - playbackState.updatedAt) / 1000)
     : playbackState.seconds;
   const playbackPositionLabel = formatDuration(livePlaybackSeconds);
-  const playbackStatusText = !nowPlayingSong
+  const playbackStatusText = nowPlayingSyncing
+    ? "Syncing current track..."
+    : !nowPlayingSong
     ? "Stopped. Add or select a track to start the room."
     : playbackState.state === "paused"
       ? `Paused at ${playbackPositionLabel || "0:00"}. Tap play on the Active DJ player to resume.`
@@ -950,6 +994,18 @@ function App() {
       );
       await updateDoc(doc(db, "rooms", nextRoomId), roomActivityUpdate()).catch(() => undefined);
       setNickname(roomNickname);
+      setRoom({ id: nextRoomId, ...roomSnap.data() });
+      setRoomLoading(false);
+      setSongsLoading(true);
+      setMembersLoading(true);
+      setMembers((current) => current.some((member) => member.id === joiningUser.uid)
+        ? current
+        : [{
+            id: joiningUser.uid,
+            uid: joiningUser.uid,
+            name: roomNickname,
+            isAnonymous: joiningUser.isAnonymous
+          }]);
       setActiveRoomId(nextRoomId);
       setRoomId(nextRoomId);
       window.history.replaceState({}, "", `${window.location.pathname}?room=${nextRoomId}`);
@@ -1547,6 +1603,9 @@ function App() {
     setRoom(null);
     setSongs([]);
     setMembers([]);
+    setRoomLoading(false);
+    setSongsLoading(false);
+    setMembersLoading(false);
     setMenuOpen(false);
     setRoomPanelOpen(false);
     setRoomPanelTab("room");
@@ -1933,10 +1992,12 @@ function App() {
         )}
         <div className="now-playing-copy">
           <span>{isActiveDj ? "Active DJ player" : "Now playing"}</span>
-          <h1>{nowPlayingSong ? nowPlayingDisplay?.title || "Untitled" : "Nothing playing yet"}</h1>
+          <h1>{nowPlayingSong ? nowPlayingDisplay?.title || "Untitled" : nowPlayingSyncing ? "Syncing current track" : "Nothing playing yet"}</h1>
           <p className="track-credit">
             {nowPlayingSong
               ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
+              : nowPlayingSyncing
+                ? "Fetching the song that is already playing in this room."
               : "The Active DJ starts playback from the phone connected to the speaker."}
           </p>
           <p className={`playback-status ${playbackState.state}`}>
@@ -1946,7 +2007,7 @@ function App() {
             Playing from {activeDjName}
             {isAdmin && !isActiveDj ? " · You can take over if the speaker moves to your phone." : ""}
           </p>
-          {!nowPlayingSong && (
+          {roomNeedsFirstTrack && (
             <button className="mini-action player-empty-action" onClick={() => setAddSheetOpen(true)} type="button">
               <Plus aria-hidden="true" />
               Add First Track
@@ -2025,15 +2086,23 @@ function App() {
         </div>
 
         <div className="song-list" ref={songListRef}>
-          {songs.length === 0 ? (
+          {songsLoading ? (
+            <div className="empty-state syncing-state">
+              <Music2 aria-hidden="true" />
+              <strong>Syncing playlist</strong>
+              <span>Connected to room {activeRoomId}. Loading tracks now.</span>
+            </div>
+          ) : songs.length === 0 ? (
             <div className="empty-state">
               <Music2 aria-hidden="true" />
               <strong>Add the first track</strong>
               <span>{roomNeedsFirstTrack ? "Anyone in the room can start the party." : "Drop a track and set the tone."}</span>
-              <button className="primary-action" onClick={() => setAddSheetOpen(true)} type="button">
-                <Plus aria-hidden="true" />
-                Add Song
-              </button>
+              {roomNeedsFirstTrack && (
+                <button className="primary-action" onClick={() => setAddSheetOpen(true)} type="button">
+                  <Plus aria-hidden="true" />
+                  Add Song
+                </button>
+              )}
             </div>
           ) : (
             songs.map((song, index) => {

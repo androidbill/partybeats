@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,5 +15,18 @@ export const firebaseReady = Object.values(firebaseConfig).every(Boolean);
 
 const app = firebaseReady ? initializeApp(firebaseConfig) : null;
 
+function createFirestore(appInstance) {
+  if (!appInstance) return null;
+  try {
+    return initializeFirestore(appInstance, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
+  } catch {
+    return initializeFirestore(appInstance, {
+      localCache: memoryLocalCache()
+    });
+  }
+}
+
 export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
+export const db = createFirestore(app);

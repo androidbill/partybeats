@@ -742,6 +742,14 @@ input:focus {
   margin-top: 8px;
 }
 
+.syncing-state svg {
+  animation: syncPulse 1.15s ease-in-out infinite;
+}
+
+.syncing-state strong::after {
+  content: "...";
+}
+
 .player-empty-action {
   width: fit-content;
   margin-top: 8px;
@@ -3766,6 +3774,19 @@ input:focus {
 
   50% {
     opacity: 0.72;
+  }
+}
+
+@keyframes syncPulse {
+  0%,
+  100% {
+    opacity: 0.48;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
   }
 }
 
