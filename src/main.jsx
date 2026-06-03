@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.26";
+const APP_VERSION = "2026.06.02.27";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -212,13 +212,12 @@ function youtubeMusicSearchUrl(queryText) {
     : "https://music.youtube.com/";
 }
 
-function geniusLyricsSearchUrl(song) {
+function lyricsSearchUrl(song) {
   const track = playlistTrackDisplay(song);
   const query = [
     track.artist,
     track.title || decodeHtmlEntities(song?.title || ""),
-    "lyrics",
-    "Genius"
+    "lyrics"
   ].filter(Boolean).join(" ");
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
@@ -1789,7 +1788,7 @@ function App() {
                 </a>
               )}
               {nowPlayingSong && (
-                <a className="mini-link lyrics-link" href={geniusLyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+                <a className="mini-link lyrics-link" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
                   <Search aria-hidden="true" />
                   Lyrics
                 </a>
@@ -1803,7 +1802,7 @@ function App() {
               Take Over DJ
             </button>
             {nowPlayingSong && (
-              <a className="mini-link lyrics-link" href={geniusLyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+              <a className="mini-link lyrics-link" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
                 <Search aria-hidden="true" />
                 Lyrics
               </a>
@@ -1811,7 +1810,7 @@ function App() {
           </div>
         ) : nowPlayingSong ? (
           <div className="player-actions">
-            <a className="mini-link lyrics-link" href={geniusLyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+            <a className="mini-link lyrics-link" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
               <Search aria-hidden="true" />
               Lyrics
             </a>
