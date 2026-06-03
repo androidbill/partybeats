@@ -2713,6 +2713,8 @@ input:focus {
   }
 
   .app-topbar {
+    position: relative;
+    top: auto;
     flex: 0 0 auto;
     width: 100%;
     max-width: 100%;

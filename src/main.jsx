@@ -121,7 +121,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.14";
+const APP_VERSION = "2026.06.03.15";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -375,6 +375,12 @@ function isRoomExpired(roomData) {
   return Boolean(expiresAtMs && expiresAtMs <= Date.now());
 }
 
+function resetWindowScroll() {
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -513,10 +519,16 @@ function App() {
 
   useEffect(() => {
     if (!activeRoomId) return;
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    resetWindowScroll();
     songListRef.current?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+    const frame = window.requestAnimationFrame(resetWindowScroll);
+    const shortTimer = window.setTimeout(resetWindowScroll, 80);
+    const longTimer = window.setTimeout(resetWindowScroll, 350);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(shortTimer);
+      window.clearTimeout(longTimer);
+    };
   }, [activeRoomId]);
 
   useEffect(() => {
@@ -822,8 +834,14 @@ function App() {
 
   useEffect(() => {
     if (!noticeBaselineReady || songsLoading || !room?.nowPlayingId || !songListRef.current) return;
+    resetWindowScroll();
     const row = songListRef.current.querySelector(`[data-song-id="${room.nowPlayingId}"]`);
-    row?.scrollIntoView({ block: "start", behavior: "smooth" });
+    if (!row) return;
+    songListRef.current.scrollTo({
+      top: Math.max(0, row.offsetTop - songListRef.current.offsetTop),
+      left: 0,
+      behavior: "smooth"
+    });
   }, [noticeBaselineReady, songsLoading, room?.nowPlayingId]);
 
   useEffect(() => {
