@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.25";
+const APP_VERSION = "2026.06.02.26";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -1496,6 +1496,26 @@ function App() {
     }
   }
 
+  async function shareApp() {
+    const appUrl = `${window.location.origin}${window.location.pathname}`;
+    const shareData = {
+      title: "BP PartyBeats",
+      text: "BP PartyBeats lets everyone at the party add songs to a shared room queue.",
+      url: appUrl
+    };
+    setMenuOpen(false);
+    if (navigator.share) {
+      await navigator.share(shareData).catch(() => undefined);
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(`${shareData.text}\n${appUrl}`);
+      setToast("App link copied.");
+    } catch {
+      setToast(appUrl);
+    }
+  }
+
   async function copyRoomId() {
     if (!activeRoomId) return;
     await navigator.clipboard?.writeText(activeRoomId);
@@ -1685,13 +1705,9 @@ function App() {
                     Diagnostics
                   </button>
                 )}
-                <button onClick={shareRoom}>
+                <button onClick={shareApp}>
                   <Share2 aria-hidden="true" />
                   Share
-                </button>
-                <button onClick={exportPlaylist}>
-                  <Share2 aria-hidden="true" />
-                  Share Playlist
                 </button>
                 <button onClick={leaveRoom}>
                   <DoorOpen aria-hidden="true" />
