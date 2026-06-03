@@ -3768,6 +3768,7 @@ input:focus {
   }
 
   .queue-header {
+    position: static;
     padding-bottom: 6px;
   }
 
