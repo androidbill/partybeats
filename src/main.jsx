@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.30";
+const APP_VERSION = "2026.06.02.31";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -212,13 +212,17 @@ function youtubeMusicSearchUrl(queryText) {
     : "https://music.youtube.com/";
 }
 
-function lyricsSearchUrl(song) {
-  const track = playlistTrackDisplay(song);
-  const artist = (track.artist || decodeHtmlEntities(song?.artist || ""))
+function cleanArtistName(value) {
+  return decodeHtmlEntities(value || "")
     .replace(/\s*-\s*topic\b/gi, "")
     .replace(/\btopic\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function lyricsSearchUrl(song) {
+  const track = playlistTrackDisplay(song);
+  const artist = cleanArtistName(track.artist || song?.artist || "");
   const query = [
     artist,
     track.title || decodeHtmlEntities(song?.title || ""),
@@ -290,11 +294,12 @@ function playlistTrackDisplay(song) {
     .replace(/\s+/g, " ")
     .trim();
   const separator = rawTitle.match(/\s[-–—]\s/);
-  if (!separator) return { artist: "", title: rawTitle };
-  const artist = rawTitle.slice(0, separator.index).trim();
+  const fallbackArtist = cleanArtistName(song?.artist || "");
+  if (!separator) return { artist: fallbackArtist, title: rawTitle };
+  const artist = cleanArtistName(rawTitle.slice(0, separator.index));
   const title = rawTitle.slice(separator.index + separator[0].length).trim();
   return {
-    artist,
+    artist: artist || fallbackArtist,
     title: title || rawTitle
   };
 }
