@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.24";
+const APP_VERSION = "2026.06.02.25";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -210,6 +210,17 @@ function youtubeMusicSearchUrl(queryText) {
   return query
     ? `https://music.youtube.com/search?q=${encodeURIComponent(query)}`
     : "https://music.youtube.com/";
+}
+
+function geniusLyricsSearchUrl(song) {
+  const track = playlistTrackDisplay(song);
+  const query = [
+    track.artist,
+    track.title || decodeHtmlEntities(song?.title || ""),
+    "lyrics",
+    "Genius"
+  ].filter(Boolean).join(" ");
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
 
 function youtubeThumb(videoId) {
@@ -1761,6 +1772,12 @@ function App() {
                   YouTube
                 </a>
               )}
+              {nowPlayingSong && (
+                <a className="mini-link lyrics-link" href={geniusLyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+                  <Search aria-hidden="true" />
+                  Lyrics
+                </a>
+              )}
             </div>
           </>
         ) : isAdmin ? (
@@ -1769,6 +1786,19 @@ function App() {
               <Crown aria-hidden="true" />
               Take Over DJ
             </button>
+            {nowPlayingSong && (
+              <a className="mini-link lyrics-link" href={geniusLyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+                <Search aria-hidden="true" />
+                Lyrics
+              </a>
+            )}
+          </div>
+        ) : nowPlayingSong ? (
+          <div className="player-actions">
+            <a className="mini-link lyrics-link" href={geniusLyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+              <Search aria-hidden="true" />
+              Lyrics
+            </a>
           </div>
         ) : null}
       </section>

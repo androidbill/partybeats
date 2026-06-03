@@ -549,6 +549,11 @@ input:focus {
   font-weight: 900;
 }
 
+.lyrics-link {
+  color: #ffffff;
+  background: linear-gradient(135deg, #8b3ffc, #ff5a7a);
+}
+
 .queue-header {
   display: flex;
   gap: 16px;
