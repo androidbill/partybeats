@@ -119,7 +119,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.07";
+const APP_VERSION = "2026.06.03.08";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -1497,21 +1497,23 @@ function App() {
   }
 
   function popoverPressProps(key, action) {
+    const handleStart = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const handleEnd = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      runPopoverAction(key, action);
+    };
     return {
-      onPointerDown: (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      },
-      onPointerUp: (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        runPopoverAction(key, action);
-      },
-      onClick: (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        runPopoverAction(key, action);
-      }
+      onTouchStart: handleStart,
+      onTouchEnd: handleEnd,
+      onPointerDown: handleStart,
+      onPointerUp: handleEnd,
+      onMouseDown: handleStart,
+      onMouseUp: handleEnd,
+      onClick: handleEnd
     };
   }
 
@@ -2077,6 +2079,10 @@ function App() {
                       onClick={(event) => event.stopPropagation()}
                       onPointerDown={(event) => event.stopPropagation()}
                       onPointerUp={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                      onTouchEnd={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onMouseUp={(event) => event.stopPropagation()}
                     >
                       {EMOJIS.map((emoji) => (
                         <button
