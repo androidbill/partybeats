@@ -549,11 +549,6 @@ input:focus {
   font-weight: 900;
 }
 
-.lyrics-link {
-  color: #ffffff;
-  background: linear-gradient(135deg, #8b3ffc, #ff5a7a);
-}
-
 .queue-header {
   display: flex;
   gap: 16px;
@@ -1159,6 +1154,7 @@ input:focus {
 }
 
 .now-playing-card {
+  position: relative;
   display: grid;
   gap: 12px;
   padding: 16px;
@@ -1171,6 +1167,31 @@ input:focus {
   box-shadow: 0 20px 58px rgba(18, 19, 26, 0.26);
 }
 
+.lyrics-corner-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #8b3ffc, #ff5a7a);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.lyrics-corner-button svg {
+  width: 14px;
+  height: 14px;
+}
+
 .now-playing-card span {
   color: #39c6a3;
   font-size: 0.78rem;
@@ -1179,6 +1200,7 @@ input:focus {
 }
 
 .now-playing-card h1 {
+  padding-right: 74px;
   margin: 4px 0;
   font-size: clamp(1.35rem, 7vw, 2.4rem);
   line-height: 1.02;
@@ -3100,6 +3122,14 @@ input:focus {
   .now-playing-card {
     gap: 6px;
     padding: 8px;
+  }
+
+  .lyrics-corner-button {
+    top: 8px;
+    right: 8px;
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 0.68rem;
   }
 
   .now-playing-card h1 {
