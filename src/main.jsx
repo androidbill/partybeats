@@ -119,7 +119,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.04";
+const APP_VERSION = "2026.06.03.05";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -606,6 +606,7 @@ function App() {
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
+  const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const roomNeedsFirstTrack = songs.length === 0 && !room?.nowPlayingId;
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
   const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
@@ -1827,19 +1828,25 @@ function App() {
         </div>
       </header>
 
-      <section ref={playerCardRef} className={playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card"}>
+      <section
+        ref={playerCardRef}
+        className={[
+          playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card",
+          nowPlayingSong ? "has-track" : "is-idle"
+        ].join(" ")}
+      >
         {nowPlayingSong && (
           <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
             <Search aria-hidden="true" />
             Lyrics
           </a>
         )}
-        <div>
+        <div className="now-playing-copy">
           <span>{isActiveDj ? "Active DJ player" : "Now playing"}</span>
-          <h1>{nowPlayingSong ? decodeHtmlEntities(nowPlayingSong.title || "Untitled") : "Nothing playing yet"}</h1>
-          <p>
+          <h1>{nowPlayingSong ? nowPlayingDisplay?.title || "Untitled" : "Nothing playing yet"}</h1>
+          <p className="track-credit">
             {nowPlayingSong
-              ? `${decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
+              ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
               : "The Active DJ starts playback from the phone connected to the speaker."}
           </p>
           <p className={`playback-status ${playbackState.state}`}>
@@ -1867,7 +1874,7 @@ function App() {
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
             />
-            <div className="player-actions">
+            <div className="player-actions dj-control-deck" aria-label="Active DJ controls">
               <button
                 className="mini-action player-fullscreen-toggle"
                 onClick={togglePlayerFullscreen}
@@ -1901,7 +1908,7 @@ function App() {
             </div>
           </>
         ) : isAdmin ? (
-          <div className="player-actions">
+          <div className="player-actions dj-control-deck">
             <button className="mini-action" onClick={takeOverDj} type="button">
               <Crown aria-hidden="true" />
               Take Over DJ
@@ -2211,8 +2218,8 @@ function App() {
                 {!searching && searchResults.length === 0 && (
                   <div className="empty-state compact-empty">
                     <Search aria-hidden="true" />
-                    <strong>Search for a track</strong>
-                    <span>Results show duration before you add them.</span>
+                    <strong>Find the next crowd favorite</strong>
+                    <span>Search results stay under 10 minutes and show duration before adding.</span>
                   </div>
                 )}
               </>
