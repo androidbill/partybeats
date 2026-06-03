@@ -1805,6 +1805,8 @@ input:focus {
   box-shadow: 0 16px 42px rgba(18, 19, 26, 0.22);
   transform: translateX(-50%);
   transform-origin: 50% 100%;
+  pointer-events: auto;
+  touch-action: manipulation;
   animation: emojiPopoverIn 150ms ease both;
 }
 
@@ -1817,6 +1819,7 @@ input:focus {
   background: rgba(23, 24, 31, 0.06);
   font-size: 1.1rem;
   justify-self: center;
+  touch-action: manipulation;
 }
 
 .room-app.dark-mode .emoji-popover {

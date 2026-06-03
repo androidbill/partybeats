@@ -119,7 +119,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.06";
+const APP_VERSION = "2026.06.03.07";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -416,6 +416,7 @@ function App() {
   const [theme, setTheme] = useState(savedTheme);
   const songListRef = useRef(null);
   const playerCardRef = useRef(null);
+  const lastPopoverActionRef = useRef({ key: "", at: 0 });
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
   const noticeRoomId = useRef("");
@@ -1444,13 +1445,17 @@ function App() {
     if (!user || !activeRoomId) return;
     const songRef = doc(db, "rooms", activeRoomId, "songs", song.id);
     const path = `emojiByUser.${user.uid}`;
-    if (song.emojiByUser?.[user.uid] === emoji) {
-      await updateDoc(songRef, { [path]: deleteField() });
+    try {
+      if (song.emojiByUser?.[user.uid] === emoji) {
+        await updateDoc(songRef, { [path]: deleteField() });
+        await touchRoomActivity();
+        return;
+      }
+      await updateDoc(songRef, { [path]: emoji });
       await touchRoomActivity();
-      return;
+    } catch {
+      setToast("Could not save that reaction. Try again.");
     }
-    await updateDoc(songRef, { [path]: emoji });
-    await touchRoomActivity();
   }
 
   async function sendSongMessage(song) {
@@ -1471,13 +1476,43 @@ function App() {
         at: Date.now()
       }
     ].slice(-4);
-    await updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), {
-      messages: nextMessages
-    });
-    await touchRoomActivity();
-    setMessageDraft("");
-    setMessageSongId("");
-    setEmojiSongId("");
+    try {
+      await updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), {
+        messages: nextMessages
+      });
+      await touchRoomActivity();
+      setMessageDraft("");
+      setMessageSongId("");
+      setEmojiSongId("");
+    } catch {
+      setToast("Could not send that message. Try again.");
+    }
+  }
+
+  function runPopoverAction(key, action) {
+    const now = Date.now();
+    if (lastPopoverActionRef.current.key === key && now - lastPopoverActionRef.current.at < 700) return;
+    lastPopoverActionRef.current = { key, at: now };
+    action();
+  }
+
+  function popoverPressProps(key, action) {
+    return {
+      onPointerDown: (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      },
+      onPointerUp: (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        runPopoverAction(key, action);
+      },
+      onClick: (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        runPopoverAction(key, action);
+      }
+    };
   }
 
   function clearRoomState() {
@@ -2037,15 +2072,20 @@ function App() {
                   )}
 
                   {emojiSongId === song.id && (
-                    <div className="emoji-popover" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+                    <div
+                      className="emoji-popover"
+                      onClick={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onPointerUp={(event) => event.stopPropagation()}
+                    >
                       {EMOJIS.map((emoji) => (
                         <button
                           className={song.emojiByUser?.[user.uid] === emoji ? "selected" : ""}
                           key={emoji}
-                          onClick={() => {
+                          {...popoverPressProps(`${song.id}:emoji:${emoji}`, () => {
                             reactToSong(song, emoji);
                             setEmojiSongId("");
-                          }}
+                          })}
                           type="button"
                         >
                           {emoji}
@@ -2053,7 +2093,7 @@ function App() {
                       ))}
                       <button
                         className={messageSongId === song.id ? "selected" : ""}
-                        onClick={() => setMessageSongId(song.id)}
+                        {...popoverPressProps(`${song.id}:message`, () => setMessageSongId(song.id))}
                         type="button"
                         title="Send message"
                       >
