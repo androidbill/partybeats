@@ -119,7 +119,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.03";
+const APP_VERSION = "2026.06.03.04";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -1093,7 +1093,6 @@ function App() {
 
   function openExternalYouTubeMusicSearch() {
     window.open(youtubeMusicSearchUrl(searchQuery), "_blank", "noopener,noreferrer");
-    setSearchQuery("");
   }
 
   async function searchYouTube(event) {
@@ -1106,7 +1105,6 @@ function App() {
     }
 
     setSearching(true);
-    setSearchQuery("");
     try {
       const params = new URLSearchParams({
         part: "snippet",
