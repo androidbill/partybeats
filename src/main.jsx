@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.02.31";
+const APP_VERSION = "2026.06.02.32";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -600,6 +600,31 @@ function App() {
   const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
   const activeDjStatus = isActiveDj ? "This device is the Active DJ" : `Active DJ: ${activeDjName}`;
+  const totalReactions = songs.reduce((total, song) => total + Object.keys(song.emojiByUser || {}).length, 0);
+  const totalMessages = songs.reduce((total, song) => total + (song.messages || []).length, 0);
+  const googleMemberCount = members.filter((member) => member.isAnonymous === false).length;
+  const guestMemberCount = Math.max(0, members.length - googleMemberCount);
+  const analyticsPeople = members
+    .map((member) => {
+      const added = songs.filter((song) => song.addedByUid === member.id).length;
+      const reactions = songs.reduce((total, song) => total + (song.emojiByUser?.[member.id] ? 1 : 0), 0);
+      const messages = songs.reduce(
+        (total, song) => total + (song.messages || []).filter((message) => message.uid === member.id).length,
+        0
+      );
+      return { ...member, added, reactions, messages, total: added + reactions + messages };
+    })
+    .sort((a, b) => b.total - a.total || b.added - a.added || (a.name || "").localeCompare(b.name || ""));
+  const mostReactedSongs = songs
+    .map((song) => ({
+      ...song,
+      display: playlistTrackDisplay(song),
+      reactionCount: Object.keys(song.emojiByUser || {}).length,
+      messageCount: (song.messages || []).length
+    }))
+    .filter((song) => song.reactionCount > 0 || song.messageCount > 0)
+    .sort((a, b) => (b.reactionCount + b.messageCount) - (a.reactionCount + a.messageCount))
+    .slice(0, 5);
 
   useEffect(() => {
     setEffectivePlaybackSettings((current) => {
@@ -1708,6 +1733,10 @@ function App() {
                   <SlidersHorizontal aria-hidden="true" />
                   Settings
                 </button>
+                <button onClick={() => { setRoomPanelTab("analytics"); setRoomPanelOpen(true); setMenuOpen(false); }}>
+                  <Activity aria-hidden="true" />
+                  Analytics
+                </button>
                 {isAdmin && (
                   <button onClick={() => { setRoomPanelTab("diagnostics"); setRoomPanelOpen(true); setMenuOpen(false); }}>
                     <Activity aria-hidden="true" />
@@ -2204,6 +2233,15 @@ function App() {
               >
                 Settings
               </button>
+              <button
+                className={roomPanelTab === "analytics" ? "is-active" : ""}
+                onClick={() => setRoomPanelTab("analytics")}
+                type="button"
+                role="tab"
+                aria-selected={roomPanelTab === "analytics"}
+              >
+                Analytics
+              </button>
               {isAdmin && (
                 <button
                   className={roomPanelTab === "diagnostics" ? "is-active" : ""}
@@ -2410,6 +2448,81 @@ function App() {
                   </button>
                 </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
+              </div>
+            )}
+
+            {roomPanelTab === "analytics" && (
+              <div className="room-panel-page analytics-page">
+                <div className="analytics-grid">
+                  <div>
+                    <span>Songs</span>
+                    <strong>{songs.length}</strong>
+                  </div>
+                  <div>
+                    <span>Reactions</span>
+                    <strong>{totalReactions}</strong>
+                  </div>
+                  <div>
+                    <span>Messages</span>
+                    <strong>{totalMessages}</strong>
+                  </div>
+                  <div>
+                    <span>People</span>
+                    <strong>{members.length}</strong>
+                  </div>
+                  <div>
+                    <span>Google</span>
+                    <strong>{googleMemberCount}</strong>
+                  </div>
+                  <div>
+                    <span>Guests</span>
+                    <strong>{guestMemberCount}</strong>
+                  </div>
+                </div>
+
+                <section className="analytics-section">
+                  <h3>People</h3>
+                  {analyticsPeople.length > 0 ? (
+                    analyticsPeople.map((member) => (
+                      <div className="analytics-person" key={member.id}>
+                        <div>
+                          <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name || "Guest"}</strong>
+                          <span>{member.isAnonymous ? "Guest" : "Google"}</span>
+                        </div>
+                        <span>{member.added} adds</span>
+                        <span>{member.reactions} reacts</span>
+                        <span>{member.messages} msgs</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="muted">No people in the room yet.</p>
+                  )}
+                </section>
+
+                <section className="analytics-section">
+                  <h3>Top Tracks</h3>
+                  {mostReactedSongs.length > 0 ? (
+                    mostReactedSongs.map((song) => (
+                      <div className="analytics-person" key={song.id}>
+                        <div>
+                          <strong>{song.display.artist ? `${song.display.artist} ` : ""}{song.display.title}</strong>
+                          <span>Added by {song.addedByName || "Guest"}</span>
+                        </div>
+                        <span>{song.reactionCount} reacts</span>
+                        <span>{song.messageCount} msgs</span>
+                        <span>{formatDuration(song.durationSeconds)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="muted">No reactions or messages yet.</p>
+                  )}
+                </section>
+
+                <div className="analytics-tags">
+                  <span>{cooldownEnabled ? "Cooldown on" : "Cooldown off"}</span>
+                  <span>{crossfadeEnabled ? "Crossfade on" : "Crossfade off"}</span>
+                  <span>{trackNoticeEnabled ? "Track notices on" : "Track notices off"}</span>
+                </div>
               </div>
             )}
 
