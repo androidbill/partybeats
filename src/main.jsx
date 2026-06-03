@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   Crown,
+  Download,
   DoorOpen,
   ExternalLink,
   Info,
@@ -119,7 +120,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.09";
+const APP_VERSION = "2026.06.03.10";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -400,6 +401,11 @@ function App() {
   const [emojiSongId, setEmojiSongId] = useState("");
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [appInstalled, setAppInstalled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+  });
   const [restoreRoomId, setRestoreRoomId] = useState("");
   const [renameMemberId, setRenameMemberId] = useState("");
   const [renameDraft, setRenameDraft] = useState("");
@@ -468,6 +474,24 @@ function App() {
     }
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const handleAppInstalled = () => {
+      setAppInstalled(true);
+      setInstallPrompt(null);
+      setToast("BP PartyBeats installed.");
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -1614,6 +1638,30 @@ function App() {
     await signOut(auth);
   }
 
+  async function installApp() {
+    setMenuOpen(false);
+    if (appInstalled) {
+      setToast("BP PartyBeats is already installed.");
+      return;
+    }
+    if (!installPrompt) {
+      setToast("To install on iPhone, use Share, then Add to Home Screen.");
+      return;
+    }
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      setInstallPrompt(null);
+      if (choice?.outcome === "accepted") {
+        setToast("Installing BP PartyBeats.");
+      } else {
+        setToast("Install cancelled.");
+      }
+    } catch {
+      setToast("Install was blocked. Use your browser menu to add BP PartyBeats to your home screen.");
+    }
+  }
+
   async function shareRoom() {
     if (!activeRoomId) return;
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
@@ -1851,6 +1899,10 @@ function App() {
                 <button onClick={shareApp}>
                   <Share2 aria-hidden="true" />
                   Share
+                </button>
+                <button onClick={installApp}>
+                  <Download aria-hidden="true" />
+                  Install App
                 </button>
                 <button onClick={leaveRoom}>
                   <DoorOpen aria-hidden="true" />
