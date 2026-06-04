@@ -46,7 +46,6 @@ import {
   deleteField,
   doc,
   getDoc,
-  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -117,10 +116,8 @@ const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
-const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
-const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.13";
+const APP_VERSION = "2026.06.04.16";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -371,6 +368,11 @@ function nextQueuedSong(songs, currentId) {
   return songs.slice(currentIndex + 1).find((song) => !song.unavailable) || null;
 }
 
+function nextQueuePosition(songs, offset = 0) {
+  const highestPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0);
+  return Math.max(highestPosition + 1, Date.now()) + offset + (Math.random() / 1000);
+}
+
 function browserRegionCode() {
   try {
     return new Intl.Locale(navigator.language).region?.toUpperCase() || "";
@@ -412,20 +414,16 @@ function savedDesktopPlayerSplit() {
   }
 }
 
-function roomExpiresAtDate() {
-  return new Date(Date.now() + ROOM_INACTIVITY_MS - ROOM_EXPIRY_WRITE_MARGIN_MS);
-}
-
 function roomActivityUpdate() {
   return {
-    lastActivityAt: serverTimestamp(),
-    expiresAt: roomExpiresAtDate()
+    lastActivityAt: serverTimestamp()
   };
 }
 
-function isRoomExpired(roomData) {
-  const expiresAtMs = roomData?.expiresAt?.toMillis?.() || 0;
-  return Boolean(expiresAtMs && expiresAtMs <= Date.now());
+function isImportantToast(message) {
+  return /could not|cannot|can't|failed|blocked|unavailable|expired|closed|removed|permission|only the|choose a|sign in|allow popups|no previous|no available|does not exist/i.test(
+    String(message || "")
+  );
 }
 
 function resetWindowScroll() {
@@ -449,6 +447,7 @@ function App() {
   const [room, setRoom] = useState(null);
   const [songs, setSongs] = useState([]);
   const [members, setMembers] = useState([]);
+  const [songMessages, setSongMessages] = useState([]);
   const [roomLoading, setRoomLoading] = useState(false);
   const [songsLoading, setSongsLoading] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -535,8 +534,6 @@ function App() {
       setAuthLoading(false);
       return undefined;
     }
-    let active = true;
-
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setAuthLoading(false);
@@ -547,7 +544,6 @@ function App() {
     });
 
     return () => {
-      active = false;
       unsubscribe();
     };
   }, []);
@@ -646,6 +642,7 @@ function App() {
       setRoom(null);
       setSongs([]);
       setMembers([]);
+      setSongMessages([]);
       setRoomLoading(false);
       setSongsLoading(false);
       setMembersLoading(false);
@@ -660,6 +657,7 @@ function App() {
     const roomRef = doc(db, "rooms", activeRoomId);
     const songsRef = query(collection(db, "rooms", activeRoomId, "songs"), orderBy("position", "asc"));
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
+    const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"));
 
     const handleRoomAccessLost = (error) => {
       setToast(error ? roomListenerErrorMessage(error) : "You were removed from this room.");
@@ -674,34 +672,9 @@ function App() {
         clearRoomState();
         return;
       }
-      if (isRoomExpired(nextRoom)) {
-        setToast("Room expired after 48 hours of inactivity.");
-        clearRoomState();
-        return;
-      }
       setRoom(nextRoom);
       setRoomLoading(false);
     }, handleRoomAccessLost);
-
-    getDocs(songsRef)
-      .then((snap) => {
-        if (!active) return;
-        setSongs(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
-        setSongsLoading(false);
-      })
-      .catch(() => {
-        if (active) setSongsLoading(false);
-      });
-
-    getDocs(membersRef)
-      .then((snap) => {
-        if (!active) return;
-        setMembers(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
-        setMembersLoading(false);
-      })
-      .catch(() => {
-        if (active) setMembersLoading(false);
-      });
 
     const unsubSongs = onSnapshot(songsRef, (snap) => {
       if (!active) return;
@@ -718,11 +691,16 @@ function App() {
       setMembers(nextMembers);
       setMembersLoading(false);
     }, handleRoomAccessLost);
+    const unsubMessages = onSnapshot(messagesRef, (snap) => {
+      if (!active) return;
+      setSongMessages(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
+    }, handleRoomAccessLost);
     return () => {
       active = false;
       unsubRoom();
       unsubSongs();
       unsubMembers();
+      unsubMessages();
     };
   }, [activeRoomId, user?.uid]);
 
@@ -734,22 +712,6 @@ function App() {
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
     QRCode.toDataURL(shareUrl, { margin: 1, width: 180 }).then(setQrDataUrl).catch(() => setQrDataUrl(""));
   }, [activeRoomId]);
-
-  useEffect(() => {
-    const expiresAtMs = room?.expiresAt?.toMillis?.() || 0;
-    if (!activeRoomId || !expiresAtMs) return undefined;
-    const delay = expiresAtMs - Date.now();
-    if (delay <= 0) {
-      setToast("Room expired after 48 hours of inactivity.");
-      clearRoomState();
-      return undefined;
-    }
-    const timer = window.setTimeout(() => {
-      setToast("Room expired after 48 hours of inactivity.");
-      clearRoomState();
-    }, delay);
-    return () => window.clearTimeout(timer);
-  }, [activeRoomId, room?.expiresAt]);
 
   useEffect(() => {
     if (!activeRoomId || !user?.uid) return;
@@ -816,8 +778,8 @@ function App() {
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
   const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
   const replaySong = nowPlayingIndex > 0
-    ? songs[nowPlayingIndex - 1]
-    : songs.find((song) => song.id === lastPlayedSongId.current) || null;
+    ? [...songs.slice(0, nowPlayingIndex)].reverse().find((song) => !song.unavailable) || null
+    : songs.find((song) => song.id === lastPlayedSongId.current && !song.unavailable) || null;
   const playbackState = {
     songId: room?.playbackSongId || room?.nowPlayingId || null,
     seconds: Math.max(0, Number(room?.playbackSeconds) || 0),
@@ -834,21 +796,24 @@ function App() {
   const lastAddedLabel = memberRecord?.lastAddedAt?.toMillis
     ? formatDateTime(memberRecord.lastAddedAt.toMillis())
     : "No add yet";
-  const activeNickname = nickname.trim() || nicknameFor(user, "Guest");
+  const activeNickname = (memberRecord?.name || nickname).trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
   const activeDjStatus = isActiveDj ? "This device is the Active DJ" : `Active DJ: ${activeDjName}`;
   const totalReactions = songs.reduce((total, song) => total + Object.keys(song.emojiByUser || {}).length, 0);
-  const totalMessages = songs.reduce((total, song) => total + (song.messages || []).length, 0);
+  const messagesForSong = (song) => [
+    ...(song?.messages || []),
+    ...songMessages.filter((message) => message.songId === song?.id)
+  ];
+  const totalMessages = songs.reduce((total, song) => total + messagesForSong(song).length, 0);
   const googleMemberCount = members.filter((member) => member.isAnonymous === false).length;
   const guestMemberCount = Math.max(0, members.length - googleMemberCount);
   const analyticsPeople = members
     .map((member) => {
       const added = songs.filter((song) => song.addedByUid === member.id).length;
       const reactions = songs.reduce((total, song) => total + (song.emojiByUser?.[member.id] ? 1 : 0), 0);
-      const messages = songs.reduce(
-        (total, song) => total + (song.messages || []).filter((message) => message.uid === member.id).length,
-        0
-      );
+      const messages = songs.reduce((total, song) => (
+        total + messagesForSong(song).filter((message) => message.uid === member.id).length
+      ), 0);
       return { ...member, added, reactions, messages, total: added + reactions + messages };
     })
     .sort((a, b) => b.total - a.total || b.added - a.added || (a.name || "").localeCompare(b.name || ""));
@@ -857,7 +822,7 @@ function App() {
       ...song,
       display: playlistTrackDisplay(song),
       reactionCount: Object.keys(song.emojiByUser || {}).length,
-      messageCount: (song.messages || []).length
+      messageCount: messagesForSong(song).length
     }))
     .filter((song) => song.reactionCount > 0 || song.messageCount > 0)
     .sort((a, b) => (b.reactionCount + b.messageCount) - (a.reactionCount + a.messageCount))
@@ -1241,11 +1206,6 @@ function App() {
         if (!options.silent) setToast("That room has been closed.");
         return;
       }
-      if (isRoomExpired(roomSnap.data())) {
-        if (!options.silent) setToast("That room expired after 48 hours of inactivity.");
-        return;
-      }
-
       const memberRef = doc(db, "rooms", nextRoomId, "members", joiningUser.uid);
       let memberSnap = null;
       try {
@@ -1337,7 +1297,7 @@ function App() {
     const title = decodeHtmlEntities(selectedVideo?.title || "YouTube track");
     const channelTitle = decodeHtmlEntities(selectedVideo?.channelTitle || "YouTube");
     const thumbnail = selectedVideo?.thumbnail || youtubeThumb(videoId);
-    const nextPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
+    const nextPosition = nextQueuePosition(songs);
     const songRef = doc(collection(db, "rooms", activeRoomId, "songs"));
     const batch = writeBatch(db);
     batch.set(songRef, {
@@ -1353,7 +1313,6 @@ function App() {
       addedByIsAnonymous: user.isAnonymous,
       position: nextPosition,
       emojiByUser: {},
-      messages: [],
       createdAt: serverTimestamp()
     });
     if (!nowPlayingSong) {
@@ -1527,12 +1486,13 @@ function App() {
         const details = detailsById.get(item.videoId);
         return details?.status?.embeddable === true
           && details?.status?.uploadStatus === "processed"
+          && Number(parseIsoDurationSeconds(details.contentDetails?.duration)) > 0
           && videoAvailableInRegion(details.contentDetails);
       });
       if (!tracks.length) throw new Error("No playable album tracks were found.");
 
       const batch = writeBatch(db);
-      const startingPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
+      const startingPosition = nextQueuePosition(songs);
       let firstSongRef = null;
       tracks.forEach((track, index) => {
         const details = detailsById.get(track.videoId);
@@ -1549,9 +1509,8 @@ function App() {
           addedByUid: user.uid,
           addedByName: activeNickname,
           addedByIsAnonymous: user.isAnonymous,
-          position: startingPosition + index,
+          position: startingPosition + (index / 1000),
           emojiByUser: {},
-          messages: [],
           createdAt: serverTimestamp()
         });
       });
@@ -1689,10 +1648,10 @@ function App() {
     const currentIndex = songs.findIndex((item) => item.id === song.id);
     const swapWith = songs[currentIndex + direction];
     if (!swapWith) return;
-    await Promise.all([
-      updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), { position: swapWith.position }),
-      updateDoc(doc(db, "rooms", activeRoomId, "songs", swapWith.id), { position: song.position })
-    ]);
+    const batch = writeBatch(db);
+    batch.update(doc(db, "rooms", activeRoomId, "songs", song.id), { position: swapWith.position });
+    batch.update(doc(db, "rooms", activeRoomId, "songs", swapWith.id), { position: song.position });
+    await batch.commit();
     await touchRoomActivity();
   }
 
@@ -1901,11 +1860,25 @@ function App() {
     const failedSong = nowPlayingSong;
     if (!isActiveDj || !activeRoomId || !failedSong || unavailableHandlingRef.current === failedSong.id) return;
     unavailableHandlingRef.current = failedSong.id;
-    const reason = [101, 150].includes(Number(errorCode))
+    const numericErrorCode = Number(errorCode);
+    const permanentlyUnavailable = errorCode === "preflight" || [100, 101, 150].includes(numericErrorCode);
+    if (!permanentlyUnavailable) {
+      setToast("YouTube playback failed on this device. Skipping without removing the track.");
+      window.setTimeout(async () => {
+        try {
+          await playNextSong();
+        } finally {
+          unavailableHandlingRef.current = "";
+        }
+      }, 1800);
+      return;
+    }
+
+    const reason = [101, 150].includes(numericErrorCode)
       ? "Embedding is blocked by the video owner."
-      : Number(errorCode) === 100
+      : numericErrorCode === 100
         ? "The video was removed or made private."
-        : "YouTube rejected playback inside PartyBeats.";
+        : "YouTube's availability check rejected playback inside PartyBeats.";
     try {
       await updateDoc(doc(db, "rooms", activeRoomId, "songs", failedSong.id), {
         unavailable: true,
@@ -2007,19 +1980,15 @@ function App() {
       return;
     }
     const senderName = activeNickname.slice(0, 30);
-    const nextMessages = [
-      ...(song.messages || []),
-      {
+    try {
+      await setDoc(doc(collection(db, "rooms", activeRoomId, "messages")), {
+        songId: song.id,
         uid: user.uid,
         name: senderName,
         isAnonymous: user.isAnonymous,
         text,
-        at: Date.now()
-      }
-    ].slice(-4);
-    try {
-      await updateDoc(doc(db, "rooms", activeRoomId, "songs", song.id), {
-        messages: nextMessages
+        at: Date.now(),
+        createdAt: serverTimestamp()
       });
       await touchRoomActivity();
       setMessageDraft("");
@@ -2063,6 +2032,7 @@ function App() {
     setRoom(null);
     setSongs([]);
     setMembers([]);
+    setSongMessages([]);
     setRoomLoading(false);
     setSongsLoading(false);
     setMembersLoading(false);
@@ -2124,42 +2094,51 @@ function App() {
     const leavingRoomId = activeRoomId;
     const leavingUser = user;
 
-    if (leavingRoomId && leavingUser) {
-      const batch = writeBatch(db);
-      if (isAdmin) {
-        const remainingAdmins = members.filter((member) => member.id !== leavingUser.uid && isRoomAdminId(member.id));
-        if (remainingAdmins.length === 0) {
-          batch.update(doc(db, "rooms", leavingRoomId), {
-            closed: true,
-            closedAt: serverTimestamp(),
-            closedByUid: leavingUser.uid,
-            [`adminUids.${leavingUser.uid}`]: deleteField()
-          });
-        } else {
-          batch.update(doc(db, "rooms", leavingRoomId), {
-            [`adminUids.${leavingUser.uid}`]: deleteField(),
-            adminUid: remainingAdmins[0].id,
-            adminName: remainingAdmins[0].name || "Google user",
-            ...(room?.activeDjUid === leavingUser.uid
-              ? {
-                  activeDjUid: remainingAdmins[0].id,
-                  activeDjName: remainingAdmins[0].name || "Google user"
-                }
-              : {}),
-            ...roomActivityUpdate()
-          });
+    try {
+      if (leavingRoomId && leavingUser) {
+        const batch = writeBatch(db);
+        if (isAdmin) {
+          const remainingAdmins = members.filter((member) => member.id !== leavingUser.uid && isRoomAdminId(member.id));
+          if (remainingAdmins.length === 0) {
+            batch.update(doc(db, "rooms", leavingRoomId), {
+              closed: true,
+              closedAt: serverTimestamp(),
+              closedByUid: leavingUser.uid,
+              nowPlayingId: null,
+              playbackSongId: null,
+              playbackSeconds: 0,
+              playbackState: "stopped",
+              [`adminUids.${leavingUser.uid}`]: deleteField()
+            });
+          } else {
+            batch.update(doc(db, "rooms", leavingRoomId), {
+              [`adminUids.${leavingUser.uid}`]: deleteField(),
+              adminUid: remainingAdmins[0].id,
+              adminName: remainingAdmins[0].name || "Google user",
+              ...(room?.activeDjUid === leavingUser.uid
+                ? {
+                    activeDjUid: remainingAdmins[0].id,
+                    activeDjName: remainingAdmins[0].name || "Google user"
+                  }
+                : {}),
+              ...roomActivityUpdate()
+            });
+          }
         }
+        batch.delete(doc(db, "rooms", leavingRoomId, "members", leavingUser.uid));
+        await batch.commit();
       }
-      batch.delete(doc(db, "rooms", leavingRoomId, "members", leavingUser.uid));
-      await batch.commit();
+    } finally {
+      clearRoomState();
     }
-
-    clearRoomState();
   }
 
   async function handleSignOut() {
-    await leaveRoom();
-    await signOut(auth);
+    try {
+      await leaveRoom();
+    } finally {
+      await signOut(auth);
+    }
   }
 
   async function installApp() {
@@ -2664,7 +2643,7 @@ function App() {
                         {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
                       </span>
                     )}
-                    {(song.messages || []).slice(-2).map((item, messageIndex) => (
+                    {messagesForSong(song).slice(-2).map((item, messageIndex) => (
                       <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
                         <b>{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
                       </span>
@@ -3388,8 +3367,8 @@ function App() {
         </div>
       )}
 
-      {toastEnabled && toast && (
-        <button className="toast" onClick={() => setToast("")}>
+      {(toastEnabled || isImportantToast(toast)) && toast && (
+        <button className="toast" onClick={() => setToast("")} role={isImportantToast(toast) ? "alert" : "status"}>
           {toast}
         </button>
       )}
