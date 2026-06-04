@@ -3344,6 +3344,10 @@ input:focus {
   width: 100%;
 }
 
+.desktop-panel-divider {
+  display: none;
+}
+
 .tutorial-backdrop {
   position: fixed;
   inset: 0;
@@ -3672,6 +3676,59 @@ input:focus {
 
 .room-app.dark-mode .queue-panel {
   background: rgba(18, 22, 31, 0.92);
+}
+
+@media (min-width: 980px) {
+  .room-app {
+    grid-template-columns:
+      clamp(390px, var(--desktop-player-split, 65%), calc(100% - 382px))
+      12px
+      minmax(360px, 1fr);
+    column-gap: 8px;
+  }
+
+  .app-topbar {
+    grid-column: 1 / -1;
+  }
+
+  .now-playing-card {
+    grid-column: 1;
+  }
+
+  .desktop-panel-divider {
+    display: grid;
+    grid-column: 2;
+    grid-row: 2 / 4;
+    place-items: center;
+    width: 12px;
+    min-height: 100%;
+    padding: 0;
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+    outline: none;
+  }
+
+  .desktop-panel-divider span {
+    width: 3px;
+    height: min(180px, 42%);
+    min-height: 72px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--pb-accent) 58%, rgba(128, 128, 128, 0.55));
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    transition: width 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .desktop-panel-divider:hover span,
+  .desktop-panel-divider:focus-visible span {
+    width: 5px;
+    background: var(--pb-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pb-accent) 20%, transparent);
+  }
+
+  .queue-panel {
+    grid-column: 3;
+  }
 }
 
 .queue-header {

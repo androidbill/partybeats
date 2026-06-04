@@ -120,7 +120,8 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.09";
+const APP_VERSION = "2026.06.04.10";
+const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -385,6 +386,15 @@ function savedTheme() {
   }
 }
 
+function savedDesktopPlayerSplit() {
+  try {
+    const savedSplit = Number(localStorage.getItem("partybeats-desktop-player-split"));
+    return savedSplit >= 45 && savedSplit <= 80 ? savedSplit : DEFAULT_DESKTOP_PLAYER_SPLIT;
+  } catch {
+    return DEFAULT_DESKTOP_PLAYER_SPLIT;
+  }
+}
+
 function roomExpiresAtDate() {
   return new Date(Date.now() + ROOM_INACTIVITY_MS - ROOM_EXPIRY_WRITE_MARGIN_MS);
 }
@@ -464,6 +474,8 @@ function App() {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [theme, setTheme] = useState(savedTheme);
+  const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
+  const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
   const emojiBarRef = useRef(null);
@@ -530,6 +542,39 @@ function App() {
     }
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("partybeats-desktop-player-split", String(desktopPlayerSplit));
+    } catch {
+      // The divider still works if local storage is unavailable.
+    }
+  }, [desktopPlayerSplit]);
+
+  function resizeDesktopPanels(event) {
+    if (window.innerWidth < 980) return;
+    const appRect = roomAppRef.current?.getBoundingClientRect();
+    if (!appRect?.width) return;
+    const nextSplit = Math.min(80, Math.max(45, ((event.clientX - appRect.left) / appRect.width) * 100));
+    setDesktopPlayerSplit(Math.round(nextSplit * 10) / 10);
+  }
+
+  function startDesktopPanelResize(event) {
+    if (window.innerWidth < 980) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    resizeDesktopPanels(event);
+  }
+
+  function adjustDesktopPanelSplit(event) {
+    if (!["ArrowLeft", "ArrowRight", "Home"].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === "Home") {
+      setDesktopPlayerSplit(DEFAULT_DESKTOP_PLAYER_SPLIT);
+      return;
+    }
+    setDesktopPlayerSplit((current) => Math.min(80, Math.max(45, current + (event.key === "ArrowRight" ? 2 : -2))));
+  }
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event) => {
@@ -2215,7 +2260,11 @@ function App() {
   }
 
   return (
-    <main className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"}`}>
+    <main
+      ref={roomAppRef}
+      className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"}`}
+      style={{ "--desktop-player-split": `${desktopPlayerSplit}%` }}
+    >
       <header className="app-topbar">
         <div className="topbar-brand">
           <div className="brand-dot">
@@ -2406,6 +2455,28 @@ function App() {
           </div>
         ) : null}
       </section>
+
+      <div
+        className="desktop-panel-divider"
+        role="separator"
+        aria-label="Resize player and playlist"
+        aria-orientation="vertical"
+        aria-valuemin="45"
+        aria-valuemax="80"
+        aria-valuenow={Math.round(desktopPlayerSplit)}
+        tabIndex="0"
+        title="Drag to resize. Double-click to reset."
+        onDoubleClick={() => setDesktopPlayerSplit(DEFAULT_DESKTOP_PLAYER_SPLIT)}
+        onKeyDown={adjustDesktopPanelSplit}
+        onPointerDown={startDesktopPanelResize}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture?.(event.pointerId)) resizeDesktopPanels(event);
+        }}
+        onPointerUp={(event) => event.currentTarget.releasePointerCapture?.(event.pointerId)}
+        onPointerCancel={(event) => event.currentTarget.releasePointerCapture?.(event.pointerId)}
+      >
+        <span />
+      </div>
 
       <section className="queue-panel" ref={queuePanelRef}>
         <div className="queue-header">
