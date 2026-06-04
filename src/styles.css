@@ -2100,6 +2100,34 @@ input:focus {
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
 }
 
+.nickname-modal-backdrop {
+  inset: auto 0 auto;
+  top: var(--nickname-viewport-top, 0px);
+  height: var(--nickname-viewport-height, 100dvh);
+  place-items: center;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+}
+
+.nickname-modal {
+  max-height: calc(var(--nickname-viewport-height, 100dvh) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nickname-modal .nickname-edit-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.nickname-modal .nickname-edit-form .primary-action {
+  min-width: 84px;
+}
+
 .room-panel-backdrop {
   padding: 0;
   align-items: end;

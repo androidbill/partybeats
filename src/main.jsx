@@ -928,6 +928,42 @@ function App() {
   }, [reactionSong?.id, messageSongId]);
 
   useEffect(() => {
+    if (!selfRenameOpen || !nicknameBackdropRef.current) return undefined;
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const updateNicknameModal = () => {
+      const backdrop = nicknameBackdropRef.current;
+      if (!backdrop) return;
+      backdrop.style.setProperty("--nickname-viewport-top", `${viewport?.offsetTop || 0}px`);
+      backdrop.style.setProperty("--nickname-viewport-height", `${viewport?.height || window.innerHeight}px`);
+    };
+    const keepNicknameVisible = () => {
+      updateNicknameModal();
+      nicknameInputRef.current?.scrollIntoView?.({ block: "center", behavior: "auto" });
+    };
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(updateNicknameModal);
+    };
+
+    updateNicknameModal();
+    nicknameInputRef.current?.focus({ preventScroll: true });
+    const shortTimer = window.setTimeout(keepNicknameVisible, 120);
+    const longTimer = window.setTimeout(keepNicknameVisible, 420);
+    viewport?.addEventListener("resize", scheduleUpdate);
+    viewport?.addEventListener("scroll", scheduleUpdate);
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(shortTimer);
+      window.clearTimeout(longTimer);
+      viewport?.removeEventListener("resize", scheduleUpdate);
+      viewport?.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [selfRenameOpen]);
+
+  useEffect(() => {
     if (!activeRoomId) {
       previousMemberIds.current = undefined;
       setJoinNotice(null);
@@ -2414,8 +2450,8 @@ function App() {
       )}
 
       {selfRenameOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <section className="about-modal">
+        <div ref={nicknameBackdropRef} className="modal-backdrop nickname-modal-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal nickname-modal">
             <div className="modal-header">
               <h2>Nickname</h2>
               <button
@@ -2432,8 +2468,12 @@ function App() {
             </div>
             <form className="nickname-edit-form" onSubmit={saveSelfRename}>
               <input
+                ref={nicknameInputRef}
                 value={selfRenameDraft}
                 onChange={(event) => setSelfRenameDraft(event.target.value.slice(0, 30))}
+                onFocus={(event) => {
+                  window.setTimeout(() => event.currentTarget.scrollIntoView({ block: "center", behavior: "auto" }), 180);
+                }}
                 placeholder="Nickname"
                 maxLength={30}
                 autoFocus
