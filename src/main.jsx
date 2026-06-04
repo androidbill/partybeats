@@ -120,7 +120,7 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.11";
+const APP_VERSION = "2026.06.04.12";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -1288,10 +1288,23 @@ function App() {
     }
 
     setAddingSongKey(addKey);
-    let durationSeconds = Number(selectedVideo?.durationSeconds) || null;
-    if (!durationSeconds && YOUTUBE_API_KEY) {
-      durationSeconds = await fetchYouTubeDurationSeconds(videoId);
+    if (!YOUTUBE_API_KEY) {
+      setToast("Could not verify whether that song can play inside PartyBeats.");
+      setAddingSongKey("");
+      return;
     }
+    const playbackDetails = await fetchYouTubePlaybackDetails(videoId);
+    if (!playbackDetails) {
+      setToast("Could not verify whether that song can play inside PartyBeats, so it was not added.");
+      setAddingSongKey("");
+      return;
+    }
+    if (!playbackDetails.embeddable) {
+      setToast("That song cannot play inside PartyBeats, so it was not added.");
+      setAddingSongKey("");
+      return;
+    }
+    const durationSeconds = playbackDetails.durationSeconds || Number(selectedVideo?.durationSeconds) || null;
     if (!isAdmin && !durationSeconds) {
       setToast("Could not verify song length. Ask an admin to add this track.");
       setAddingSongKey("");
@@ -1358,38 +1371,46 @@ function App() {
     setAddSheetOpen(false);
   }
 
-  async function fetchYouTubeDurationSeconds(videoId) {
+  async function fetchYouTubePlaybackDetails(videoId) {
     if (!YOUTUBE_API_KEY || !videoId) return null;
     try {
       const params = new URLSearchParams({
-        part: "contentDetails",
+        part: "contentDetails,status",
         id: videoId,
         key: YOUTUBE_API_KEY
       });
       const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params.toString()}`);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || "YouTube duration lookup failed.");
-      return parseIsoDurationSeconds(data.items?.[0]?.contentDetails?.duration);
+      if (!response.ok) throw new Error(data.error?.message || "YouTube playback check failed.");
+      const item = data.items?.[0];
+      if (!item) return null;
+      return {
+        durationSeconds: parseIsoDurationSeconds(item.contentDetails?.duration),
+        embeddable: item.status?.embeddable === true && item.status?.uploadStatus === "processed"
+      };
     } catch {
       return null;
     }
   }
 
-  async function fetchYouTubeDurations(videoIds) {
+  async function fetchYouTubePlaybackDetailsBatch(videoIds) {
     const cleanIds = [...new Set((videoIds || []).map(cleanYouTubeVideoId).filter(Boolean))];
     if (!YOUTUBE_API_KEY || cleanIds.length === 0) return {};
     try {
       const params = new URLSearchParams({
-        part: "contentDetails",
+        part: "contentDetails,status",
         id: cleanIds.join(","),
         key: YOUTUBE_API_KEY
       });
       const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params.toString()}`);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || "YouTube duration lookup failed.");
-      return (data.items || []).reduce((durations, item) => {
-        durations[item.id] = parseIsoDurationSeconds(item.contentDetails?.duration);
-        return durations;
+      if (!response.ok) throw new Error(data.error?.message || "YouTube playback check failed.");
+      return (data.items || []).reduce((details, item) => {
+        details[item.id] = {
+          durationSeconds: parseIsoDurationSeconds(item.contentDetails?.duration),
+          embeddable: item.status?.embeddable === true && item.status?.uploadStatus === "processed"
+        };
+        return details;
       }, {});
     } catch {
       return {};
@@ -1472,7 +1493,7 @@ function App() {
       }
 
       const videoParams = new URLSearchParams({
-        part: "snippet,contentDetails",
+        part: "snippet,contentDetails,status",
         id: playlistItems.map((item) => item.videoId).join(","),
         key: YOUTUBE_API_KEY
       });
@@ -1480,7 +1501,10 @@ function App() {
       const videoData = await videoResponse.json();
       if (!videoResponse.ok) throw new Error(videoData.error?.message || "Album track lookup failed.");
       const detailsById = new Map((videoData.items || []).map((item) => [item.id, item]));
-      const tracks = playlistItems.filter((item) => detailsById.has(item.videoId));
+      const tracks = playlistItems.filter((item) => {
+        const details = detailsById.get(item.videoId);
+        return details?.status?.embeddable === true && details?.status?.uploadStatus === "processed";
+      });
       if (!tracks.length) throw new Error("No playable album tracks were found.");
 
       const batch = writeBatch(db);
@@ -1522,7 +1546,8 @@ function App() {
       batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
       await batch.commit();
       await touchRoomActivity();
-      setToast(`Added ${tracks.length} tracks from the album or playlist.`);
+      const skippedCount = playlistItems.length - tracks.length;
+      setToast(`Added ${tracks.length} playable tracks${skippedCount ? ` and skipped ${skippedCount} unavailable tracks` : ""}.`);
       setYoutubeLink("");
       setAddSheetOpen(false);
     } catch (error) {
@@ -1588,13 +1613,14 @@ function App() {
         thumbnail: item.snippet.thumbnails?.medium?.url || youtubeThumb(item.id.videoId),
         durationSeconds: null
       }));
-      const durations = await fetchYouTubeDurations(nextResults.map((result) => result.videoId));
+      const playbackDetails = await fetchYouTubePlaybackDetailsBatch(nextResults.map((result) => result.videoId));
       const playableResults = nextResults
         .map((result) => ({
           ...result,
-          durationSeconds: durations[result.videoId] || null
+          durationSeconds: playbackDetails[result.videoId]?.durationSeconds || null,
+          embeddable: playbackDetails[result.videoId]?.embeddable === true
         }))
-        .filter((result) => Number(result.durationSeconds) > 0 && Number(result.durationSeconds) <= NON_ADMIN_MAX_SONG_SECONDS);
+        .filter((result) => result.embeddable && Number(result.durationSeconds) > 0 && Number(result.durationSeconds) <= NON_ADMIN_MAX_SONG_SECONDS);
       setSearchResults(playableResults);
     } catch (error) {
       setToast(error.message || "YouTube search failed.");
