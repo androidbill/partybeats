@@ -24,6 +24,7 @@ import {
   SlidersHorizontal,
   Square,
   Sun,
+  Volume2,
   SkipForward,
   Trash2,
   UserRound,
@@ -117,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.18";
+const APP_VERSION = "2026.06.04.19";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -806,6 +807,7 @@ function App() {
     commandId: room?.playbackCommandId || "",
     commandAt: room?.playbackCommandAt?.toMillis?.() || 0
   };
+  const roomVolume = Math.min(100, Math.max(0, Number(room?.roomVolume ?? 80)));
   const livePlaybackSeconds = playbackState.state === "playing" && playbackState.updatedAt
     ? playbackState.seconds + Math.max(0, (Date.now() - playbackState.updatedAt) / 1000)
     : playbackState.seconds;
@@ -1204,6 +1206,7 @@ function App() {
             trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
             joinNoticeEnabled: true,
             toastEnabled: false,
+            roomVolume: 80,
             nowPlayingId: null
           });
           nextId = candidate;
@@ -1696,8 +1699,8 @@ function App() {
   }
 
   async function setNowPlaying(songId) {
-    if (!isActiveDj) {
-      setToast("Only the Active DJ can control playback.");
+    if (!isAdmin) {
+      setToast("Only admins can control playback.");
       return;
     }
     await updateDoc(doc(db, "rooms", activeRoomId), {
@@ -1705,6 +1708,9 @@ function App() {
       playbackSongId: songId,
       playbackSeconds: 0,
       playbackState: "playing",
+      playbackCommand: isActiveDj ? "" : "select",
+      playbackCommandId: `${deviceId}-${Date.now()}`,
+      playbackCommandAt: serverTimestamp(),
       playbackUpdatedAt: serverTimestamp(),
       playbackUpdatedBy: user.uid,
       ...roomActivityUpdate()
@@ -1871,8 +1877,18 @@ function App() {
   }
 
   async function playNextSong() {
-    if (!isActiveDj || !activeRoomId) {
-      setToast("Only the Active DJ can control playback.");
+    if (!isAdmin || !activeRoomId) {
+      setToast("Only admins can control playback.");
+      return;
+    }
+    if (!isActiveDj) {
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        playbackCommand: "next",
+        playbackCommandId: `${deviceId}-${Date.now()}`,
+        playbackCommandAt: serverTimestamp(),
+        playbackUpdatedBy: user.uid,
+        ...roomActivityUpdate()
+      });
       return;
     }
     const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
@@ -1944,8 +1960,24 @@ function App() {
   }
 
   async function stopPlayback() {
-    if (!isActiveDj || !activeRoomId) {
-      setToast("Only the Active DJ can control playback.");
+    if (!isAdmin || !activeRoomId) {
+      setToast("Only admins can control playback.");
+      return;
+    }
+    if (!isActiveDj) {
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: null,
+        playbackSongId: null,
+        playbackSeconds: 0,
+        playbackState: "stopped",
+        playbackCommand: "stop",
+        playbackCommandId: `${deviceId}-${Date.now()}`,
+        playbackCommandAt: serverTimestamp(),
+        playbackUpdatedAt: serverTimestamp(),
+        playbackUpdatedBy: user.uid,
+        ...roomActivityUpdate()
+      });
+      setToast("Playback stopped.");
       return;
     }
     if (room?.nowPlayingId) {
@@ -1964,7 +1996,7 @@ function App() {
   }
 
   async function restartTrack() {
-    if (!isActiveDj || !activeRoomId || !room?.nowPlayingId) {
+    if (!isAdmin || !activeRoomId || !room?.nowPlayingId) {
       setToast("Choose a track to restart.");
       return;
     }
@@ -1974,7 +2006,7 @@ function App() {
       playbackState: "playing",
       playbackUpdatedAt: serverTimestamp(),
       playbackCommand: "restart",
-      playbackCommandId: `${user.uid}-${Date.now()}`,
+      playbackCommandId: `${deviceId}-${Date.now()}`,
       playbackCommandAt: serverTimestamp(),
       playbackUpdatedBy: user.uid,
       ...roomActivityUpdate()
@@ -1983,7 +2015,7 @@ function App() {
   }
 
   async function replayLastSong() {
-    if (!isActiveDj || !activeRoomId || !replaySong?.id) {
+    if (!isAdmin || !activeRoomId || !replaySong?.id) {
       setToast("No previous track to replay.");
       return;
     }
@@ -1992,11 +2024,25 @@ function App() {
       playbackSongId: replaySong.id,
       playbackSeconds: 0,
       playbackState: "playing",
+      playbackCommand: isActiveDj ? "" : "select",
+      playbackCommandId: `${deviceId}-${Date.now()}`,
+      playbackCommandAt: serverTimestamp(),
       playbackUpdatedAt: serverTimestamp(),
       playbackUpdatedBy: user.uid,
       ...roomActivityUpdate()
     });
     setToast(`Replaying: ${decodeHtmlEntities(replaySong.title || "track")}`);
+  }
+
+  async function updateRoomVolume(value) {
+    if (!isAdmin || !activeRoomId || !user) return;
+    const nextVolume = Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      roomVolume: nextVolume,
+      roomVolumeUpdatedAt: serverTimestamp(),
+      roomVolumeUpdatedBy: user.uid,
+      ...roomActivityUpdate()
+    });
   }
 
   async function reactToSong(song, emoji) {
@@ -2522,6 +2568,7 @@ function App() {
               verifyPlayback={fetchYouTubePlaybackDetails}
               crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
               crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
+              volume={roomVolume}
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
             />
@@ -2556,10 +2603,48 @@ function App() {
                   YouTube
                 </a>
               )}
+              <label className="room-volume-control">
+                <span><Volume2 aria-hidden="true" /> Volume</span>
+                <strong>{roomVolume}%</strong>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={roomVolume}
+                  onChange={(event) => updateRoomVolume(event.target.value)}
+                />
+              </label>
             </div>
           </>
         ) : isAdmin ? (
           <div className="player-actions dj-control-deck">
+            <button className="mini-action stop-action" onClick={stopPlayback} disabled={!nowPlayingSong} type="button">
+              <Square aria-hidden="true" />
+              Stop
+            </button>
+            <button className="mini-action" onClick={restartTrack} disabled={!nowPlayingSong} type="button">
+              <RotateCcw aria-hidden="true" />
+              Restart
+            </button>
+            <button className="mini-action" onClick={replayLastSong} disabled={!replaySong} type="button">
+              <RotateCcw aria-hidden="true" />
+              Replay Last
+            </button>
+            <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
+              <SkipForward aria-hidden="true" />
+              Next
+            </button>
+            <label className="room-volume-control">
+              <span><Volume2 aria-hidden="true" /> Volume</span>
+              <strong>{roomVolume}%</strong>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={roomVolume}
+                onChange={(event) => updateRoomVolume(event.target.value)}
+              />
+            </label>
             <button className="mini-action" onClick={takeOverDj} type="button">
               <Crown aria-hidden="true" />
               Play From This Device
@@ -3466,6 +3551,7 @@ function YouTubePlayer({
   verifyPlayback,
   crossfadeEnabled,
   crossfadeSeconds,
+  volume,
   playbackState,
   onPlaybackUpdate
 }) {
@@ -3480,6 +3566,7 @@ function YouTubePlayer({
   const playbackUpdateRef = useRef(onPlaybackUpdate);
   const crossfadeEnabledRef = useRef(crossfadeEnabled);
   const crossfadeSecondsRef = useRef(crossfadeSeconds);
+  const volumeRef = useRef(volume);
   const crossfadeTriggeredRef = useRef(false);
   const currentVideoIdRef = useRef("");
   const currentSongIdRef = useRef("");
@@ -3512,11 +3599,23 @@ function YouTubePlayer({
   useEffect(() => {
     const player = playerRef.current;
     if (!song?.id || !playerReadyRef.current || !player || playbackState?.songId !== song.id) return;
-    if (playbackState.command !== "restart" || !playbackState.commandId) return;
+    if (!["restart", "select", "next", "stop"].includes(playbackState.command) || !playbackState.commandId) return;
     if (lastAppliedPlaybackCommandRef.current === playbackState.commandId) return;
     if (!playbackState.commandAt || Date.now() - playbackState.commandAt > PLAYBACK_COMMAND_WINDOW_MS) return;
 
     lastAppliedPlaybackCommandRef.current = playbackState.commandId;
+    if (playbackState.command === "next") {
+      endedRef.current?.();
+      return;
+    }
+    if (playbackState.command === "stop") {
+      if (playerTimerRef.current) {
+        window.clearInterval(playerTimerRef.current);
+        playerTimerRef.current = null;
+      }
+      player.stopVideo?.();
+      return;
+    }
     crossfadeTriggeredRef.current = false;
     lastPlaybackReportRef.current = 0;
     player.seekTo?.(0, true);
@@ -3527,6 +3626,13 @@ function YouTubePlayer({
     crossfadeEnabledRef.current = crossfadeEnabled;
     crossfadeSecondsRef.current = crossfadeSeconds;
   }, [crossfadeEnabled, crossfadeSeconds]);
+
+  useEffect(() => {
+    volumeRef.current = Math.min(100, Math.max(0, Number(volume) || 0));
+    if (playerReadyRef.current) {
+      playerRef.current?.setVolume?.(volumeRef.current);
+    }
+  }, [volume]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3642,6 +3748,7 @@ function YouTubePlayer({
         events: {
           onReady: (event) => {
             playerReadyRef.current = true;
+            event.target.setVolume?.(volumeRef.current);
             loadVideo(event.target, pendingVideoIdRef.current);
           },
           onStateChange: (event) => {
