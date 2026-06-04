@@ -120,7 +120,7 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.04";
+const APP_VERSION = "2026.06.04.05";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -444,6 +444,8 @@ function App() {
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
   const emojiBarRef = useRef(null);
+  const nicknameBackdropRef = useRef(null);
+  const nicknameInputRef = useRef(null);
   const playerCardRef = useRef(null);
   const creatingRoomRef = useRef(false);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
