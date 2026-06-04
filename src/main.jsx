@@ -120,7 +120,7 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.07";
+const APP_VERSION = "2026.06.04.08";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -462,6 +462,26 @@ function App() {
   const lastPlayedSongId = useRef("");
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const isDarkTheme = theme === "dark";
+
+  useEffect(() => {
+    function closeExternalYouTubeTabOnReturn() {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const externalTab = externalYouTubeTabRef.current;
+        if (externalTab && !externalTab.closed) externalTab.close();
+      } catch {
+        // Some browsers isolate YouTube's tab after navigation.
+      }
+      externalYouTubeTabRef.current = null;
+    }
+
+    window.addEventListener("focus", closeExternalYouTubeTabOnReturn);
+    document.addEventListener("visibilitychange", closeExternalYouTubeTabOnReturn);
+    return () => {
+      window.removeEventListener("focus", closeExternalYouTubeTabOnReturn);
+      document.removeEventListener("visibilitychange", closeExternalYouTubeTabOnReturn);
+    };
+  }, []);
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -1356,15 +1376,12 @@ function App() {
     }
 
     try {
-      const existingTab = externalYouTubeTabRef.current;
-      if (existingTab && !existingTab.closed) {
-        existingTab.location = searchUrl;
-        existingTab.focus();
-        return;
-      }
+      const previousTab = externalYouTubeTabRef.current;
+      if (previousTab && !previousTab.closed) previousTab.close();
     } catch {
-      externalYouTubeTabRef.current = null;
+      // YouTube can isolate its tab after navigation, so open a fresh tracked tab.
     }
+    externalYouTubeTabRef.current = null;
 
     const openedTab = window.open(searchUrl, "partybeats-youtube-music");
     if (!openedTab) {
@@ -2570,6 +2587,7 @@ function App() {
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     onFocus={selectExistingText}
+                    onClick={selectExistingText}
                     placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
                   />
                   <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
@@ -2622,6 +2640,7 @@ function App() {
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     onFocus={selectExistingText}
+                    onClick={selectExistingText}
                     placeholder="Search YouTube Music"
                   />
                   <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
