@@ -118,8 +118,9 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
+const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.19";
+const APP_VERSION = "2026.06.03.20";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -193,6 +194,16 @@ function roomJoinErrorMessage(error) {
     return "Could not reach Firestore. Check your connection and try again.";
   }
   return error?.message || "Could not join the room. Try again.";
+}
+
+function roomCreateErrorMessage(error) {
+  if (error?.code === "permission-denied") {
+    return "Could not create the room. Confirm you are signed in with Google and the latest Firestore rules are published.";
+  }
+  if (error?.code === "unavailable") {
+    return "Could not reach Firestore. Check your connection and try again.";
+  }
+  return error?.message || "Could not create the room. Try again.";
 }
 
 function roomListenerErrorMessage(error) {
@@ -358,7 +369,7 @@ function savedTheme() {
 }
 
 function roomExpiresAtDate() {
-  return new Date(Date.now() + ROOM_INACTIVITY_MS);
+  return new Date(Date.now() + ROOM_INACTIVITY_MS - ROOM_EXPIRY_WRITE_MARGIN_MS);
 }
 
 function roomActivityUpdate() {
@@ -965,8 +976,8 @@ function App() {
         nowPlayingId: null
       });
       await joinRoomById(nextId);
-    } catch {
-      setToast("Could not create the room. Try again.");
+    } catch (error) {
+      setToast(roomCreateErrorMessage(error));
     } finally {
       creatingRoomRef.current = false;
       setCreatingRoom(false);
