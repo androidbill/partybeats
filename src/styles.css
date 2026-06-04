@@ -3675,6 +3675,48 @@ input:focus {
     #0c0d12;
 }
 
+.player-error-overlay {
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: #ffffff;
+  background: rgba(12, 13, 18, 0.94);
+  text-align: center;
+}
+
+.player-error-overlay svg {
+  width: 34px;
+  height: 34px;
+  color: #f7c948;
+}
+
+.player-error-overlay strong {
+  font-size: 1.05rem;
+}
+
+.player-error-overlay span {
+  max-width: 420px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.86rem;
+}
+
+.song-row.is-unavailable {
+  opacity: 0.58;
+  border-color: rgba(255, 90, 122, 0.5);
+}
+
+.song-row.is-unavailable .track-line em {
+  color: #ffffff;
+  background: #b82f4f;
+}
+
+.song-row.is-unavailable:not(.is-playing) {
+  filter: saturate(0.55);
+}
+
 .dj-control-deck {
   align-items: center;
   padding: 8px;

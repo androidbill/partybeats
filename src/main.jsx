@@ -120,7 +120,7 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.12";
+const APP_VERSION = "2026.06.04.13";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -368,7 +368,24 @@ function nextQueuedSong(songs, currentId) {
   if (!songs.length || !currentId) return null;
   const currentIndex = songs.findIndex((song) => song.id === currentId);
   if (currentIndex < 0) return null;
-  return songs[currentIndex + 1] || null;
+  return songs.slice(currentIndex + 1).find((song) => !song.unavailable) || null;
+}
+
+function browserRegionCode() {
+  try {
+    return new Intl.Locale(navigator.language).region?.toUpperCase() || "";
+  } catch {
+    return String(navigator.language || "").split("-")[1]?.toUpperCase() || "";
+  }
+}
+
+function videoAvailableInRegion(contentDetails, regionCode = browserRegionCode()) {
+  if (!regionCode) return true;
+  const restrictions = contentDetails?.regionRestriction;
+  if (!restrictions) return true;
+  if (Array.isArray(restrictions.allowed)) return restrictions.allowed.includes(regionCode);
+  if (Array.isArray(restrictions.blocked)) return !restrictions.blocked.includes(regionCode);
+  return true;
 }
 
 function adminMapFor(room) {
@@ -483,6 +500,7 @@ function App() {
   const nicknameInputRef = useRef(null);
   const playerCardRef = useRef(null);
   const externalYouTubeTabRef = useRef(null);
+  const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
   const previousNowPlayingId = useRef(undefined);
@@ -1386,7 +1404,9 @@ function App() {
       if (!item) return null;
       return {
         durationSeconds: parseIsoDurationSeconds(item.contentDetails?.duration),
-        embeddable: item.status?.embeddable === true && item.status?.uploadStatus === "processed"
+        embeddable: item.status?.embeddable === true
+          && item.status?.uploadStatus === "processed"
+          && videoAvailableInRegion(item.contentDetails)
       };
     } catch {
       return null;
@@ -1408,7 +1428,9 @@ function App() {
       return (data.items || []).reduce((details, item) => {
         details[item.id] = {
           durationSeconds: parseIsoDurationSeconds(item.contentDetails?.duration),
-          embeddable: item.status?.embeddable === true && item.status?.uploadStatus === "processed"
+          embeddable: item.status?.embeddable === true
+            && item.status?.uploadStatus === "processed"
+            && videoAvailableInRegion(item.contentDetails)
         };
         return details;
       }, {});
@@ -1503,7 +1525,9 @@ function App() {
       const detailsById = new Map((videoData.items || []).map((item) => [item.id, item]));
       const tracks = playlistItems.filter((item) => {
         const details = detailsById.get(item.videoId);
-        return details?.status?.embeddable === true && details?.status?.uploadStatus === "processed";
+        return details?.status?.embeddable === true
+          && details?.status?.uploadStatus === "processed"
+          && videoAvailableInRegion(details.contentDetails);
       });
       if (!tracks.length) throw new Error("No playable album tracks were found.");
 
@@ -1598,6 +1622,8 @@ function App() {
         type: "video",
         maxResults: "8",
         videoCategoryId: "10",
+        videoEmbeddable: "true",
+        videoSyndicated: "true",
         q: queryText,
         key: YOUTUBE_API_KEY
       });
@@ -1869,6 +1895,35 @@ function App() {
       playbackUpdatedBy: user.uid,
       ...roomActivityUpdate()
     });
+  }
+
+  async function handlePlaybackUnavailable(errorCode) {
+    const failedSong = nowPlayingSong;
+    if (!isActiveDj || !activeRoomId || !failedSong || unavailableHandlingRef.current === failedSong.id) return;
+    unavailableHandlingRef.current = failedSong.id;
+    const reason = [101, 150].includes(Number(errorCode))
+      ? "Embedding is blocked by the video owner."
+      : Number(errorCode) === 100
+        ? "The video was removed or made private."
+        : "YouTube rejected playback inside PartyBeats.";
+    try {
+      await updateDoc(doc(db, "rooms", activeRoomId, "songs", failedSong.id), {
+        unavailable: true,
+        unavailableReason: reason,
+        unavailableAt: serverTimestamp()
+      });
+      setToast(`${playlistTrackDisplay(failedSong).title} is unavailable. Skipping.`);
+      window.setTimeout(async () => {
+        try {
+          await playNextSong();
+        } finally {
+          unavailableHandlingRef.current = "";
+        }
+      }, 1800);
+    } catch {
+      unavailableHandlingRef.current = "";
+      setToast("This track is unavailable, but PartyBeats could not mark it.");
+    }
   }
 
   async function stopPlayback() {
@@ -2434,6 +2489,8 @@ function App() {
               song={nowPlayingSong}
               onEnded={playNextSong}
               onCrossfade={playNextSong}
+              onUnavailable={handlePlaybackUnavailable}
+              verifyPlayback={fetchYouTubePlaybackDetails}
               crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
               crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
               playbackState={playbackState}
@@ -2546,7 +2603,7 @@ function App() {
               const trackDisplay = playlistTrackDisplay(song);
               const isCurrentSong = song.id === room.nowPlayingId;
               const isPlayedSong = nowPlayingIndex >= 0 && index < nowPlayingIndex;
-              const isUpNextSong = nowPlayingIndex >= 0 && index === nowPlayingIndex + 1;
+              const isUpNextSong = song.id === nextQueuedSong(songs, room.nowPlayingId)?.id;
               const isRecentlyAddedSong = recentlyAddedSongId === song.id;
               const isSelectedSong = selectedSongId === song.id;
               const uploader = memberById(song.addedByUid);
@@ -2564,7 +2621,8 @@ function App() {
                     isUpNextSong ? "is-up-next" : "",
                     isRecentlyAddedSong ? "is-recently-added" : "",
                     isSelectedSong ? "is-selected" : "",
-                    emojiSongId === song.id ? "is-reacting" : ""
+                    emojiSongId === song.id ? "is-reacting" : "",
+                    song.unavailable ? "is-unavailable" : ""
                   ].filter(Boolean).join(" ")}
                   data-song-id={song.id}
                   key={song.id}
@@ -2591,6 +2649,7 @@ function App() {
                       {isUpNextSong && <em>Up next</em>}
                       {isPlayedSong && <em>Played</em>}
                       {isRecentlyAddedSong && <em>Added</em>}
+                      {song.unavailable && <em>Unavailable</em>}
                       {trackDisplay.artist && <b>{trackDisplay.artist}</b>}
                       <strong>{trackDisplay.title}</strong>
                     </span>
@@ -3338,12 +3397,24 @@ function App() {
   );
 }
 
-function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfadeSeconds, playbackState, onPlaybackUpdate }) {
+function YouTubePlayer({
+  song,
+  onEnded,
+  onCrossfade,
+  onUnavailable,
+  verifyPlayback,
+  crossfadeEnabled,
+  crossfadeSeconds,
+  playbackState,
+  onPlaybackUpdate
+}) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerRef = useRef(null);
   const playerTimerRef = useRef(null);
   const endedRef = useRef(onEnded);
   const crossfadeRef = useRef(onCrossfade);
+  const unavailableRef = useRef(onUnavailable);
+  const verifyPlaybackRef = useRef(verifyPlayback);
   const playbackRef = useRef(playbackState);
   const playbackUpdateRef = useRef(onPlaybackUpdate);
   const crossfadeEnabledRef = useRef(crossfadeEnabled);
@@ -3356,6 +3427,8 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
   const lastPlaybackReportRef = useRef(0);
   const lastAppliedPlaybackCommandRef = useRef(0);
   const playerReadyRef = useRef(false);
+  const errorHandledSongRef = useRef("");
+  const [playerError, setPlayerError] = useState("");
 
   useEffect(() => {
     endedRef.current = onEnded;
@@ -3364,6 +3437,11 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
   useEffect(() => {
     crossfadeRef.current = onCrossfade;
   }, [onCrossfade]);
+
+  useEffect(() => {
+    unavailableRef.current = onUnavailable;
+    verifyPlaybackRef.current = verifyPlayback;
+  }, [onUnavailable, verifyPlayback]);
 
   useEffect(() => {
     playbackRef.current = playbackState;
@@ -3458,6 +3536,8 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
 
     async function loadPlayer() {
       const videoId = song?.videoId || "";
+      setPlayerError("");
+      errorHandledSongRef.current = "";
       pendingVideoIdRef.current = videoId;
       if (!videoId) {
         currentVideoIdRef.current = "";
@@ -3469,6 +3549,15 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
         playerRef.current?.destroy?.();
         playerRef.current = null;
         playerReadyRef.current = false;
+        return;
+      }
+
+      const verification = await verifyPlaybackRef.current?.(videoId);
+      if (cancelled) return;
+      if (verification?.embeddable === false) {
+        errorHandledSongRef.current = song?.id || "";
+        setPlayerError("This track cannot play inside PartyBeats. Skipping to the next track.");
+        unavailableRef.current?.("preflight");
         return;
       }
 
@@ -3513,6 +3602,14 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
               stopPlaybackTimer();
               endedRef.current?.();
             }
+          },
+          onError: (event) => {
+            stopPlaybackTimer();
+            const failedSongId = currentSongIdRef.current;
+            if (errorHandledSongRef.current === failedSongId) return;
+            errorHandledSongRef.current = failedSongId;
+            setPlayerError("This track cannot play inside PartyBeats. Skipping to the next track.");
+            unavailableRef.current?.(event.data);
           }
         }
       });
@@ -3543,6 +3640,13 @@ function YouTubePlayer({ song, onEnded, onCrossfade, crossfadeEnabled, crossfade
       {!song?.videoId && (
         <div className="player-empty">
           <Music2 aria-hidden="true" />
+        </div>
+      )}
+      {playerError && (
+        <div className="player-error-overlay" role="status">
+          <Info aria-hidden="true" />
+          <strong>Track unavailable</strong>
+          <span>{playerError}</span>
         </div>
       )}
     </div>
