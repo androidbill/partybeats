@@ -2529,6 +2529,12 @@ input:focus {
     overflow: hidden;
   }
 
+  .add-song-fab {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
   .app-topbar {
     grid-column: 1 / -1;
     margin-bottom: 0;
