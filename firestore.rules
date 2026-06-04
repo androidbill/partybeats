@@ -13,7 +13,30 @@ service cloud.firestore {
 
     function isRoomAdmin(roomId) {
       return signedIn()
-        && get(/databases/$(database)/documents/rooms/$(roomId)).data.adminUid == request.auth.uid;
+        && (
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.adminUid == request.auth.uid
+          || get(/databases/$(database)/documents/rooms/$(roomId)).data.adminUids[request.auth.uid] == true
+        );
+    }
+
+    function isActiveDj(roomId) {
+      return signedIn()
+        && (
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.activeDjUid == request.auth.uid
+          || (
+            !get(/databases/$(database)/documents/rooms/$(roomId)).data.keys().hasAny(['activeDjUid'])
+            && get(/databases/$(database)/documents/rooms/$(roomId)).data.adminUid == request.auth.uid
+          )
+        );
+    }
+
+    function roomIsOpen(roomId) {
+      return !get(/databases/$(database)/documents/rooms/$(roomId)).data.keys().hasAny(['closed'])
+        || get(/databases/$(database)/documents/rooms/$(roomId)).data.closed == false;
+    }
+
+    function roomIsCurrent(roomId) {
+      return roomIsOpen(roomId);
     }
 
     function isRoomMember(roomId) {
@@ -27,38 +50,216 @@ service cloud.firestore {
 
     function canAddSong(roomId) {
       return isRoomAdmin(roomId)
+        || !get(/databases/$(database)/documents/rooms/$(roomId)).data.keys().hasAny(['cooldownEnabled'])
+        || get(/databases/$(database)/documents/rooms/$(roomId)).data.cooldownEnabled == false
         || !memberData(roomId).keys().hasAny(['lastAddedAt'])
-        || request.time > memberData(roomId).lastAddedAt + duration.value(3, 'm');
+        || request.time > memberData(roomId).lastAddedAt + duration.value(
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.keys().hasAny(['cooldownMinutes'])
+            ? get(/databases/$(database)/documents/rooms/$(roomId)).data.cooldownMinutes
+            : 3,
+          'm'
+        );
+    }
+
+    function canStartEmptyRoom(roomId) {
+      return isRoomMember(roomId)
+        && roomIsOpen(roomId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nowPlayingId'])
+        && (
+          !resource.data.keys().hasAny(['nowPlayingId'])
+          || resource.data.nowPlayingId == null
+        )
+        && request.resource.data.nowPlayingId is string
+        && !exists(/databases/$(database)/documents/rooms/$(roomId)/songs/$(request.resource.data.nowPlayingId))
+        && existsAfter(/databases/$(database)/documents/rooms/$(roomId)/songs/$(request.resource.data.nowPlayingId));
+    }
+
+    function canTouchRoomActivity(roomId) {
+      return isRoomMember(roomId)
+        && roomIsOpen(roomId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt'])
+        && request.resource.data.lastActivityAt == request.time;
+    }
+
+    function canAddSongLength(roomId) {
+      return isRoomAdmin(roomId)
+        || (
+          request.resource.data.keys().hasAny(['durationSeconds'])
+          && request.resource.data.durationSeconds is int
+          && request.resource.data.durationSeconds <= 600
+        );
+    }
+
+    function validMemberName(name) {
+      return name is string && name.size() >= 2 && name.size() <= 30;
+    }
+
+    function validMemberCreate(memberId) {
+      return memberId == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && validMemberName(request.resource.data.name)
+        && request.resource.data.isAnonymous == (
+          request.auth.token.firebase.sign_in_provider == 'anonymous'
+        )
+        && request.resource.data.joinedAt == request.time;
+    }
+
+    function validSelfMemberUpdate(roomId) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'lastAddedAt'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['name'])
+          || validMemberName(request.resource.data.name)
+        )
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastAddedAt'])
+          || (
+            request.resource.data.lastAddedAt == request.time
+            && canAddSong(roomId)
+          )
+        );
+    }
+
+    function validSongCreate(roomId) {
+      return request.resource.data.keys().hasAll([
+          'title',
+          'artist',
+          'link',
+          'provider',
+          'videoId',
+          'addedByUid',
+          'addedByName',
+          'addedByIsAnonymous',
+          'position',
+          'durationSeconds',
+          'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'title',
+          'artist',
+          'link',
+          'provider',
+          'videoId',
+          'thumbnail',
+          'durationSeconds',
+          'addedByUid',
+          'addedByName',
+          'addedByIsAnonymous',
+          'position',
+          'emojiByUser',
+          'createdAt'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 300
+        && request.resource.data.artist is string
+        && request.resource.data.artist.size() <= 200
+        && request.resource.data.link is string
+        && request.resource.data.link.matches('^https://www\\.youtube\\.com/watch\\?v=[A-Za-z0-9_-]{11}$')
+        && request.resource.data.provider == 'youtube'
+        && request.resource.data.videoId is string
+        && request.resource.data.videoId.matches('^[A-Za-z0-9_-]{11}$')
+        && request.resource.data.addedByName == memberData(roomId).name
+        && request.resource.data.addedByIsAnonymous == memberData(roomId).isAnonymous
+        && request.resource.data.position is number
+        && request.resource.data.durationSeconds is int
+        && request.resource.data.durationSeconds > 0
+        && request.resource.data.createdAt == request.time;
+    }
+
+    function validMessageCreate(roomId, messageId) {
+      return request.resource.data.keys().hasOnly([
+          'songId',
+          'uid',
+          'name',
+          'isAnonymous',
+          'text',
+          'at',
+          'createdAt'
+        ])
+        && request.resource.data.songId is string
+        && exists(/databases/$(database)/documents/rooms/$(roomId)/songs/$(request.resource.data.songId))
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name == memberData(roomId).name
+        && request.resource.data.isAnonymous == memberData(roomId).isAnonymous
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 90
+        && request.resource.data.at is number
+        && request.resource.data.createdAt == request.time;
     }
 
     match /rooms/{roomId} {
-      allow read: if signedIn();
+      allow get: if signedIn()
+        && (
+          roomIsCurrent(roomId)
+          || isRoomMember(roomId)
+          || isRoomAdmin(roomId)
+        );
+      allow list: if false;
       allow create: if isGoogleUser()
         && request.resource.data.adminUid == request.auth.uid
+        && request.resource.data.adminUids[request.auth.uid] == true
+        && request.resource.data.closed == false
+        && request.resource.data.lastActivityAt == request.time
         && roomId.matches('^[A-Z]{4}[0-9]{3}$');
-      allow update, delete: if isRoomAdmin(roomId);
+      allow update: if (
+          isRoomAdmin(roomId)
+          && (
+            isActiveDj(roomId)
+            || !request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nowPlayingId'])
+          )
+        )
+        || canStartEmptyRoom(roomId)
+        || canTouchRoomActivity(roomId);
+      allow delete: if isRoomAdmin(roomId);
 
       match /members/{memberId} {
         allow read: if isRoomMember(roomId) || isRoomAdmin(roomId);
-        allow create, update: if signedIn()
-          && memberId == request.auth.uid
+        allow create: if signedIn()
+          && validMemberCreate(memberId)
+          && roomIsCurrent(roomId)
           && exists(/databases/$(database)/documents/rooms/$(roomId));
+        allow update: if (
+            signedIn()
+            && memberId == request.auth.uid
+            && roomIsCurrent(roomId)
+            && exists(/databases/$(database)/documents/rooms/$(roomId))
+            && validSelfMemberUpdate(roomId)
+          )
+          || isRoomAdmin(roomId);
         allow delete: if memberId == request.auth.uid || isRoomAdmin(roomId);
       }
 
       match /songs/{songId} {
         allow read: if isRoomMember(roomId);
         allow create: if isRoomMember(roomId)
+          && roomIsCurrent(roomId)
           && request.resource.data.addedByUid == request.auth.uid
-          && canAddSong(roomId);
+          && canAddSong(roomId)
+          && canAddSongLength(roomId)
+          && validSongCreate(roomId);
         allow update: if isRoomAdmin(roomId)
           || (
             isRoomMember(roomId)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emojiByUser'])
-            && request.resource.data.emojiByUser.diff(resource.data.emojiByUser).affectedKeys().hasOnly([request.auth.uid])
+            && (
+              (
+                request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emojiByUser'])
+                && request.resource.data.emojiByUser.diff(resource.data.emojiByUser).affectedKeys().hasOnly([request.auth.uid])
+              )
+            )
           );
         allow delete: if isRoomAdmin(roomId);
       }
+
+      match /messages/{messageId} {
+        allow read: if isRoomMember(roomId);
+        allow create: if isRoomMember(roomId)
+          && roomIsCurrent(roomId)
+          && validMessageCreate(roomId, messageId);
+        allow update: if false;
+        allow delete: if isRoomAdmin(roomId);
+      }
+
     }
   }
 }
