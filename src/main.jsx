@@ -120,7 +120,7 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.08";
+const APP_VERSION = "2026.06.04.09";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -267,6 +267,23 @@ function extractYouTubeVideoId(value) {
   } catch {
     const match = rawValue.match(/(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([A-Za-z0-9_-]{11})/);
     return match?.[1] || "";
+  }
+
+  return "";
+}
+
+function extractYouTubePlaylistId(value) {
+  const rawValue = value.trim();
+  if (!rawValue) return "";
+
+  try {
+    const url = new URL(rawValue);
+    const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "");
+    if (host === "youtube.com" || host === "music.youtube.com" || host === "youtu.be") {
+      return url.searchParams.get("list") || "";
+    }
+  } catch {
+    return rawValue.match(/[?&]list=([A-Za-z0-9_-]+)/)?.[1] || "";
   }
 
   return "";
@@ -1358,13 +1375,116 @@ function App() {
 
   async function addSongFromLink(event) {
     event.preventDefault();
+    const playlistId = extractYouTubePlaylistId(youtubeLink);
+    if (playlistId && !extractYouTubeVideoId(youtubeLink)) {
+      await importYouTubePlaylist(playlistId);
+      return;
+    }
     const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(youtubeLink));
     if (!videoId) {
-      setToast("Paste a valid YouTube or YouTube Music song link.");
+      setToast("Paste a valid YouTube song, album, or playlist link.");
       return;
     }
     const selectedVideo = await fetchYouTubeLinkDetails(videoId);
     await addSong(null, selectedVideo);
+  }
+
+  async function importYouTubePlaylist(playlistId) {
+    if (!isAdmin) {
+      setToast("Only admins can add a full album or playlist.");
+      return;
+    }
+    if (!YOUTUBE_API_KEY) {
+      setToast("Album imports require VITE_YOUTUBE_API_KEY.");
+      return;
+    }
+
+    setAddingSongKey(`${activeRoomId}:playlist:${playlistId}`);
+    try {
+      const playlistParams = new URLSearchParams({
+        part: "snippet,contentDetails",
+        playlistId,
+        maxResults: "50",
+        key: YOUTUBE_API_KEY
+      });
+      const playlistResponse = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?${playlistParams.toString()}`);
+      const playlistData = await playlistResponse.json();
+      if (!playlistResponse.ok) throw new Error(playlistData.error?.message || "Album lookup failed.");
+
+      const playlistItems = (playlistData.items || [])
+        .map((item) => ({
+          videoId: cleanYouTubeVideoId(item.contentDetails?.videoId || item.snippet?.resourceId?.videoId),
+          title: decodeHtmlEntities(item.snippet?.title || "YouTube track"),
+          channelTitle: decodeHtmlEntities(item.snippet?.videoOwnerChannelTitle || item.snippet?.channelTitle || "YouTube"),
+          thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url
+        }))
+        .filter((item) => item.videoId && item.title !== "Deleted video" && item.title !== "Private video");
+
+      if (!playlistItems.length) {
+        setToast("No available songs were found in that album or playlist.");
+        setAddingSongKey("");
+        return;
+      }
+
+      const videoParams = new URLSearchParams({
+        part: "snippet,contentDetails",
+        id: playlistItems.map((item) => item.videoId).join(","),
+        key: YOUTUBE_API_KEY
+      });
+      const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?${videoParams.toString()}`);
+      const videoData = await videoResponse.json();
+      if (!videoResponse.ok) throw new Error(videoData.error?.message || "Album track lookup failed.");
+      const detailsById = new Map((videoData.items || []).map((item) => [item.id, item]));
+      const tracks = playlistItems.filter((item) => detailsById.has(item.videoId));
+      if (!tracks.length) throw new Error("No playable album tracks were found.");
+
+      const batch = writeBatch(db);
+      const startingPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0) + 1;
+      let firstSongRef = null;
+      tracks.forEach((track, index) => {
+        const details = detailsById.get(track.videoId);
+        const songRef = doc(collection(db, "rooms", activeRoomId, "songs"));
+        if (!firstSongRef) firstSongRef = songRef;
+        batch.set(songRef, {
+          title: decodeHtmlEntities(details.snippet?.title || track.title),
+          artist: decodeHtmlEntities(details.snippet?.channelTitle || track.channelTitle),
+          link: youtubeWatchUrl(track.videoId),
+          provider: "youtube",
+          videoId: track.videoId,
+          thumbnail: details.snippet?.thumbnails?.medium?.url || track.thumbnail || youtubeThumb(track.videoId),
+          durationSeconds: parseIsoDurationSeconds(details.contentDetails?.duration) || null,
+          addedByUid: user.uid,
+          addedByName: activeNickname,
+          addedByIsAnonymous: user.isAnonymous,
+          position: startingPosition + index,
+          emojiByUser: {},
+          messages: [],
+          createdAt: serverTimestamp()
+        });
+      });
+
+      if (!nowPlayingSong && firstSongRef) {
+        const roomUpdate = { nowPlayingId: firstSongRef.id };
+        if (isActiveDj) {
+          roomUpdate.playbackSongId = firstSongRef.id;
+          roomUpdate.playbackSeconds = 0;
+          roomUpdate.playbackState = "playing";
+          roomUpdate.playbackUpdatedAt = serverTimestamp();
+          roomUpdate.playbackUpdatedBy = user.uid;
+        }
+        batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
+      }
+      batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
+      await batch.commit();
+      await touchRoomActivity();
+      setToast(`Added ${tracks.length} tracks from the album or playlist.`);
+      setYoutubeLink("");
+      setAddSheetOpen(false);
+    } catch (error) {
+      setToast(error.message || "Could not import that album or playlist.");
+    } finally {
+      setAddingSongKey("");
+    }
   }
 
   function openExternalYouTubeMusicSearch() {
@@ -2656,7 +2776,7 @@ function App() {
                   <input
                     value={youtubeLink}
                     onChange={(event) => setYoutubeLink(event.target.value)}
-                    placeholder="Paste YouTube or YouTube Music link"
+                    placeholder="Paste song, album, or playlist link"
                   />
                   <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)}>
                     <Plus aria-hidden="true" />
