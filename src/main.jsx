@@ -119,7 +119,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.18";
+const APP_VERSION = "2026.06.03.19";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -391,6 +391,7 @@ function App() {
   const [roomLoading, setRoomLoading] = useState(false);
   const [songsLoading, setSongsLoading] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [creatingRoom, setCreatingRoom] = useState(false);
   const [toast, setToast] = useState("");
   const [searchMode, setSearchMode] = useState("internal");
   const [searchQuery, setSearchQuery] = useState("");
@@ -431,6 +432,7 @@ function App() {
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
   const playerCardRef = useRef(null);
+  const creatingRoomRef = useRef(false);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
@@ -918,46 +920,57 @@ function App() {
   }
 
   async function createRoom() {
+    if (creatingRoomRef.current) return;
     if (!user || user.isAnonymous) {
       setToast("Sign in with Google to create a room.");
       return;
     }
 
-    let nextId = "";
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const candidate = randomRoomId();
-      const existing = await getDoc(doc(db, "rooms", candidate));
-      if (!existing.exists()) {
-        nextId = candidate;
-        break;
-      }
-    }
-    if (!nextId) {
-      setToast("Could not find a free room ID. Try again.");
-      return;
-    }
+    creatingRoomRef.current = true;
+    setCreatingRoom(true);
 
-    await setDoc(doc(db, "rooms", nextId), {
-      roomId: nextId,
-      adminUid: user.uid,
-      adminUids: { [user.uid]: true },
-      adminName: activeNickname,
-      activeDjUid: user.uid,
-      activeDjName: activeNickname,
-      createdAt: serverTimestamp(),
-      ...roomActivityUpdate(),
-      closed: false,
-      cooldownEnabled: false,
-      cooldownMinutes: 3,
-      cooldownMs: DEFAULT_COOLDOWN_MS,
-      crossfadeEnabled: false,
-      crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
-      trackNoticeEnabled: true,
-      trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
-      joinNoticeEnabled: true,
-      nowPlayingId: null
-    });
-    await joinRoomById(nextId);
+    try {
+      let nextId = "";
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const candidate = randomRoomId();
+        const existing = await getDoc(doc(db, "rooms", candidate));
+        if (!existing.exists()) {
+          nextId = candidate;
+          break;
+        }
+      }
+      if (!nextId) {
+        setToast("Could not find a free room ID. Try again.");
+        return;
+      }
+
+      await setDoc(doc(db, "rooms", nextId), {
+        roomId: nextId,
+        adminUid: user.uid,
+        adminUids: { [user.uid]: true },
+        adminName: activeNickname,
+        activeDjUid: user.uid,
+        activeDjName: activeNickname,
+        createdAt: serverTimestamp(),
+        ...roomActivityUpdate(),
+        closed: false,
+        cooldownEnabled: false,
+        cooldownMinutes: 3,
+        cooldownMs: DEFAULT_COOLDOWN_MS,
+        crossfadeEnabled: false,
+        crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
+        trackNoticeEnabled: true,
+        trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
+        joinNoticeEnabled: true,
+        nowPlayingId: null
+      });
+      await joinRoomById(nextId);
+    } catch {
+      setToast("Could not create the room. Try again.");
+    } finally {
+      creatingRoomRef.current = false;
+      setCreatingRoom(false);
+    }
   }
 
   async function joinRoomById(rawId = roomId, options = {}) {
@@ -1858,9 +1871,9 @@ function App() {
             <h2>Start or Join</h2>
             <p className="muted">Google users can create rooms. Guests can join with a nickname.</p>
             <div className="room-actions">
-              <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous}>
+              <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous || creatingRoom}>
                 <Wand2 aria-hidden="true" />
-                Create Room
+                {creatingRoom ? "Creating Room..." : "Create Room"}
               </button>
               <div className="join-row">
                 <input
