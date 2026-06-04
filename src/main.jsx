@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.19";
+const APP_VERSION = "2026.06.04.21";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -524,6 +524,25 @@ function App() {
   const lastPlayedSongId = useRef("");
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const isDarkTheme = theme === "dark";
+
+  useEffect(() => {
+    const preventZoom = (event) => event.preventDefault();
+    const preventModifiedWheelZoom = (event) => {
+      if (event.ctrlKey || event.metaKey) event.preventDefault();
+    };
+
+    document.addEventListener("gesturestart", preventZoom, { passive: false });
+    document.addEventListener("gesturechange", preventZoom, { passive: false });
+    document.addEventListener("gestureend", preventZoom, { passive: false });
+    window.addEventListener("wheel", preventModifiedWheelZoom, { passive: false });
+
+    return () => {
+      document.removeEventListener("gesturestart", preventZoom);
+      document.removeEventListener("gesturechange", preventZoom);
+      document.removeEventListener("gestureend", preventZoom);
+      window.removeEventListener("wheel", preventModifiedWheelZoom);
+    };
+  }, []);
 
   useEffect(() => {
     function closeExternalYouTubeTabOnReturn() {
@@ -976,7 +995,32 @@ function App() {
       const viewportHeight = viewport?.height || window.innerHeight;
       const safeTop = viewportTop + 12;
       const safeBottom = viewportTop + viewportHeight - 12;
+      const sheetWidth = Math.min(360, Math.max(260, viewportWidth - 24));
+      const maxHeight = Math.max(120, viewportHeight - 24);
       const gap = 8;
+      const isMessageMode = messageSongId === reactionSong.id;
+
+      const sheetPosition = () => ({
+        top: Math.round(Math.max(safeTop, safeBottom - Math.min(barRect.height, maxHeight))),
+        left: Math.round(viewportLeft + viewportWidth / 2),
+        width: Math.round(sheetWidth),
+        maxHeight: Math.round(maxHeight),
+        placement: "sheet"
+      });
+
+      if (isMessageMode) {
+        const nextPosition = sheetPosition();
+        setEmojiBarPosition((current) => (
+          current?.top === nextPosition.top
+          && current?.left === nextPosition.left
+          && current?.width === nextPosition.width
+          && current?.maxHeight === nextPosition.maxHeight
+          && current?.placement === nextPosition.placement
+            ? current
+            : nextPosition
+        ));
+        return;
+      }
 
       let placement = "";
       let top = rowRect.top - barRect.height - gap;
@@ -990,11 +1034,20 @@ function App() {
       }
 
       if (!placement) {
-        setEmojiBarPosition(null);
+        const nextPosition = sheetPosition();
+        setEmojiBarPosition((current) => (
+          current?.top === nextPosition.top
+          && current?.left === nextPosition.left
+          && current?.width === nextPosition.width
+          && current?.maxHeight === nextPosition.maxHeight
+          && current?.placement === nextPosition.placement
+            ? current
+            : nextPosition
+        ));
         return;
       }
 
-      const halfWidth = barRect.width / 2;
+      const halfWidth = sheetWidth / 2;
       const left = Math.min(
         viewportLeft + viewportWidth - halfWidth - 12,
         Math.max(viewportLeft + halfWidth + 12, rowRect.left + rowRect.width / 2)
@@ -1002,11 +1055,15 @@ function App() {
       const nextPosition = {
         top: Math.round(top),
         left: Math.round(left),
+        width: Math.round(sheetWidth),
+        maxHeight: Math.round(maxHeight),
         placement
       };
       setEmojiBarPosition((current) => (
         current?.top === nextPosition.top
         && current?.left === nextPosition.left
+        && current?.width === nextPosition.width
+        && current?.maxHeight === nextPosition.maxHeight
         && current?.placement === nextPosition.placement
           ? current
           : nextPosition
@@ -2078,7 +2135,7 @@ function App() {
         isAnonymous: user.isAnonymous,
         text,
         at: Date.now(),
-        createdAt: serverTimestamp()
+        createdAt: new Date()
       });
       await touchRoomActivity();
       setMessageDraft("");
@@ -2835,10 +2892,17 @@ function App() {
             "emoji-popover",
             "emoji-action-sheet",
             emojiBarPosition ? "is-row-anchored" : "",
-            emojiBarPosition?.placement ? `is-${emojiBarPosition.placement}` : ""
+            emojiBarPosition?.placement ? `is-${emojiBarPosition.placement}` : "",
+            messageSongId === reactionSong.id ? "is-message-mode" : ""
           ].filter(Boolean).join(" ")}
           style={emojiBarPosition
-            ? { top: `${emojiBarPosition.top}px`, left: `${emojiBarPosition.left}px`, bottom: "auto" }
+            ? {
+              top: `${emojiBarPosition.top}px`,
+              left: `${emojiBarPosition.left}px`,
+              width: `${emojiBarPosition.width}px`,
+              maxHeight: `${emojiBarPosition.maxHeight}px`,
+              bottom: "auto"
+            }
             : undefined}
           role="dialog"
           aria-label="React to song"
@@ -2876,6 +2940,9 @@ function App() {
               <input
                 value={messageDraft}
                 onChange={(event) => setMessageDraft(event.target.value.slice(0, 90))}
+                onFocus={() => window.setTimeout(() => {
+                  window.visualViewport?.dispatchEvent?.(new Event("resize"));
+                }, 80)}
                 placeholder="90 character message"
                 maxLength={90}
               />

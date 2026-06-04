@@ -17,6 +17,8 @@
 html {
   width: 100%;
   overflow-x: hidden;
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -24,6 +26,7 @@ body {
   width: 100%;
   min-height: 100vh;
   overflow-x: hidden;
+  touch-action: pan-x pan-y;
 }
 
 :root[data-theme="dark"] body {
@@ -1763,7 +1766,10 @@ input:focus {
   right: auto;
   bottom: max(92px, calc(env(safe-area-inset-bottom) + 74px));
   z-index: 90;
-  width: min(calc(100vw - 24px), 360px);
+  width: min(calc(100dvw - 24px), 360px);
+  max-width: calc(100dvw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: visible;
   transform: translateX(-50%);
   transition: top 120ms ease, left 120ms ease;
 }
@@ -1805,6 +1811,19 @@ input:focus {
   transform: translateX(-50%) rotate(45deg);
 }
 
+.emoji-action-sheet.is-sheet {
+  transform-origin: 50% 100%;
+}
+
+.emoji-action-sheet.is-sheet::after {
+  display: none;
+}
+
+.emoji-action-sheet.is-message-mode {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .room-app.dark-mode .emoji-action-sheet.is-row-anchored::after {
   border-color: rgba(255, 255, 255, 0.12);
   background: #171b25;
@@ -1835,6 +1854,21 @@ input:focus {
 .reaction-message .mini-action:disabled {
   color: #ffffff;
   background: #2563eb;
+}
+
+@media (max-width: 420px) {
+  .emoji-action-sheet {
+    width: min(calc(100dvw - 16px), 360px);
+    max-width: calc(100dvw - 16px);
+  }
+
+  .reaction-message {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reaction-message .mini-action {
+    width: 100%;
+  }
 }
 
 .people-panel {
