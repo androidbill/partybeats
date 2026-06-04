@@ -120,7 +120,7 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.20";
+const APP_VERSION = "2026.06.04.01";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -419,6 +419,7 @@ function App() {
   const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState("");
   const [emojiSongId, setEmojiSongId] = useState("");
+  const [emojiBarPosition, setEmojiBarPosition] = useState(null);
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -442,6 +443,7 @@ function App() {
   const [theme, setTheme] = useState(savedTheme);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
+  const emojiBarRef = useRef(null);
   const playerCardRef = useRef(null);
   const creatingRoomRef = useRef(false);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
@@ -834,6 +836,93 @@ function App() {
       behavior: "smooth"
     });
   }, [noticeBaselineReady, songsLoading, room?.nowPlayingId]);
+
+  useEffect(() => {
+    if (!reactionSong || !songListRef.current || !emojiBarRef.current) {
+      setEmojiBarPosition(null);
+      return undefined;
+    }
+
+    let frame = 0;
+    const updatePosition = () => {
+      const row = songListRef.current?.querySelector(`[data-song-id="${reactionSong.id}"]`);
+      const bar = emojiBarRef.current;
+      if (!row || !bar) {
+        setEmojiBarPosition(null);
+        return;
+      }
+
+      const rowRect = row.getBoundingClientRect();
+      const barRect = bar.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop || 0;
+      const viewportLeft = viewport?.offsetLeft || 0;
+      const viewportWidth = viewport?.width || window.innerWidth;
+      const viewportHeight = viewport?.height || window.innerHeight;
+      const safeTop = viewportTop + 12;
+      const safeBottom = viewportTop + viewportHeight - 12;
+      const gap = 8;
+
+      let placement = "";
+      let top = rowRect.top - barRect.height - gap;
+      if (top >= safeTop) {
+        placement = "above";
+      } else {
+        top = rowRect.bottom + gap;
+        if (top + barRect.height <= safeBottom) {
+          placement = "below";
+        }
+      }
+
+      if (!placement) {
+        setEmojiBarPosition(null);
+        return;
+      }
+
+      const halfWidth = barRect.width / 2;
+      const left = Math.min(
+        viewportLeft + viewportWidth - halfWidth - 12,
+        Math.max(viewportLeft + halfWidth + 12, rowRect.left + rowRect.width / 2)
+      );
+      const nextPosition = {
+        top: Math.round(top),
+        left: Math.round(left),
+        placement
+      };
+      setEmojiBarPosition((current) => (
+        current?.top === nextPosition.top
+        && current?.left === nextPosition.left
+        && current?.placement === nextPosition.placement
+          ? current
+          : nextPosition
+      ));
+    };
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(updatePosition);
+    };
+
+    scheduleUpdate();
+    const delayedUpdate = window.setTimeout(scheduleUpdate, 180);
+    const resizeObserver = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(scheduleUpdate);
+    resizeObserver?.observe(emojiBarRef.current);
+
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("scroll", scheduleUpdate, true);
+    window.visualViewport?.addEventListener("resize", scheduleUpdate);
+    window.visualViewport?.addEventListener("scroll", scheduleUpdate);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(delayedUpdate);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("scroll", scheduleUpdate, true);
+      window.visualViewport?.removeEventListener("resize", scheduleUpdate);
+      window.visualViewport?.removeEventListener("scroll", scheduleUpdate);
+    };
+  }, [reactionSong?.id, messageSongId]);
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -2264,7 +2353,16 @@ function App() {
 
       {reactionSong && (
         <div
-          className="emoji-popover emoji-action-sheet"
+          ref={emojiBarRef}
+          className={[
+            "emoji-popover",
+            "emoji-action-sheet",
+            emojiBarPosition ? "is-row-anchored" : "",
+            emojiBarPosition?.placement ? `is-${emojiBarPosition.placement}` : ""
+          ].filter(Boolean).join(" ")}
+          style={emojiBarPosition
+            ? { top: `${emojiBarPosition.top}px`, left: `${emojiBarPosition.left}px`, bottom: "auto" }
+            : undefined}
           role="dialog"
           aria-label="React to song"
           onClick={(event) => event.stopPropagation()}

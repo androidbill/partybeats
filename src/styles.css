@@ -1874,6 +1874,49 @@ input:focus {
   z-index: 90;
   width: min(calc(100vw - 24px), 360px);
   transform: translateX(-50%);
+  transition: top 120ms ease, left 120ms ease;
+}
+
+.emoji-action-sheet.is-row-anchored {
+  bottom: auto;
+}
+
+.emoji-action-sheet.is-row-anchored::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(23, 24, 31, 0.12);
+  background: #ffffff;
+  pointer-events: none;
+}
+
+.emoji-action-sheet.is-above {
+  transform-origin: 50% 100%;
+}
+
+.emoji-action-sheet.is-above::after {
+  bottom: -7px;
+  border-top: 0;
+  border-left: 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.emoji-action-sheet.is-below {
+  transform-origin: 50% 0%;
+}
+
+.emoji-action-sheet.is-below::after {
+  top: -7px;
+  border-right: 0;
+  border-bottom: 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.room-app.dark-mode .emoji-action-sheet.is-row-anchored::after {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #171b25;
 }
 
 .reaction-message {
