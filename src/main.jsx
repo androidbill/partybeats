@@ -117,7 +117,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.16";
+const APP_VERSION = "2026.06.04.17";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -1142,40 +1142,41 @@ function App() {
 
     try {
       let nextId = "";
+      let lastCreateError = null;
       for (let attempt = 0; attempt < 10; attempt += 1) {
         const candidate = randomRoomId();
-        const existing = await getDoc(doc(db, "rooms", candidate));
-        if (!existing.exists()) {
+        try {
+          await setDoc(doc(db, "rooms", candidate), {
+            roomId: candidate,
+            adminUid: user.uid,
+            adminUids: { [user.uid]: true },
+            adminName: activeNickname,
+            activeDjUid: user.uid,
+            activeDjName: activeNickname,
+            createdAt: serverTimestamp(),
+            ...roomActivityUpdate(),
+            closed: false,
+            cooldownEnabled: false,
+            cooldownMinutes: 3,
+            cooldownMs: DEFAULT_COOLDOWN_MS,
+            crossfadeEnabled: false,
+            crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
+            trackNoticeEnabled: true,
+            trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
+            joinNoticeEnabled: true,
+            toastEnabled: false,
+            nowPlayingId: null
+          });
           nextId = candidate;
           break;
+        } catch (error) {
+          lastCreateError = error;
+          if (error?.code !== "permission-denied") throw error;
         }
       }
       if (!nextId) {
-        setToast("Could not find a free room ID. Try again.");
-        return;
+        throw lastCreateError || new Error("Could not find a free room ID.");
       }
-
-      await setDoc(doc(db, "rooms", nextId), {
-        roomId: nextId,
-        adminUid: user.uid,
-        adminUids: { [user.uid]: true },
-        adminName: activeNickname,
-        activeDjUid: user.uid,
-        activeDjName: activeNickname,
-        createdAt: serverTimestamp(),
-        ...roomActivityUpdate(),
-        closed: false,
-        cooldownEnabled: false,
-        cooldownMinutes: 3,
-        cooldownMs: DEFAULT_COOLDOWN_MS,
-        crossfadeEnabled: false,
-        crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
-        trackNoticeEnabled: true,
-        trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
-        joinNoticeEnabled: true,
-        toastEnabled: false,
-        nowPlayingId: null
-      });
       await joinRoomById(nextId);
     } catch (error) {
       setToast(roomCreateErrorMessage(error));
