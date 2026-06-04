@@ -120,7 +120,7 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.05";
+const APP_VERSION = "2026.06.04.06";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -388,6 +388,12 @@ function resetWindowScroll() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   document.documentElement.scrollTop = 0;
   document.body.scrollTop = 0;
+}
+
+function selectExistingText(event) {
+  const input = event.currentTarget;
+  input.select();
+  window.setTimeout(() => input.select(), 0);
 }
 
 function App() {
@@ -2472,7 +2478,9 @@ function App() {
                 value={selfRenameDraft}
                 onChange={(event) => setSelfRenameDraft(event.target.value.slice(0, 30))}
                 onFocus={(event) => {
-                  window.setTimeout(() => event.currentTarget.scrollIntoView({ block: "center", behavior: "auto" }), 180);
+                  const input = event.currentTarget;
+                  selectExistingText(event);
+                  window.setTimeout(() => input.scrollIntoView({ block: "center", behavior: "auto" }), 180);
                 }}
                 placeholder="Nickname"
                 maxLength={30}
@@ -2536,6 +2544,7 @@ function App() {
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
+                    onFocus={selectExistingText}
                     placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
                   />
                   <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
@@ -2587,6 +2596,7 @@ function App() {
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
+                    onFocus={selectExistingText}
                     placeholder="Search YouTube Music"
                   />
                   <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
@@ -2743,6 +2753,7 @@ function App() {
                             <input
                               value={renameDraft}
                               onChange={(event) => setRenameDraft(event.target.value.slice(0, 30))}
+                              onFocus={selectExistingText}
                               placeholder="Nickname"
                               maxLength={30}
                               autoFocus
@@ -3334,7 +3345,13 @@ function SignedOut({ nickname, setNickname, onGoogle }) {
         <span className="google-mark" aria-hidden="true">G</span>
         Continue with Google
       </button>
-      <input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="Nickname" maxLength={30} />
+      <input
+        value={nickname}
+        onChange={(event) => setNickname(event.target.value)}
+        onFocus={selectExistingText}
+        placeholder="Nickname"
+        maxLength={30}
+      />
     </div>
   );
 }
@@ -3353,6 +3370,7 @@ function SignedIn({ user, nickname, setNickname, onSignOut }) {
         <input
           value={nickname}
           onChange={(event) => setNickname(event.target.value)}
+          onFocus={selectExistingText}
           placeholder="Party nickname"
           maxLength={30}
         />
