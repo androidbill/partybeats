@@ -33,12 +33,10 @@ import {
 } from "lucide-react";
 import QRCode from "qrcode";
 import {
-  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInAnonymously,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
   updateProfile
 } from "firebase/auth";
@@ -121,7 +119,7 @@ const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.03.17";
+const APP_VERSION = "2026.06.03.18";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -456,20 +454,6 @@ function App() {
       setToast(authErrorMessage(error));
       setAuthLoading(false);
     });
-
-    getRedirectResult(auth)
-      .then((result) => {
-        if (!active) return;
-        if (result?.user) {
-          setUser(result.user);
-          setAuthLoading(false);
-          setNickname(nicknameFor(result.user, ""));
-        }
-      })
-      .catch((error) => {
-        if (!active) return;
-        setToast(authErrorMessage(error));
-      });
 
     return () => {
       active = false;
@@ -879,8 +863,11 @@ function App() {
         setNickname(nicknameFor(result.user, ""));
       }
     } catch (error) {
-      if (["auth/popup-blocked", "auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error.code)) {
-        await signInWithRedirect(auth, provider);
+      if (error.code === "auth/popup-blocked") {
+        setToast("Google sign-in popup was blocked. Allow popups for BP PartyBeats, then try again.");
+        return;
+      }
+      if (["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error.code)) {
         return;
       }
       setToast(authErrorMessage(error));
