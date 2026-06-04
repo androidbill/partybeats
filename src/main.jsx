@@ -117,7 +117,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.17";
+const APP_VERSION = "2026.06.04.18";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -414,6 +414,18 @@ function savedDesktopPlayerSplit() {
   }
 }
 
+function savedDeviceId() {
+  try {
+    const existing = localStorage.getItem("partybeats-device-id");
+    if (existing) return existing;
+    const nextId = `device-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+    localStorage.setItem("partybeats-device-id", nextId);
+    return nextId;
+  } catch {
+    return `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+}
+
 function roomActivityUpdate() {
   return {
     lastActivityAt: serverTimestamp()
@@ -491,6 +503,9 @@ function App() {
   });
   const [theme, setTheme] = useState(savedTheme);
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
+  const [deviceId] = useState(savedDeviceId);
+  const [playerChoicePrompt, setPlayerChoicePrompt] = useState(null);
+  const [dismissedPlayerPromptKey, setDismissedPlayerPromptKey] = useState("");
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
@@ -753,7 +768,9 @@ function App() {
   const isAdmin = Boolean(user && isRoomAdminId(user.uid));
   const activeDjUid = room?.activeDjUid || room?.adminUid || "";
   const activeDjName = room?.activeDjName || room?.adminName || "Room admin";
-  const isActiveDj = Boolean(user && activeDjUid === user.uid);
+  const activePlayerDeviceId = room?.activePlayerDeviceId || "";
+  const isActiveDjAccount = Boolean(user && activeDjUid === user.uid);
+  const isActiveDj = Boolean(isActiveDjAccount && (!activePlayerDeviceId || activePlayerDeviceId === deviceId));
   const cooldownEnabled = room?.cooldownEnabled === true;
   const cooldownMinutes = Math.min(
     30,
@@ -798,7 +815,28 @@ function App() {
     : "No add yet";
   const activeNickname = (memberRecord?.name || nickname).trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
-  const activeDjStatus = isActiveDj ? "This device is the Active DJ" : `Active DJ: ${activeDjName}`;
+  const activeDjStatus = isActiveDj
+    ? "This device is the player"
+    : isActiveDjAccount
+      ? `Player on another device · ${activeDjName}`
+      : `Player: ${activeDjName}`;
+
+  useEffect(() => {
+    if (!room || !user || !isAdmin || !isActiveDjAccount || !activePlayerDeviceId || activePlayerDeviceId === deviceId) {
+      setPlayerChoicePrompt(null);
+      return;
+    }
+    const promptKey = `${activeRoomId}:${activePlayerDeviceId}`;
+    if (dismissedPlayerPromptKey === promptKey) {
+      setPlayerChoicePrompt(null);
+      return;
+    }
+    setPlayerChoicePrompt((current) => current?.key === promptKey ? current : {
+      key: promptKey,
+      roomId: activeRoomId,
+      playerName: activeDjName
+    });
+  }, [activeRoomId, activeDjName, activePlayerDeviceId, deviceId, dismissedPlayerPromptKey, isActiveDjAccount, isAdmin, room, user]);
   const totalReactions = songs.reduce((total, song) => total + Object.keys(song.emojiByUser || {}).length, 0);
   const messagesForSong = (song) => [
     ...(song?.messages || []),
@@ -1153,6 +1191,7 @@ function App() {
             adminName: activeNickname,
             activeDjUid: user.uid,
             activeDjName: activeNickname,
+            activePlayerDeviceId: deviceId,
             createdAt: serverTimestamp(),
             ...roomActivityUpdate(),
             closed: false,
@@ -1701,10 +1740,13 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), {
       activeDjUid: user.uid,
       activeDjName: activeNickname,
+      activePlayerDeviceId: deviceId,
       activeDjAt: serverTimestamp(),
       ...roomActivityUpdate()
     });
-    setToast("You are now the Active DJ.");
+    setPlayerChoicePrompt(null);
+    setDismissedPlayerPromptKey("");
+    setToast("This device is now the party player.");
   }
 
   async function promoteMember(member) {
@@ -1758,6 +1800,7 @@ function App() {
     if (room?.activeDjUid === member.id) {
       roomUpdate.activeDjUid = user.uid;
       roomUpdate.activeDjName = activeNickname;
+      roomUpdate.activePlayerDeviceId = deviceId;
     }
     if (Object.keys(roomUpdate).length > 0) {
       batch.update(doc(db, "rooms", activeRoomId), { ...roomUpdate, ...roomActivityUpdate() });
@@ -2034,6 +2077,8 @@ function App() {
     setSongs([]);
     setMembers([]);
     setSongMessages([]);
+    setPlayerChoicePrompt(null);
+    setDismissedPlayerPromptKey("");
     setRoomLoading(false);
     setSongsLoading(false);
     setMembersLoading(false);
@@ -2097,6 +2142,9 @@ function App() {
 
     try {
       if (leavingRoomId && leavingUser) {
+        if (isAdmin && isActiveDjAccount && !isActiveDj) {
+          return;
+        }
         const batch = writeBatch(db);
         if (isAdmin) {
           const remainingAdmins = members.filter((member) => member.id !== leavingUser.uid && isRoomAdminId(member.id));
@@ -2118,8 +2166,9 @@ function App() {
               adminName: remainingAdmins[0].name || "Google user",
               ...(room?.activeDjUid === leavingUser.uid
                 ? {
-                    activeDjUid: remainingAdmins[0].id,
-                    activeDjName: remainingAdmins[0].name || "Google user"
+                  activeDjUid: remainingAdmins[0].id,
+                    activeDjName: remainingAdmins[0].name || "Google user",
+                    activePlayerDeviceId: ""
                   }
                 : {}),
               ...roomActivityUpdate()
@@ -2449,7 +2498,7 @@ function App() {
           </a>
         )}
         <div className="now-playing-copy">
-          <span>{isActiveDj ? "Active DJ player" : "Now playing"}</span>
+          <span>{isActiveDj ? "This device is playing" : "Now playing"}</span>
           <h1>{nowPlayingSong ? nowPlayingDisplay?.title || "Untitled" : nowPlayingSyncing ? "Syncing current track" : "Nothing playing yet"}</h1>
           <p className="track-credit">
             {nowPlayingSong
@@ -2460,7 +2509,7 @@ function App() {
           </p>
           <p className="dj-note">
             Playing from {activeDjName}
-            {isAdmin && !isActiveDj ? " · You can take over if the speaker moves to your phone." : ""}
+            {isAdmin && !isActiveDj ? " · You can move the player to this device." : ""}
           </p>
         </div>
         {isActiveDj ? (
@@ -2513,7 +2562,7 @@ function App() {
           <div className="player-actions dj-control-deck">
             <button className="mini-action" onClick={takeOverDj} type="button">
               <Crown aria-hidden="true" />
-              Take Over DJ
+              Play From This Device
             </button>
           </div>
         ) : null}
@@ -2750,6 +2799,38 @@ function App() {
               </button>
             </form>
           )}
+        </div>
+      )}
+
+      {playerChoicePrompt && (
+        <div className="modal-backdrop player-choice-backdrop" role="dialog" aria-modal="true">
+          <section className="about-modal player-choice-modal">
+            <div className="modal-header">
+              <div>
+                <h2>Player Device</h2>
+                <p>Your Google account is already playing from another device.</p>
+              </div>
+            </div>
+            <div className="player-choice-copy">
+              <strong>Keep playing from {playerChoicePrompt.playerName || "the other device"}?</strong>
+              <p>You will stay admin here, but this device will not load the YouTube player.</p>
+            </div>
+            <div className="player-choice-actions">
+              <button
+                className="mini-action"
+                onClick={() => {
+                  setDismissedPlayerPromptKey(playerChoicePrompt.key);
+                  setPlayerChoicePrompt(null);
+                }}
+                type="button"
+              >
+                Keep There
+              </button>
+              <button className="primary-action" onClick={takeOverDj} type="button">
+                Play From Here
+              </button>
+            </div>
+          </section>
         </div>
       )}
 
@@ -3004,7 +3085,7 @@ function App() {
                     <strong>{members.length}</strong>
                   </div>
                   <div>
-                    <span>Active DJ</span>
+                    <span>Player</span>
                     <strong>{activeDjName}</strong>
                   </div>
                   <div>
@@ -3292,9 +3373,9 @@ function App() {
                     <small>{room?.closed ? "Closed" : "Open"}</small>
                   </div>
                   <div>
-                    <span>Active DJ</span>
+                    <span>Player</span>
                     <strong>{activeDjName}</strong>
-                    <small>{activeDjUid || "None"}</small>
+                    <small>{activeDjUid || "None"} · {activePlayerDeviceId || "legacy device"}</small>
                   </div>
                   <div>
                     <span>Playback</span>

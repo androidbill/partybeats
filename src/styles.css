@@ -2019,6 +2019,41 @@ input:focus {
   min-width: 84px;
 }
 
+.player-choice-modal {
+  gap: 18px;
+}
+
+.player-choice-modal .modal-header {
+  align-items: flex-start;
+}
+
+.player-choice-modal .modal-header p,
+.player-choice-copy p {
+  margin: 6px 0 0;
+  color: #696c78;
+}
+
+.player-choice-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.player-choice-copy strong {
+  font-size: 1.05rem;
+}
+
+.player-choice-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.player-choice-actions .mini-action,
+.player-choice-actions .primary-action {
+  justify-content: center;
+  min-height: 48px;
+}
+
 .room-panel-backdrop {
   padding: 0;
   align-items: end;
