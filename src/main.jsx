@@ -120,7 +120,7 @@ const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const ROOM_INACTIVITY_MS = 48 * 60 * 60 * 1000;
 const ROOM_EXPIRY_WRITE_MARGIN_MS = 5 * 60 * 1000;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.01";
+const APP_VERSION = "2026.06.04.03";
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
@@ -694,6 +694,7 @@ function App() {
   const trackNoticeEnabled = room?.trackNoticeEnabled !== false;
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
+  const toastEnabled = room?.toastEnabled === true;
   const memberRecord = members.find((member) => member.id === user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
@@ -1062,6 +1063,7 @@ function App() {
         trackNoticeEnabled: true,
         trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
         joinNoticeEnabled: true,
+        toastEnabled: false,
         nowPlayingId: null
       });
       await joinRoomById(nextId);
@@ -1781,6 +1783,11 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { joinNoticeEnabled: enabled, ...roomActivityUpdate() });
   }
 
+  async function updateToastEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { toastEnabled: enabled, ...roomActivityUpdate() });
+  }
+
   async function leaveRoom() {
     const leavingRoomId = activeRoomId;
     const leavingUser = user;
@@ -2139,12 +2146,6 @@ function App() {
             Playing from {activeDjName}
             {isAdmin && !isActiveDj ? " · You can take over if the speaker moves to your phone." : ""}
           </p>
-          {roomNeedsFirstTrack && (
-            <button className="mini-action player-empty-action" onClick={() => setAddSheetOpen(true)} type="button">
-              <Plus aria-hidden="true" />
-              Add First Track
-            </button>
-          )}
         </div>
         {isActiveDj ? (
           <>
@@ -2831,6 +2832,20 @@ function App() {
                     {joinNoticeEnabled ? "On" : "Off"}
                   </button>
                 </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Toast notifications</strong>
+                    <span>{toastEnabled ? "Show app status and action messages" : "App toast messages are off"}</span>
+                  </div>
+                  <button
+                    className={toastEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateToastEnabled(!toastEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {toastEnabled ? "On" : "Off"}
+                  </button>
+                </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
               </div>
             )}
@@ -3000,7 +3015,7 @@ function App() {
         </div>
       )}
 
-      {toast && (
+      {toastEnabled && toast && (
         <button className="toast" onClick={() => setToast("")}>
           {toast}
         </button>
