@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.19";
+const APP_VERSION = "2026.06.05.20";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1668,6 +1668,36 @@ function App() {
     } catch {
       setExternalClipboardCandidate(null);
       setExternalClipboardMessage("Tap Check Clipboard or paste the copied YouTube link below.");
+    } finally {
+      setExternalClipboardChecking(false);
+    }
+  }
+
+  async function addSongFromClipboard() {
+    if (!navigator.clipboard?.readText) {
+      await cancelExternalPasteStep();
+      return;
+    }
+
+    setExternalClipboardChecking(true);
+    setExternalClipboardMessage("Checking clipboard...");
+    try {
+      const clipboardText = (await navigator.clipboard.readText()).trim();
+      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
+      if (!videoId) {
+        await cancelExternalPasteStep();
+        return;
+      }
+      setYoutubeLink(clipboardText);
+      const selectedVideo = await fetchYouTubeLinkDetails(videoId);
+      const added = await addSong(null, selectedVideo);
+      if (added) {
+        await clearClipboardAfterExternalSearch();
+        resetExternalClipboardPrompt();
+        setExternalSearchStep("search");
+      }
+    } catch {
+      await cancelExternalPasteStep();
     } finally {
       setExternalClipboardChecking(false);
     }
@@ -3381,12 +3411,12 @@ function App() {
                     ) : (
                       <>
                         <div>
-                          <strong>{externalClipboardChecking ? "Checking clipboard" : "Paste copied song link"}</strong>
-                          <span>{externalClipboardMessage || "Tap Check Clipboard to find the copied YouTube Music link."}</span>
+                          <strong>{externalClipboardChecking ? "Checking clipboard" : "Add copied song link"}</strong>
+                          <span>{externalClipboardMessage || "Tap Add from Clipboard to add the copied YouTube Music link."}</span>
                         </div>
-                        <button className="primary-action clipboard-check-action" onClick={checkExternalSearchClipboard} disabled={externalClipboardChecking} type="button">
+                        <button className="primary-action clipboard-check-action" onClick={addSongFromClipboard} disabled={externalClipboardChecking || Boolean(addingSongKey)} type="button">
                           <Plus aria-hidden="true" />
-                          {externalClipboardChecking ? "Checking..." : "Check Clipboard"}
+                          {externalClipboardChecking || addingSongKey ? "Adding..." : "Add from Clipboard"}
                         </button>
                         <form className="youtube-link-form compact-link-form" onSubmit={addSongFromLink}>
                           <input
@@ -4183,7 +4213,7 @@ function ExternalSearchTutorial({ onClose }) {
           <div className="tutorial-step step-4">4. Tap Share</div>
           <div className="tutorial-step step-5">5. Tap Copy Link</div>
           <div className="tutorial-step step-6">6. Go back to PartyBeats</div>
-          <div className="tutorial-step step-7">7. Tap Check Clipboard, Add to Playlist</div>
+          <div className="tutorial-step step-7">7. Tap Add from Clipboard</div>
         </div>
 
         <button className="primary-action tutorial-done" onClick={onClose} type="button">
