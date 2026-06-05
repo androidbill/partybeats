@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.1";
+const APP_VERSION = "2026.06.05.2";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -449,6 +449,19 @@ function selectExistingText(event) {
   const input = event.currentTarget;
   input.select();
   window.setTimeout(() => input.select(), 0);
+}
+
+function placeCursorAtTextEnd(event) {
+  const input = event.currentTarget;
+  const end = input.value.length;
+  window.setTimeout(() => {
+    try {
+      input.setSelectionRange(end, end);
+    } catch {
+      input.selectionStart = end;
+      input.selectionEnd = end;
+    }
+  }, 0);
 }
 
 function App() {
@@ -3087,8 +3100,8 @@ function App() {
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    onFocus={selectExistingText}
-                    onClick={selectExistingText}
+                    onFocus={placeCursorAtTextEnd}
+                    onClick={placeCursorAtTextEnd}
                     placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
                   />
                   <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
@@ -3140,8 +3153,8 @@ function App() {
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    onFocus={selectExistingText}
-                    onClick={selectExistingText}
+                    onFocus={placeCursorAtTextEnd}
+                    onClick={placeCursorAtTextEnd}
                     placeholder="Search YouTube Music"
                   />
                   <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
