@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.4";
+const APP_VERSION = "2026.06.05.6";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -482,6 +482,10 @@ function App() {
   const [searchMode, setSearchMode] = useState("internal");
   const [searchQuery, setSearchQuery] = useState("");
   const [youtubeLink, setYoutubeLink] = useState("");
+  const [externalSearchStep, setExternalSearchStep] = useState("search");
+  const [externalClipboardCandidate, setExternalClipboardCandidate] = useState(null);
+  const [externalClipboardChecking, setExternalClipboardChecking] = useState(false);
+  const [externalClipboardMessage, setExternalClipboardMessage] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [addingSongKey, setAddingSongKey] = useState("");
@@ -529,6 +533,8 @@ function App() {
   const nicknameInputRef = useRef(null);
   const playerCardRef = useRef(null);
   const externalYouTubeTabRef = useRef(null);
+  const externalClipboardCheckPendingRef = useRef(false);
+  const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
@@ -568,6 +574,10 @@ function App() {
         // Some browsers isolate YouTube's tab after navigation.
       }
       externalYouTubeTabRef.current = null;
+      if (externalClipboardCheckPendingRef.current) {
+        externalClipboardCheckPendingRef.current = false;
+        checkExternalSearchClipboard();
+      }
     }
 
     window.addEventListener("focus", closeExternalYouTubeTabOnReturn);
@@ -1363,49 +1373,49 @@ function App() {
 
   async function addSong(event, selectedVideo = null) {
     event?.preventDefault();
-    if (!user || !activeRoomId) return;
+    if (!user || !activeRoomId) return false;
 
     const videoId = selectedVideo?.videoId;
     const addKey = `${activeRoomId}:${videoId || "none"}`;
     if (!videoId) {
       setToast("Choose a YouTube search result.");
-      return;
+      return false;
     }
-    if (addingSongKey === addKey) return;
+    if (addingSongKey === addKey) return false;
     if (!canAddSong) {
       setToast(cooldownRemaining > 0
         ? `Cooldown active: ${Math.ceil(cooldownRemaining / 1000)}s left.`
         : "Song cooldown is on.");
-      return;
+      return false;
     }
 
     setAddingSongKey(addKey);
     if (!YOUTUBE_API_KEY) {
       setToast("Could not verify whether that song can play inside PartyBeats.");
       setAddingSongKey("");
-      return;
+      return false;
     }
     const playbackDetails = await fetchYouTubePlaybackDetails(videoId);
     if (!playbackDetails) {
       setToast("Could not verify whether that song can play inside PartyBeats, so it was not added.");
       setAddingSongKey("");
-      return;
+      return false;
     }
     if (!playbackDetails.embeddable) {
       setToast("That song cannot play inside PartyBeats, so it was not added.");
       setAddingSongKey("");
-      return;
+      return false;
     }
     const durationSeconds = playbackDetails.durationSeconds || Number(selectedVideo?.durationSeconds) || null;
     if (!isAdmin && !durationSeconds) {
       setToast("Could not verify song length. Ask an admin to add this track.");
       setAddingSongKey("");
-      return;
+      return false;
     }
     if (!isAdmin && durationSeconds > NON_ADMIN_MAX_SONG_SECONDS) {
       setToast("Only admins can add songs longer than 10 minutes.");
       setAddingSongKey("");
-      return;
+      return false;
     }
 
     const title = decodeHtmlEntities(selectedVideo?.title || "YouTube track");
@@ -1449,7 +1459,7 @@ function App() {
         ? "Could not add that song. Check cooldown, song length, or room permissions."
         : "Could not add that song. Try again.");
       setAddingSongKey("");
-      return;
+      return false;
     }
     setRecentlyAddedSongId(songRef.id);
     window.setTimeout(() => {
@@ -1460,6 +1470,7 @@ function App() {
     setSearchResults([]);
     setYoutubeLink("");
     setAddSheetOpen(false);
+    return true;
   }
 
   async function fetchYouTubePlaybackDetails(videoId) {
@@ -1547,7 +1558,77 @@ function App() {
       return;
     }
     const selectedVideo = await fetchYouTubeLinkDetails(videoId);
-    await addSong(null, selectedVideo);
+    const added = await addSong(null, selectedVideo);
+    if (added) {
+      await clearClipboardAfterExternalSearch();
+      resetExternalClipboardPrompt();
+      setExternalSearchStep("search");
+    }
+  }
+
+  function resetExternalClipboardPrompt() {
+    setExternalClipboardCandidate(null);
+    setExternalClipboardMessage("");
+    setExternalClipboardChecking(false);
+    lastClipboardVideoIdRef.current = "";
+  }
+
+  async function clearClipboardAfterExternalSearch() {
+    try {
+      await navigator.clipboard?.writeText("");
+    } catch {
+      // Clipboard writes can be blocked by the browser or OS permissions.
+    }
+  }
+
+  async function checkExternalSearchClipboard() {
+    if (!navigator.clipboard?.readText) {
+      setExternalClipboardMessage("Paste the copied YouTube link below.");
+      return;
+    }
+
+    setExternalClipboardChecking(true);
+    setExternalClipboardMessage("Checking clipboard...");
+    try {
+      const clipboardText = (await navigator.clipboard.readText()).trim();
+      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
+      if (!videoId) {
+        setExternalClipboardCandidate(null);
+        setExternalClipboardMessage("Paste the copied YouTube link below.");
+        return;
+      }
+      if (videoId === lastClipboardVideoIdRef.current) {
+        setExternalClipboardMessage("");
+        return;
+      }
+      lastClipboardVideoIdRef.current = videoId;
+      setYoutubeLink(clipboardText);
+      const selectedVideo = await fetchYouTubeLinkDetails(videoId);
+      setExternalClipboardCandidate({ ...selectedVideo, sourceLink: clipboardText });
+      setExternalClipboardMessage("");
+    } catch {
+      setExternalClipboardCandidate(null);
+      setExternalClipboardMessage("Paste the copied YouTube link below.");
+    } finally {
+      setExternalClipboardChecking(false);
+    }
+  }
+
+  async function addClipboardCandidate() {
+    if (!externalClipboardCandidate) return;
+    const added = await addSong(null, externalClipboardCandidate);
+    if (added) {
+      await clearClipboardAfterExternalSearch();
+      resetExternalClipboardPrompt();
+      setExternalSearchStep("search");
+    }
+  }
+
+  async function cancelExternalPasteStep() {
+    await clearClipboardAfterExternalSearch();
+    resetExternalClipboardPrompt();
+    setYoutubeLink("");
+    setExternalSearchStep("search");
   }
 
   async function importYouTubePlaylist(playlistId) {
@@ -1656,6 +1737,9 @@ function App() {
 
   function openExternalYouTubeMusicSearch() {
     const searchUrl = youtubeMusicSearchUrl(searchQuery);
+    resetExternalClipboardPrompt();
+    setExternalSearchStep("paste");
+    externalClipboardCheckPendingRef.current = true;
     const isDesktop = window.matchMedia("(min-width: 760px)").matches;
     if (!isDesktop) {
       window.open(searchUrl, "_blank", "noopener,noreferrer");
@@ -1673,6 +1757,8 @@ function App() {
     const openedTab = window.open(searchUrl, "partybeats-youtube-music");
     if (!openedTab) {
       setToast("YouTube Music was blocked. Allow popups for BP PartyBeats, then try again.");
+      setExternalSearchStep("search");
+      externalClipboardCheckPendingRef.current = false;
       return;
     }
     externalYouTubeTabRef.current = openedTab;
@@ -3154,38 +3240,78 @@ function App() {
               </>
             ) : (
               <div className="external-search-panel">
-                <div>
-                  <strong>Search outside the app</strong>
-                  <span>Open YouTube Music, copy a song link, then paste it here. This avoids YouTube search quota.</span>
-                </div>
-                <div className="external-search-actions">
-                  <input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    onFocus={placeCursorAtTextEnd}
-                    onClick={placeCursorAtTextEnd}
-                    placeholder="Search YouTube Music"
-                  />
-                  <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
-                    <ExternalLink aria-hidden="true" />
-                    Open
-                  </button>
-                </div>
-                <button className="external-tutorial-button" onClick={() => setExternalTutorialOpen(true)} type="button">
-                  <Info aria-hidden="true" />
-                  How do I add a song?
-                </button>
-                <form className="youtube-link-form" onSubmit={addSongFromLink}>
-                  <input
-                    value={youtubeLink}
-                    onChange={(event) => setYoutubeLink(event.target.value)}
-                    placeholder="Paste song, album, or playlist link"
-                  />
-                  <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)}>
-                    <Plus aria-hidden="true" />
-                    {addingSongKey ? "Adding..." : "Add Link"}
-                  </button>
-                </form>
+                {externalSearchStep === "search" ? (
+                  <>
+                    <div>
+                      <strong>Search outside the app</strong>
+                      <span>Open YouTube Music, copy a song link, then come back to PartyBeats.</span>
+                    </div>
+                    <div className="external-search-actions">
+                      <input
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        onFocus={placeCursorAtTextEnd}
+                        onClick={placeCursorAtTextEnd}
+                        placeholder="Search YouTube Music"
+                      />
+                      <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
+                        <ExternalLink aria-hidden="true" />
+                        Open
+                      </button>
+                    </div>
+                    <button className="external-tutorial-button" onClick={() => setExternalTutorialOpen(true)} type="button">
+                      <Info aria-hidden="true" />
+                      How do I add a song?
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {externalClipboardCandidate ? (
+                      <div className="clipboard-link-card">
+                        <span>Found link in your clipboard</span>
+                        <div className="clipboard-track">
+                          <img src={externalClipboardCandidate.thumbnail} alt="" />
+                          <div>
+                            <strong>{externalClipboardCandidate.title}</strong>
+                            <small>{externalClipboardCandidate.channelTitle}</small>
+                          </div>
+                        </div>
+                        <div className="clipboard-actions">
+                          <button className="primary-action" onClick={addClipboardCandidate} disabled={!canAddSong || Boolean(addingSongKey)} type="button">
+                            <Plus aria-hidden="true" />
+                            {addingSongKey ? "Adding..." : "Add to Playlist"}
+                          </button>
+                          <button className="mini-action" onClick={cancelExternalPasteStep} type="button">
+                            <X aria-hidden="true" />
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <strong>{externalClipboardChecking ? "Checking clipboard" : "Paste copied song link"}</strong>
+                          <span>{externalClipboardMessage || "Paste the link from YouTube Music, then add it to the playlist."}</span>
+                        </div>
+                        <form className="youtube-link-form compact-link-form" onSubmit={addSongFromLink}>
+                          <input
+                            value={youtubeLink}
+                            onChange={(event) => setYoutubeLink(event.target.value)}
+                            placeholder="Paste song, album, or playlist link"
+                          />
+                          <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)}>
+                            <Plus aria-hidden="true" />
+                            {addingSongKey ? "Adding..." : "Add Link"}
+                          </button>
+                        </form>
+                        <button className="mini-action" onClick={cancelExternalPasteStep} type="button">
+                          <X aria-hidden="true" />
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </section>

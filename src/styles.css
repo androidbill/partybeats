@@ -1409,11 +1409,75 @@ input:focus {
   font-size: 0.84rem;
 }
 
+.clipboard-link-card {
+  display: grid;
+  gap: 10px;
+}
+
+.clipboard-track {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.clipboard-track img {
+  width: 74px;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.clipboard-track strong,
+.clipboard-track small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clipboard-track strong {
+  display: -webkit-box;
+  color: #17181f;
+  line-height: 1.15;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.clipboard-track small {
+  display: block;
+  margin-top: 3px;
+  color: #696c78;
+  white-space: nowrap;
+}
+
+.clipboard-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.compact-link-form {
+  margin-bottom: 0;
+}
+
 .room-app.dark-mode .external-search-panel {
   background: rgba(247, 201, 72, 0.12);
 }
 
 .room-app.dark-mode .external-search-panel span {
+  color: #a7adbb;
+}
+
+.room-app.dark-mode .clipboard-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.room-app.dark-mode .clipboard-track strong {
+  color: #ffffff;
+}
+
+.room-app.dark-mode .clipboard-track small {
   color: #a7adbb;
 }
 
