@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.16";
+const APP_VERSION = "2026.06.05.17";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4137,7 +4137,8 @@ function ExternalSearchTutorial({ onClose }) {
           <div className="tutorial-step step-3">3. Tap 3 Dot Menu beside song</div>
           <div className="tutorial-step step-4">4. Tap Share</div>
           <div className="tutorial-step step-5">5. Tap Copy Link</div>
-          <div className="tutorial-step step-6">6. Tap Check Clipboard, Add to Playlist</div>
+          <div className="tutorial-step step-6">6. Go back to PartyBeats</div>
+          <div className="tutorial-step step-7">7. Tap Check Clipboard, Add to Playlist</div>
         </div>
 
         <button className="primary-action tutorial-done" onClick={onClose} type="button">

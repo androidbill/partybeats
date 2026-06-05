@@ -3562,7 +3562,7 @@ input:focus {
   text-align: center;
   opacity: 0;
   transform: translateY(24px) scale(0.96);
-  animation: tutorialStep 12s infinite;
+  animation: tutorialStep 14s infinite;
 }
 
 .step-1 { animation-delay: 0s; }
@@ -3571,6 +3571,7 @@ input:focus {
 .step-4 { animation-delay: 6s; }
 .step-5 { animation-delay: 8s; }
 .step-6 { animation-delay: 10s; }
+.step-7 { animation-delay: 12s; }
 
 .tutorial-done {
   width: 100%;
