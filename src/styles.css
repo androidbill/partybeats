@@ -1195,6 +1195,48 @@ input:focus {
   justify-content: flex-start;
 }
 
+@media (min-width: 980px) {
+  .now-playing-card.is-fullscreen-player .fullscreen-room-brand,
+  .now-playing-card:fullscreen .fullscreen-room-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: fit-content;
+    margin-bottom: 4px;
+    padding: 6px 12px 6px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .now-playing-card.is-fullscreen-player .fullscreen-room-brand .app-icon,
+  .now-playing-card:fullscreen .fullscreen-room-brand .app-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .now-playing-card.is-fullscreen-player .fullscreen-room-brand div,
+  .now-playing-card:fullscreen .fullscreen-room-brand div {
+    display: grid;
+    gap: 1px;
+  }
+
+  .now-playing-card.is-fullscreen-player .fullscreen-room-brand strong,
+  .now-playing-card:fullscreen .fullscreen-room-brand strong {
+    color: #ffffff;
+    font-size: 0.86rem;
+    line-height: 1;
+  }
+
+  .now-playing-card.is-fullscreen-player .fullscreen-room-brand span,
+  .now-playing-card:fullscreen .fullscreen-room-brand span {
+    color: #f7c948;
+    font-size: 0.72rem;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+}
+
 .player-fullscreen-toggle {
   color: #ffffff;
   background: #2563eb;
@@ -3616,6 +3658,10 @@ input:focus {
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+
+.fullscreen-room-brand {
+  display: none;
 }
 
 .now-playing-card h1 {
