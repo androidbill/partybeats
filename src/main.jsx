@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.04.22";
+const APP_VERSION = "2026.06.05.1";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -507,6 +507,7 @@ function App() {
   const [deviceId] = useState(savedDeviceId);
   const [playerChoicePrompt, setPlayerChoicePrompt] = useState(null);
   const [dismissedPlayerPromptKey, setDismissedPlayerPromptKey] = useState("");
+  const [volumeControlOpen, setVolumeControlOpen] = useState(false);
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
@@ -2102,6 +2103,37 @@ function App() {
     });
   }
 
+  function renderVolumeControl() {
+    return (
+      <div className={`room-volume-control${volumeControlOpen ? " is-open" : ""}`}>
+        <button
+          className="mini-action volume-toggle"
+          type="button"
+          aria-label={`Volume ${roomVolume}%`}
+          aria-expanded={volumeControlOpen}
+          onClick={() => setVolumeControlOpen((isOpen) => !isOpen)}
+        >
+          <Volume2 aria-hidden="true" />
+        </button>
+        {volumeControlOpen && (
+          <label className="volume-popover">
+            <span>
+              Volume
+              <strong>{roomVolume}%</strong>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={roomVolume}
+              onChange={(event) => updateRoomVolume(event.target.value)}
+            />
+          </label>
+        )}
+      </div>
+    );
+  }
+
   async function reactToSong(song, emoji) {
     if (!user || !activeRoomId) return;
     const songRef = doc(db, "rooms", activeRoomId, "songs", song.id);
@@ -2660,17 +2692,7 @@ function App() {
                   YouTube
                 </a>
               )}
-              <label className="room-volume-control">
-                <span><Volume2 aria-hidden="true" /> Volume</span>
-                <strong>{roomVolume}%</strong>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={roomVolume}
-                  onChange={(event) => updateRoomVolume(event.target.value)}
-                />
-              </label>
+              {renderVolumeControl()}
             </div>
           </>
         ) : isAdmin ? (
@@ -2691,17 +2713,7 @@ function App() {
               <SkipForward aria-hidden="true" />
               Next
             </button>
-            <label className="room-volume-control">
-              <span><Volume2 aria-hidden="true" /> Volume</span>
-              <strong>{roomVolume}%</strong>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={roomVolume}
-                onChange={(event) => updateRoomVolume(event.target.value)}
-              />
-            </label>
+            {renderVolumeControl()}
             <button className="mini-action" onClick={takeOverDj} type="button">
               <Crown aria-hidden="true" />
               Play From This Device
