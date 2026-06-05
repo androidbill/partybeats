@@ -1196,17 +1196,31 @@ input:focus {
 }
 
 @media (min-width: 980px) {
+  .now-playing-card.is-fullscreen-player .fullscreen-title-row,
+  .now-playing-card:fullscreen .fullscreen-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
   .now-playing-card.is-fullscreen-player .fullscreen-room-brand,
   .now-playing-card:fullscreen .fullscreen-room-brand {
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 10px;
     width: fit-content;
-    margin-bottom: 4px;
     padding: 6px 12px 6px 6px;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.08);
+  }
+
+  .now-playing-card.is-fullscreen-player .fullscreen-title-row h1,
+  .now-playing-card:fullscreen .fullscreen-title-row h1 {
+    min-width: 0;
+    margin: 0;
   }
 
   .now-playing-card.is-fullscreen-player .fullscreen-room-brand .app-icon,
@@ -3662,6 +3676,10 @@ input:focus {
 
 .fullscreen-room-brand {
   display: none;
+}
+
+.fullscreen-title-row {
+  min-width: 0;
 }
 
 .now-playing-card h1 {
