@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.9";
+const APP_VERSION = "2026.06.05.10";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -538,6 +538,7 @@ function App() {
   const externalSearchLeftAppRef = useRef(false);
   const externalSearchOpenedAtRef = useRef(0);
   const externalSearchLeftAtRef = useRef(0);
+  const externalClipboardCheckTimerRef = useRef(null);
   const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
@@ -548,6 +549,12 @@ function App() {
   const lastPlayedSongId = useRef("");
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const isDarkTheme = theme === "dark";
+
+  function clearExternalClipboardCheckTimer() {
+    if (!externalClipboardCheckTimerRef.current) return;
+    window.clearTimeout(externalClipboardCheckTimerRef.current);
+    externalClipboardCheckTimerRef.current = null;
+  }
 
   useEffect(() => {
     const preventZoom = (event) => event.preventDefault();
@@ -569,6 +576,15 @@ function App() {
   }, []);
 
   useEffect(() => {
+    function runExternalClipboardCheck() {
+      clearExternalClipboardCheckTimer();
+      externalClipboardCheckPendingRef.current = false;
+      externalSearchLeftAppRef.current = false;
+      externalSearchOpenedAtRef.current = 0;
+      externalSearchLeftAtRef.current = 0;
+      checkExternalSearchClipboard();
+    }
+
     function markExternalSearchLeftApp() {
       if (!externalClipboardCheckPendingRef.current) return;
       externalSearchLeftAppRef.current = true;
@@ -590,14 +606,19 @@ function App() {
       externalYouTubeTabRef.current = null;
       if (externalClipboardCheckPendingRef.current && externalSearchLeftAppRef.current) {
         const now = Date.now();
-        const openedLongEnoughAgo = now - externalSearchOpenedAtRef.current >= EXTERNAL_SEARCH_MIN_AWAY_MS;
-        const leftLongEnoughAgo = now - externalSearchLeftAtRef.current >= EXTERNAL_SEARCH_MIN_AWAY_MS;
-        if (!openedLongEnoughAgo || !leftLongEnoughAgo) return;
-        externalClipboardCheckPendingRef.current = false;
-        externalSearchLeftAppRef.current = false;
-        externalSearchOpenedAtRef.current = 0;
-        externalSearchLeftAtRef.current = 0;
-        checkExternalSearchClipboard();
+        const openedWaitRemaining = EXTERNAL_SEARCH_MIN_AWAY_MS - (now - externalSearchOpenedAtRef.current);
+        const leftWaitRemaining = EXTERNAL_SEARCH_MIN_AWAY_MS - (now - externalSearchLeftAtRef.current);
+        const waitRemaining = Math.max(0, openedWaitRemaining, leftWaitRemaining);
+        if (waitRemaining > 0) {
+          clearExternalClipboardCheckTimer();
+          externalClipboardCheckTimerRef.current = window.setTimeout(() => {
+            if (document.visibilityState === "visible" && externalClipboardCheckPendingRef.current && externalSearchLeftAppRef.current) {
+              runExternalClipboardCheck();
+            }
+          }, waitRemaining);
+          return;
+        }
+        runExternalClipboardCheck();
       }
     }
 
@@ -610,6 +631,7 @@ function App() {
       window.removeEventListener("pagehide", markExternalSearchLeftApp);
       window.removeEventListener("pageshow", handleExternalSearchReturn);
       document.removeEventListener("visibilitychange", handleExternalSearchReturn);
+      clearExternalClipboardCheckTimer();
     };
   }, []);
 
@@ -1651,6 +1673,7 @@ function App() {
 
   async function cancelExternalPasteStep() {
     await clearClipboardAfterExternalSearch();
+    clearExternalClipboardCheckTimer();
     externalClipboardCheckPendingRef.current = false;
     externalSearchLeftAppRef.current = false;
     externalSearchOpenedAtRef.current = 0;
@@ -1766,6 +1789,7 @@ function App() {
 
   function openExternalYouTubeMusicSearch() {
     const searchUrl = youtubeMusicSearchUrl(searchQuery);
+    clearExternalClipboardCheckTimer();
     resetExternalClipboardPrompt();
     setExternalSearchStep("paste");
     externalClipboardCheckPendingRef.current = true;
