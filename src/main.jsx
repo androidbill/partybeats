@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.20";
+const APP_VERSION = "2026.06.05.21";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -2677,7 +2677,7 @@ function App() {
             <h2>Start or Join</h2>
             <p className="muted">Google users can create rooms. Guests can join with a nickname.</p>
             <div className="room-actions">
-              <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous || creatingRoom}>
+              <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous || creatingRoom} type="button">
                 <Wand2 aria-hidden="true" />
                 {creatingRoom ? "Creating Room..." : "Create Room"}
               </button>
@@ -2688,7 +2688,7 @@ function App() {
                   placeholder="VIBE123"
                   maxLength={7}
                 />
-                <button onClick={() => joinRoomById()} disabled={!user && nickname.trim().length < 2}>
+                <button onClick={() => joinRoomById()} disabled={!user && nickname.trim().length < 2} type="button">
                   <DoorOpen aria-hidden="true" />
                   Join
                 </button>
@@ -2699,7 +2699,7 @@ function App() {
         </section>
 
         {toast && (
-          <button className="toast" onClick={() => setToast("")}>
+          <button className="toast" onClick={() => setToast("")} type="button">
             {toast}
           </button>
         )}
@@ -2773,46 +2773,46 @@ function App() {
             </strong>
           </div>
           <div className="menu-wrap">
-            <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu">
+            <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu" type="button">
               <MoreVertical aria-hidden="true" />
             </button>
             {menuOpen && (
               <div className="overflow-menu">
-                <button onClick={() => { setRoomPanelTab("room"); setRoomPanelOpen(true); setMenuOpen(false); }}>
+                <button onClick={() => { setRoomPanelTab("room"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
                   <Info aria-hidden="true" />
                   Room
                 </button>
-                <button onClick={() => { setRoomPanelTab("settings"); setRoomPanelOpen(true); setMenuOpen(false); }}>
+                <button onClick={() => { setRoomPanelTab("settings"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
                   <SlidersHorizontal aria-hidden="true" />
                   Settings
                 </button>
-                <button onClick={() => { setRoomPanelTab("analytics"); setRoomPanelOpen(true); setMenuOpen(false); }}>
+                <button onClick={() => { setRoomPanelTab("analytics"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
                   <Activity aria-hidden="true" />
                   Analytics
                 </button>
                 {isAdmin && (
-                  <button onClick={() => { setRoomPanelTab("diagnostics"); setRoomPanelOpen(true); setMenuOpen(false); }}>
+                  <button onClick={() => { setRoomPanelTab("diagnostics"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
                     <Activity aria-hidden="true" />
                     Diagnostics
                   </button>
                 )}
-                <button onClick={shareApp}>
+                <button onClick={shareApp} type="button">
                   <Share2 aria-hidden="true" />
                   Share
                 </button>
-                <button onClick={installApp}>
+                <button onClick={installApp} type="button">
                   <Download aria-hidden="true" />
                   Install App
                 </button>
-                <button onClick={refreshApp}>
+                <button onClick={refreshApp} type="button">
                   <RotateCcw aria-hidden="true" />
                   Refresh App
                 </button>
-                <button onClick={leaveRoom}>
+                <button onClick={leaveRoom} type="button">
                   <DoorOpen aria-hidden="true" />
                   Leave Room
                 </button>
-                <button onClick={handleSignOut}>
+                <button onClick={handleSignOut} type="button">
                   <LogOut aria-hidden="true" />
                   Sign Out
                 </button>
@@ -2911,7 +2911,7 @@ function App() {
                 <RotateCcw aria-hidden="true" />
                 Replay Last
               </button>
-              <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
+              <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
                 <SkipForward aria-hidden="true" />
                 Next
               </button>
@@ -2938,7 +2938,7 @@ function App() {
               <RotateCcw aria-hidden="true" />
               Replay Last
             </button>
-            <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
+            <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
               <SkipForward aria-hidden="true" />
               Next
             </button>
@@ -3085,18 +3085,18 @@ function App() {
 
                   {isAdmin && isSelectedSong && (
                     <div className="admin-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-                      <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={queueIndex <= 0}>
+                      <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={queueIndex <= 0} type="button">
                         <ArrowUp aria-hidden="true" />
                       </button>
-                      <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={queueIndex < 0 || queueIndex === songs.length - 1}>
+                      <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={queueIndex < 0 || queueIndex === songs.length - 1} type="button">
                         <ArrowDown aria-hidden="true" />
                       </button>
                       {isActiveDj && (
-                        <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play">
+                        <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play" type="button">
                           <Play aria-hidden="true" />
                         </button>
                       )}
-                      <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song">
+                      <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song" type="button">
                         <Trash2 aria-hidden="true" />
                       </button>
                     </div>
@@ -3320,7 +3320,7 @@ function App() {
                     onClick={placeCursorAtTextEnd}
                     placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
                   />
-                  <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
+                    <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching} type="submit">
                     <Search aria-hidden="true" />
                     {searching ? "..." : "Search"}
                   </button>
@@ -3342,7 +3342,7 @@ function App() {
                               {durationLabel || "Length verifies on add"}
                             </span>
                           </div>
-                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || Boolean(addingSongKey)}>
+                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || Boolean(addingSongKey)} type="button">
                             <Plus aria-hidden="true" />
                             {isAddingThisSong ? "Adding" : "Add"}
                           </button>
@@ -3424,7 +3424,7 @@ function App() {
                             onChange={(event) => setYoutubeLink(event.target.value)}
                             placeholder="Paste song, album, or playlist link"
                           />
-                          <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)}>
+                          <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)} type="submit">
                             <Plus aria-hidden="true" />
                             {addingSongKey ? "Adding..." : "Add Link"}
                           </button>
@@ -3887,7 +3887,7 @@ function App() {
       )}
 
       {(toastEnabled || isImportantToast(toast)) && toast && (
-        <button className="toast" onClick={() => setToast("")} role={isImportantToast(toast) ? "alert" : "status"}>
+        <button className="toast" onClick={() => setToast("")} role={isImportantToast(toast) ? "alert" : "status"} type="button">
           {toast}
         </button>
       )}
@@ -4227,7 +4227,7 @@ function ExternalSearchTutorial({ onClose }) {
 function SignedOut({ nickname, setNickname, onGoogle }) {
   return (
     <div className="signed-out">
-      <button className="google-action" onClick={onGoogle}>
+      <button className="google-action" onClick={onGoogle} type="button">
         <span className="google-mark" aria-hidden="true">G</span>
         Continue with Google
       </button>
@@ -4261,7 +4261,7 @@ function SignedIn({ user, nickname, setNickname, onSignOut }) {
           maxLength={30}
         />
       )}
-      <button className="icon-button" onClick={onSignOut} title="Sign out">
+      <button className="icon-button" onClick={onSignOut} title="Sign out" type="button">
         <LogOut aria-hidden="true" />
       </button>
     </div>

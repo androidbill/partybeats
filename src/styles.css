@@ -3775,9 +3775,14 @@ input:focus {
   position: absolute;
   inset: 3px 0 auto;
   z-index: -1;
-  height: 92px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent);
-  animation: playingSheen 5.5s ease-in-out infinite;
+  height: 112px;
+  background:
+    linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.13) 18%, transparent 36%),
+    linear-gradient(90deg, rgba(255, 11, 132, 0.2), rgba(41, 214, 255, 0.12), rgba(247, 201, 72, 0.16));
+  background-size: 220% 100%, 100% 100%;
+  mix-blend-mode: screen;
+  opacity: 0.58;
+  animation: playingSheen 6.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
 }
 
 .now-playing-copy {
@@ -4132,13 +4137,19 @@ input:focus {
 }
 
 @keyframes playingSheen {
-  0%,
-  100% {
-    opacity: 0.32;
+  0% {
+    background-position: 170% 0, 0 0;
+    opacity: 0.24;
   }
 
-  50% {
-    opacity: 0.72;
+  38%,
+  62% {
+    opacity: 0.68;
+  }
+
+  100% {
+    background-position: -120% 0, 0 0;
+    opacity: 0.24;
   }
 }
 
