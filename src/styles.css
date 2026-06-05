@@ -1457,6 +1457,10 @@ input:focus {
   gap: 8px;
 }
 
+.clipboard-check-action {
+  width: 100%;
+}
+
 .compact-link-form {
   margin-bottom: 0;
 }

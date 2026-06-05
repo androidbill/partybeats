@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.11";
+const APP_VERSION = "2026.06.05.12";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1631,7 +1631,7 @@ function App() {
 
   async function checkExternalSearchClipboard() {
     if (!navigator.clipboard?.readText) {
-      setExternalClipboardMessage("Paste the copied YouTube link below.");
+      setExternalClipboardMessage("Tap Check Clipboard or paste the copied YouTube link below.");
       return;
     }
 
@@ -1642,7 +1642,7 @@ function App() {
       const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
       if (!videoId) {
         setExternalClipboardCandidate(null);
-        setExternalClipboardMessage("Paste the copied YouTube link below.");
+        setExternalClipboardMessage("No YouTube link found. Tap Check Clipboard again or paste it below.");
         return;
       }
       if (videoId === lastClipboardVideoIdRef.current) {
@@ -1656,7 +1656,7 @@ function App() {
       setExternalClipboardMessage("");
     } catch {
       setExternalClipboardCandidate(null);
-      setExternalClipboardMessage("Paste the copied YouTube link below.");
+      setExternalClipboardMessage("Tap Check Clipboard or paste the copied YouTube link below.");
     } finally {
       setExternalClipboardChecking(false);
     }
@@ -3353,8 +3353,12 @@ function App() {
                       <>
                         <div>
                           <strong>{externalClipboardChecking ? "Checking clipboard" : "Paste copied song link"}</strong>
-                          <span>{externalClipboardMessage || "Paste the link from YouTube Music, then add it to the playlist."}</span>
+                          <span>{externalClipboardMessage || "Tap Check Clipboard to find the copied YouTube Music link."}</span>
                         </div>
+                        <button className="primary-action clipboard-check-action" onClick={checkExternalSearchClipboard} disabled={externalClipboardChecking} type="button">
+                          <Plus aria-hidden="true" />
+                          {externalClipboardChecking ? "Checking..." : "Check Clipboard"}
+                        </button>
                         <form className="youtube-link-form compact-link-form" onSubmit={addSongFromLink}>
                           <input
                             value={youtubeLink}
