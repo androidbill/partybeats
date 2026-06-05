@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.6";
+const APP_VERSION = "2026.06.05.8";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
@@ -534,6 +534,7 @@ function App() {
   const playerCardRef = useRef(null);
   const externalYouTubeTabRef = useRef(null);
   const externalClipboardCheckPendingRef = useRef(false);
+  const externalSearchLeftAppRef = useRef(false);
   const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
@@ -565,7 +566,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    function closeExternalYouTubeTabOnReturn() {
+    function markExternalSearchLeftApp() {
+      if (externalClipboardCheckPendingRef.current) externalSearchLeftAppRef.current = true;
+    }
+
+    function handleExternalSearchReturn() {
+      if (document.visibilityState === "hidden") {
+        markExternalSearchLeftApp();
+        return;
+      }
       if (document.visibilityState !== "visible") return;
       try {
         const externalTab = externalYouTubeTabRef.current;
@@ -574,17 +583,22 @@ function App() {
         // Some browsers isolate YouTube's tab after navigation.
       }
       externalYouTubeTabRef.current = null;
-      if (externalClipboardCheckPendingRef.current) {
+      if (externalClipboardCheckPendingRef.current && externalSearchLeftAppRef.current) {
         externalClipboardCheckPendingRef.current = false;
+        externalSearchLeftAppRef.current = false;
         checkExternalSearchClipboard();
       }
     }
 
-    window.addEventListener("focus", closeExternalYouTubeTabOnReturn);
-    document.addEventListener("visibilitychange", closeExternalYouTubeTabOnReturn);
+    window.addEventListener("focus", handleExternalSearchReturn);
+    window.addEventListener("pagehide", markExternalSearchLeftApp);
+    window.addEventListener("pageshow", handleExternalSearchReturn);
+    document.addEventListener("visibilitychange", handleExternalSearchReturn);
     return () => {
-      window.removeEventListener("focus", closeExternalYouTubeTabOnReturn);
-      document.removeEventListener("visibilitychange", closeExternalYouTubeTabOnReturn);
+      window.removeEventListener("focus", handleExternalSearchReturn);
+      window.removeEventListener("pagehide", markExternalSearchLeftApp);
+      window.removeEventListener("pageshow", handleExternalSearchReturn);
+      document.removeEventListener("visibilitychange", handleExternalSearchReturn);
     };
   }, []);
 
@@ -1626,6 +1640,8 @@ function App() {
 
   async function cancelExternalPasteStep() {
     await clearClipboardAfterExternalSearch();
+    externalClipboardCheckPendingRef.current = false;
+    externalSearchLeftAppRef.current = false;
     resetExternalClipboardPrompt();
     setYoutubeLink("");
     setExternalSearchStep("search");
@@ -1740,6 +1756,7 @@ function App() {
     resetExternalClipboardPrompt();
     setExternalSearchStep("paste");
     externalClipboardCheckPendingRef.current = true;
+    externalSearchLeftAppRef.current = false;
     const isDesktop = window.matchMedia("(min-width: 760px)").matches;
     if (!isDesktop) {
       window.open(searchUrl, "_blank", "noopener,noreferrer");
@@ -1759,9 +1776,11 @@ function App() {
       setToast("YouTube Music was blocked. Allow popups for BP PartyBeats, then try again.");
       setExternalSearchStep("search");
       externalClipboardCheckPendingRef.current = false;
+      externalSearchLeftAppRef.current = false;
       return;
     }
     externalYouTubeTabRef.current = openedTab;
+    externalSearchLeftAppRef.current = true;
     openedTab.focus();
   }
 
