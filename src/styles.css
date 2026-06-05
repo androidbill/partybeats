@@ -4185,3 +4185,16 @@ input:focus {
     transform: none !important;
   }
 }
+
+@media (max-width: 979px) {
+  .add-sheet-backdrop {
+    align-items: start;
+    place-items: start center;
+    padding: max(10px, env(safe-area-inset-top)) 0 max(96px, env(safe-area-inset-bottom));
+  }
+
+  .add-sheet {
+    max-height: min(76dvh, 720px);
+    border-radius: 0 0 16px 16px;
+  }
+}
