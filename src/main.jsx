@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.10";
+const APP_VERSION = "2026.06.05.11";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -579,7 +579,6 @@ function App() {
     function runExternalClipboardCheck() {
       clearExternalClipboardCheckTimer();
       externalClipboardCheckPendingRef.current = false;
-      externalSearchLeftAppRef.current = false;
       externalSearchOpenedAtRef.current = 0;
       externalSearchLeftAtRef.current = 0;
       checkExternalSearchClipboard();
@@ -604,15 +603,17 @@ function App() {
         // Some browsers isolate YouTube's tab after navigation.
       }
       externalYouTubeTabRef.current = null;
-      if (externalClipboardCheckPendingRef.current && externalSearchLeftAppRef.current) {
+      if (externalClipboardCheckPendingRef.current) {
         const now = Date.now();
         const openedWaitRemaining = EXTERNAL_SEARCH_MIN_AWAY_MS - (now - externalSearchOpenedAtRef.current);
-        const leftWaitRemaining = EXTERNAL_SEARCH_MIN_AWAY_MS - (now - externalSearchLeftAtRef.current);
+        const leftWaitRemaining = externalSearchLeftAtRef.current
+          ? EXTERNAL_SEARCH_MIN_AWAY_MS - (now - externalSearchLeftAtRef.current)
+          : 0;
         const waitRemaining = Math.max(0, openedWaitRemaining, leftWaitRemaining);
         if (waitRemaining > 0) {
           clearExternalClipboardCheckTimer();
           externalClipboardCheckTimerRef.current = window.setTimeout(() => {
-            if (document.visibilityState === "visible" && externalClipboardCheckPendingRef.current && externalSearchLeftAppRef.current) {
+            if (document.visibilityState === "visible" && externalClipboardCheckPendingRef.current) {
               runExternalClipboardCheck();
             }
           }, waitRemaining);
