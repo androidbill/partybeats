@@ -118,7 +118,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.17";
+const APP_VERSION = "2026.06.05.18";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -434,6 +434,21 @@ function roomActivityUpdate() {
   };
 }
 
+function compareAppVersions(left, right) {
+  const leftParts = String(left || "").split(".").map((part) => Number(part) || 0);
+  const rightParts = String(right || "").split(".").map((part) => Number(part) || 0);
+  const length = Math.max(leftParts.length, rightParts.length, 4);
+  for (let index = 0; index < length; index += 1) {
+    const delta = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
+function newerAppVersion(left, right) {
+  return compareAppVersions(left, right) >= 0 ? left : right;
+}
+
 function isImportantToast(message) {
   return /could not|cannot|can't|failed|blocked|unavailable|expired|closed|removed|permission|only the|choose a|sign in|allow popups|no previous|no available|does not exist/i.test(
     String(message || "")
@@ -526,6 +541,7 @@ function App() {
   const [playerChoicePrompt, setPlayerChoicePrompt] = useState(null);
   const [dismissedPlayerPromptKey, setDismissedPlayerPromptKey] = useState("");
   const [volumeControlOpen, setVolumeControlOpen] = useState(false);
+  const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
@@ -866,6 +882,8 @@ function App() {
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
   const roomSyncing = roomLoading || songsLoading || membersLoading;
+  const latestRoomVersion = room?.latestAppVersion || room?.appVersion || APP_VERSION;
+  const appNeedsRefresh = Boolean(activeRoomId && room && compareAppVersions(APP_VERSION, latestRoomVersion) < 0);
   const nowPlayingSyncing = Boolean(room?.nowPlayingId && !nowPlayingSong && songsLoading);
   const roomNeedsFirstTrack = !songsLoading && songs.length === 0 && !room?.nowPlayingId;
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
@@ -1307,6 +1325,9 @@ function App() {
             activeDjUid: user.uid,
             activeDjName: activeNickname,
             activePlayerDeviceId: deviceId,
+            appVersion: APP_VERSION,
+            latestAppVersion: APP_VERSION,
+            latestAppVersionUpdatedAt: serverTimestamp(),
             createdAt: serverTimestamp(),
             ...roomActivityUpdate(),
             closed: false,
@@ -1376,14 +1397,22 @@ function App() {
         {
           uid: joiningUser.uid,
           isAnonymous: joiningUser.isAnonymous,
+          appVersion: APP_VERSION,
+          appVersionSeenAt: serverTimestamp(),
           ...(memberSnap?.exists() ? {} : { name: roomNickname }),
           ...(memberSnap?.exists() ? {} : { joinedAt: serverTimestamp() })
         },
         { merge: true }
       );
-      await updateDoc(doc(db, "rooms", nextRoomId), roomActivityUpdate()).catch(() => undefined);
+      const roomData = roomSnap.data();
+      const latestAppVersion = newerAppVersion(roomData.latestAppVersion || roomData.appVersion || APP_VERSION, APP_VERSION);
+      await updateDoc(doc(db, "rooms", nextRoomId), {
+        latestAppVersion,
+        latestAppVersionUpdatedAt: serverTimestamp(),
+        ...roomActivityUpdate()
+      }).catch(() => undefined);
       setNickname(roomNickname);
-      setRoom({ id: nextRoomId, ...roomSnap.data() });
+      setRoom({ id: nextRoomId, ...roomData, latestAppVersion });
       setRoomLoading(false);
       setSongsLoading(true);
       setMembersLoading(true);
@@ -2359,6 +2388,7 @@ function App() {
     setSongMessages([]);
     setPlayerChoicePrompt(null);
     setDismissedPlayerPromptKey("");
+    setDismissedVersionPrompt("");
     setRoomLoading(false);
     setSongsLoading(false);
     setMembersLoading(false);
@@ -2763,6 +2793,23 @@ function App() {
           </div>
         </div>
       </header>
+
+      {appNeedsRefresh && dismissedVersionPrompt !== latestRoomVersion && (
+        <div className="version-refresh-banner" role="alert">
+          <Info aria-hidden="true" />
+          <div>
+            <strong>Refresh PartyBeats</strong>
+            <span>You are running {APP_VERSION}. Latest is {latestRoomVersion}.</span>
+          </div>
+          <button className="primary-action" onClick={refreshApp} type="button">
+            <RotateCcw aria-hidden="true" />
+            Refresh
+          </button>
+          <button className="icon-button" onClick={() => setDismissedVersionPrompt(latestRoomVersion)} title="Dismiss" type="button">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       <section
         ref={playerCardRef}
