@@ -118,9 +118,10 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.8";
+const APP_VERSION = "2026.06.05.9";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
+const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -535,6 +536,8 @@ function App() {
   const externalYouTubeTabRef = useRef(null);
   const externalClipboardCheckPendingRef = useRef(false);
   const externalSearchLeftAppRef = useRef(false);
+  const externalSearchOpenedAtRef = useRef(0);
+  const externalSearchLeftAtRef = useRef(0);
   const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
@@ -567,7 +570,9 @@ function App() {
 
   useEffect(() => {
     function markExternalSearchLeftApp() {
-      if (externalClipboardCheckPendingRef.current) externalSearchLeftAppRef.current = true;
+      if (!externalClipboardCheckPendingRef.current) return;
+      externalSearchLeftAppRef.current = true;
+      if (!externalSearchLeftAtRef.current) externalSearchLeftAtRef.current = Date.now();
     }
 
     function handleExternalSearchReturn() {
@@ -584,8 +589,14 @@ function App() {
       }
       externalYouTubeTabRef.current = null;
       if (externalClipboardCheckPendingRef.current && externalSearchLeftAppRef.current) {
+        const now = Date.now();
+        const openedLongEnoughAgo = now - externalSearchOpenedAtRef.current >= EXTERNAL_SEARCH_MIN_AWAY_MS;
+        const leftLongEnoughAgo = now - externalSearchLeftAtRef.current >= EXTERNAL_SEARCH_MIN_AWAY_MS;
+        if (!openedLongEnoughAgo || !leftLongEnoughAgo) return;
         externalClipboardCheckPendingRef.current = false;
         externalSearchLeftAppRef.current = false;
+        externalSearchOpenedAtRef.current = 0;
+        externalSearchLeftAtRef.current = 0;
         checkExternalSearchClipboard();
       }
     }
@@ -1642,6 +1653,8 @@ function App() {
     await clearClipboardAfterExternalSearch();
     externalClipboardCheckPendingRef.current = false;
     externalSearchLeftAppRef.current = false;
+    externalSearchOpenedAtRef.current = 0;
+    externalSearchLeftAtRef.current = 0;
     resetExternalClipboardPrompt();
     setYoutubeLink("");
     setExternalSearchStep("search");
@@ -1757,6 +1770,8 @@ function App() {
     setExternalSearchStep("paste");
     externalClipboardCheckPendingRef.current = true;
     externalSearchLeftAppRef.current = false;
+    externalSearchOpenedAtRef.current = Date.now();
+    externalSearchLeftAtRef.current = 0;
     const isDesktop = window.matchMedia("(min-width: 760px)").matches;
     if (!isDesktop) {
       window.open(searchUrl, "_blank", "noopener,noreferrer");
@@ -1777,10 +1792,13 @@ function App() {
       setExternalSearchStep("search");
       externalClipboardCheckPendingRef.current = false;
       externalSearchLeftAppRef.current = false;
+      externalSearchOpenedAtRef.current = 0;
+      externalSearchLeftAtRef.current = 0;
       return;
     }
     externalYouTubeTabRef.current = openedTab;
     externalSearchLeftAppRef.current = true;
+    externalSearchLeftAtRef.current = Date.now();
     openedTab.focus();
   }
 
