@@ -1,3 +1,4 @@
+/* PartyBeats — Premium Edition 2026.06.05 */
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -2911,7 +2912,7 @@ function App() {
                 <RotateCcw aria-hidden="true" />
                 Replay Last
               </button>
-              <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
+              <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
                 <SkipForward aria-hidden="true" />
                 Next
               </button>
@@ -2938,7 +2939,7 @@ function App() {
               <RotateCcw aria-hidden="true" />
               Replay Last
             </button>
-            <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
+            <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
               <SkipForward aria-hidden="true" />
               Next
             </button>

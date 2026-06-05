@@ -4244,3 +4244,927 @@ input:focus {
     border-radius: 0 0 16px 16px;
   }
 }
+/* ============================================================
+   PARTYBEATS — PREMIUM DESIGN SYSTEM ADDITIONS
+   Applied on top of base styles.css
+   ============================================================ */
+
+/* Premium font import — Syne (display) + DM Sans (body) */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;0,9..40,800;0,9..40,900;1,9..40,400&display=swap');
+
+/* ===================== DESIGN TOKEN OVERRIDE ======================== */
+:root {
+  /* Premium color palette */
+  --pb-bg-light: #f5f3ee;
+  --pb-bg-dark: #0d0f16;
+  --pb-surface-light: rgba(255, 255, 255, 0.92);
+  --pb-surface-dark: rgba(18, 22, 32, 0.94);
+  --pb-ink-light: #14151c;
+  --pb-ink-dark: #eef0f7;
+  --pb-muted-light: #62677a;
+  --pb-muted-dark: #9aa2b8;
+
+  /* Brand accent — electric gold stays, with refined supporting palette */
+  --pb-accent: #f7c948;
+  --pb-accent-glow: rgba(247, 201, 72, 0.28);
+  --pb-teal: #39c6a3;
+  --pb-teal-glow: rgba(57, 198, 163, 0.22);
+  --pb-pink: #ff4f82;
+  --pb-pink-glow: rgba(255, 79, 130, 0.22);
+  --pb-blue: #3b82f6;
+
+  /* Premium shadows */
+  --shadow-card-light: 0 2px 4px rgba(20, 21, 28, 0.04), 0 8px 24px rgba(20, 21, 28, 0.08), 0 24px 48px rgba(20, 21, 28, 0.06);
+  --shadow-card-dark: 0 2px 4px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.28), 0 24px 48px rgba(0, 0, 0, 0.32);
+  --shadow-float: 0 20px 60px rgba(20, 21, 28, 0.18), 0 4px 12px rgba(20, 21, 28, 0.08);
+
+  /* Border radii — more refined */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* Typography */
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+
+  /* Transitions */
+  --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: 140ms var(--ease-snappy);
+  --transition-base: 200ms var(--ease-snappy);
+  --transition-slow: 320ms var(--ease-snappy);
+}
+
+/* ===================== GLOBAL TYPE UPGRADE ======================== */
+:root {
+  font-family: var(--font-body);
+  background: var(--pb-bg-light);
+  color: var(--pb-ink-light);
+  letter-spacing: -0.008em;
+}
+
+h1, h2, h3, h4, h5, h6,
+.brand-mark,
+.topbar-brand strong,
+.queue-header h2,
+.modal-header h2,
+.now-playing-card h1 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* ===================== LANDING SCREEN — PREMIUM ======================== */
+.landing-shell {
+  background:
+    linear-gradient(180deg, rgba(13, 15, 22, 0.22) 0%, rgba(13, 15, 22, 0.82) 100%),
+    url("https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1400&q=80") center/cover no-repeat fixed;
+}
+
+.landing-copy h1 {
+  font-family: var(--font-display);
+  letter-spacing: -0.04em;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.32);
+}
+
+.brand-mark {
+  background: rgba(13, 15, 22, 0.6);
+  border-color: rgba(255, 255, 255, 0.18);
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+
+/* Auth & room card premium polish */
+.auth-panel,
+.room-card {
+  border-radius: var(--radius-lg);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(13, 15, 22, 0.6);
+  backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.auth-panel input,
+.room-card input {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border-radius: var(--radius-md);
+}
+
+.auth-panel input::placeholder,
+.room-card input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.auth-panel input:focus,
+.room-card input:focus {
+  border-color: var(--pb-accent);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 0 4px rgba(247, 201, 72, 0.2);
+}
+
+.auth-note {
+  border-top-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.auth-note strong {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.room-card h2 {
+  color: #ffffff;
+  font-family: var(--font-display);
+}
+
+.room-card p.muted {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ===================== PRIMARY ACTION — PREMIUM BUTTON ======================== */
+.primary-action {
+  border-radius: var(--radius-md);
+  background: var(--pb-accent);
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 14px rgba(247, 201, 72, 0.38), 0 1px 3px rgba(247, 201, 72, 0.24);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.primary-action:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(247, 201, 72, 0.44), 0 2px 6px rgba(247, 201, 72, 0.3);
+}
+
+.primary-action:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(247, 201, 72, 0.3);
+}
+
+/* ===================== ROOM APP — DARK MODE PREMIUM ======================== */
+.room-app.dark-mode {
+  background: var(--pb-bg-dark);
+  --pb-surface: var(--pb-surface-dark);
+}
+
+/* Subtle noise texture for depth on dark bg */
+.room-app.dark-mode::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+  opacity: 1;
+}
+
+/* ===================== TOPBAR — PREMIUM ======================== */
+.app-topbar {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  border-bottom-color: rgba(23, 24, 31, 0.07);
+  box-shadow: 0 1px 0 rgba(23, 24, 31, 0.05), 0 4px 16px rgba(23, 24, 31, 0.05);
+}
+
+.room-app.dark-mode .app-topbar {
+  background: rgba(13, 15, 22, 0.94);
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.topbar-brand strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+/* ===================== ICON BUTTONS — PREMIUM ======================== */
+.icon-button {
+  border-radius: var(--radius-md);
+  transition:
+    transform var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.icon-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(23, 24, 31, 0.1);
+}
+
+.qr-toggle {
+  background: linear-gradient(135deg, var(--pb-pink) 0%, #63d7ff 100%);
+  box-shadow: 0 4px 12px rgba(255, 79, 130, 0.28);
+}
+
+.qr-toggle:hover {
+  box-shadow: 0 6px 18px rgba(255, 79, 130, 0.38);
+}
+
+/* ===================== NOW PLAYING CARD — PREMIUM ======================== */
+.now-playing-card {
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse at top left, rgba(255, 79, 130, 0.2), transparent 42%),
+    radial-gradient(ellipse at bottom right, rgba(57, 198, 163, 0.16), transparent 44%),
+    linear-gradient(160deg, #1a1c26 0%, #0d0f16 100%);
+  box-shadow: var(--shadow-card-dark);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.now-playing-card h1 {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+.now-playing-card > .now-playing-copy > span {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+}
+
+/* Now playing shimmer — premium glow bar */
+.now-playing-card.has-track::before {
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--pb-pink) 25%,
+    var(--pb-accent) 50%,
+    var(--pb-teal) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerBar 3s ease-in-out infinite;
+}
+
+@keyframes shimmerBar {
+  0% { background-position: 200% 0; opacity: 0.7; }
+  50% { background-position: 0% 0; opacity: 1; }
+  100% { background-position: -200% 0; opacity: 0.7; }
+}
+
+/* ===================== DJ CONTROL DECK — PREMIUM ======================== */
+.dj-control-deck {
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+/* ===================== QUEUE / SONG ROWS — PREMIUM ======================== */
+.queue-panel {
+  border-radius: var(--radius-lg);
+}
+
+.room-app.dark-mode .queue-panel {
+  background: rgba(16, 19, 28, 0.96);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: var(--shadow-card-dark);
+}
+
+.song-row {
+  border-radius: var(--radius-md);
+  transition:
+    background var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    opacity var(--transition-base),
+    transform var(--transition-base);
+}
+
+.song-row:hover:not(.is-playing):not(.is-reacting) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(20, 21, 28, 0.08);
+}
+
+.room-app.dark-mode .song-row {
+  background: rgba(22, 26, 38, 0.9);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.room-app.dark-mode .song-row:hover:not(.is-playing):not(.is-reacting) {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+/* Playing row — ultra premium */
+.song-row.is-playing {
+  background:
+    linear-gradient(90deg, rgba(57, 198, 163, 0.22), rgba(255, 255, 255, 0.97) 48%),
+    #ffffff;
+  border-color: rgba(57, 198, 163, 0.65);
+  box-shadow:
+    inset 4px 0 0 var(--pb-teal),
+    0 8px 24px rgba(57, 198, 163, 0.14),
+    0 2px 6px rgba(57, 198, 163, 0.08);
+}
+
+.room-app.dark-mode .song-row.is-playing {
+  background:
+    linear-gradient(90deg, rgba(57, 198, 163, 0.2), rgba(22, 26, 38, 0.97) 48%),
+    rgba(22, 26, 38, 0.9);
+  box-shadow:
+    inset 4px 0 0 var(--pb-teal),
+    0 8px 24px rgba(57, 198, 163, 0.18),
+    0 2px 6px rgba(57, 198, 163, 0.1);
+}
+
+/* Track typography */
+.track-line strong {
+  font-weight: 700;
+  font-size: 0.83rem;
+  letter-spacing: -0.01em;
+}
+
+.track-line b {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+}
+
+/* ===================== SEARCH RESULTS — PREMIUM ======================== */
+.search-result {
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 3px rgba(20, 21, 28, 0.06);
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.search-result:hover {
+  transform: translateY(-2px);
+  border-color: rgba(57, 198, 163, 0.32);
+  box-shadow: 0 8px 24px rgba(20, 21, 28, 0.1);
+}
+
+/* ===================== MODALS & PANELS — PREMIUM ======================== */
+.about-modal {
+  border-radius: var(--radius-xl);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.28), 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.room-app.dark-mode .about-modal {
+  background: #13172199;
+  backdrop-filter: blur(32px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.room-panel {
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.room-app.dark-mode .room-panel {
+  background: #131721;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 0;
+}
+
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+}
+
+/* ===================== FAB — PREMIUM ======================== */
+.add-song-fab {
+  border-radius: var(--radius-pill);
+  background: var(--pb-accent);
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  box-shadow:
+    0 8px 24px rgba(247, 201, 72, 0.42),
+    0 2px 8px rgba(247, 201, 72, 0.28),
+    0 0 0 1px rgba(247, 201, 72, 0.18);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.add-song-fab:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 14px 36px rgba(247, 201, 72, 0.5),
+    0 4px 12px rgba(247, 201, 72, 0.36),
+    0 0 0 1px rgba(247, 201, 72, 0.22);
+}
+
+.add-song-fab:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+/* ===================== TOAST — PREMIUM ======================== */
+.toast {
+  border-radius: var(--radius-md);
+  background: rgba(20, 22, 30, 0.96);
+  backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32), 0 4px 12px rgba(0, 0, 0, 0.18);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ===================== NOTICE BUBBLES — PREMIUM ======================== */
+.notice-bubble {
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+
+.room-app.dark-mode .notice-bubble {
+  background: rgba(22, 26, 38, 0.96);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ===================== TABS — PREMIUM ======================== */
+.search-tabs,
+.panel-tabs {
+  border-radius: var(--radius-md);
+  background: rgba(23, 24, 31, 0.07);
+}
+
+.search-tabs button,
+.panel-tabs button {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: -0.01em;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.search-tabs button.is-active,
+.panel-tabs button.is-active {
+  box-shadow: 0 2px 8px rgba(247, 201, 72, 0.22);
+}
+
+.search-tabs button:hover:not(.is-active),
+.panel-tabs button:hover:not(.is-active) {
+  background: rgba(23, 24, 31, 0.06);
+}
+
+/* ===================== INPUT FIELDS — PREMIUM ======================== */
+input:not([type="range"]) {
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+
+input:not([type="range"]):focus {
+  border-color: var(--pb-accent);
+  box-shadow: 0 0 0 4px rgba(247, 201, 72, 0.16), 0 1px 3px rgba(20, 21, 28, 0.08);
+}
+
+/* ===================== SECTION LABELS — UPPERCASE STYLE ======================== */
+.now-playing-card > .now-playing-copy > span {
+  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+/* ===================== EMOJI POPOVER — PREMIUM ======================== */
+.emoji-popover {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(18, 19, 26, 0.28), 0 4px 12px rgba(18, 19, 26, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.room-app.dark-mode .emoji-popover {
+  background: rgba(22, 26, 38, 0.98);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.emoji-popover button {
+  border-radius: var(--radius-md);
+  transition:
+    transform var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.emoji-popover button:hover {
+  transform: scale(1.15);
+  background: rgba(247, 201, 72, 0.14);
+}
+
+/* ===================== ANALYTICS & SETTINGS PANELS — PREMIUM ======================== */
+.about-grid div,
+.analytics-grid div,
+.diagnostics-grid div {
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(23, 24, 31, 0.06);
+}
+
+.room-app.dark-mode .about-grid div,
+.room-app.dark-mode .analytics-grid div,
+.room-app.dark-mode .diagnostics-grid div {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* ===================== TOGGLE BUTTON — PREMIUM ======================== */
+.toggle-button {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.toggle-button.is-on {
+  box-shadow: 0 4px 12px rgba(247, 201, 72, 0.3);
+}
+
+.toggle-button:hover {
+  transform: scale(1.03);
+}
+
+/* ===================== PLAYER ERROR OVERLAY — PREMIUM ======================== */
+.player-error-overlay {
+  border-radius: var(--radius-md);
+  background: rgba(12, 13, 18, 0.96);
+  backdrop-filter: blur(8px);
+}
+
+/* ===================== SONG INDEX BADGE ======================== */
+.song-index {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+/* ===================== ADMIN PILL ======================== */
+.admin-pill {
+  font-family: var(--font-display);
+  font-size: 0.76rem;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 12px rgba(247, 201, 72, 0.3);
+}
+
+/* ===================== PLAYBACK STATUS PILL ======================== */
+.playback-status {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+
+/* ===================== VERSION REFRESH BANNER ======================== */
+.version-refresh-banner {
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+}
+
+/* ===================== MINI ACTIONS — PREMIUM ======================== */
+.mini-action {
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: -0.01em;
+  transition:
+    transform var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.mini-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.stop-action {
+  box-shadow: 0 4px 12px rgba(200, 50, 86, 0.2);
+}
+
+.player-fullscreen-toggle {
+  background: linear-gradient(135deg, var(--pb-blue), #29d6ff);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.28);
+}
+
+/* ===================== LYRICS BUTTON — PREMIUM ======================== */
+.lyrics-corner-button {
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.lyrics-corner-button:hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+}
+
+/* ===================== QUEUE HEADER ======================== */
+.queue-header h2 {
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+}
+
+.queue-header strong {
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+}
+
+/* ===================== ROOM QR SECTION ======================== */
+.room-qr {
+  border-radius: var(--radius-lg);
+  background: rgba(57, 198, 163, 0.07);
+  border: 1px solid rgba(57, 198, 163, 0.16);
+}
+
+.room-app.dark-mode .room-qr {
+  background: rgba(57, 198, 163, 0.09);
+  border-color: rgba(57, 198, 163, 0.2);
+}
+
+/* ===================== CLIPBOARD TRACK CARD ======================== */
+.clipboard-track {
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(23, 24, 31, 0.08);
+}
+
+.room-app.dark-mode .clipboard-track {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ===================== OVERFLOW MENU — PREMIUM ======================== */
+.overflow-menu {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(18, 19, 26, 0.22), 0 4px 12px rgba(18, 19, 26, 0.1);
+}
+
+.overflow-menu button {
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  letter-spacing: -0.01em;
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.overflow-menu button:hover {
+  transform: translateX(2px);
+}
+
+/* ===================== DANGER BUTTON ======================== */
+.danger-action {
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.danger-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(197, 43, 74, 0.28);
+}
+
+/* ===================== GOOGLE ACTION BUTTON ======================== */
+.google-action {
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.google-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(60, 64, 67, 0.16);
+}
+
+/* ===================== TRACK TAGS ======================== */
+.track-line em {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+}
+
+/* ===================== SONG MESSAGES ======================== */
+.song-message {
+  border-radius: var(--radius-sm);
+  font-size: 0.74rem;
+}
+
+/* ===================== MEMBER ROW ======================== */
+.people-panel .member-row {
+  border-top-color: rgba(23, 24, 31, 0.06);
+}
+
+.room-app.dark-mode .people-panel .member-row {
+  border-top-color: rgba(255, 255, 255, 0.07);
+}
+
+/* ===================== MINI LINK ======================== */
+.mini-link {
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: -0.01em;
+  border: 1px solid rgba(23, 24, 31, 0.1);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.mini-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(20, 21, 28, 0.1);
+}
+
+.room-app.dark-mode .mini-link {
+  color: #f6f7fb;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ===================== EXTERNAL SEARCH PANEL ======================== */
+.external-search-panel {
+  border-radius: var(--radius-md);
+  background: rgba(247, 201, 72, 0.12);
+  border: 1px solid rgba(247, 201, 72, 0.2);
+}
+
+/* ===================== TUTORIAL CARD ======================== */
+.tutorial-card {
+  border-radius: var(--radius-xl);
+}
+
+.tutorial-backdrop .tutorial-card {
+  border-radius: var(--radius-xl);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.28);
+}
+
+/* ===================== SETUP MISSING ======================== */
+.setup-missing {
+  background:
+    radial-gradient(ellipse at top, rgba(57, 198, 163, 0.1), transparent 50%),
+    #0d0f16;
+}
+
+.setup-missing h1 {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+/* ===================== FOCUS VISIBLE — ACCESSIBILITY ======================== */
+:focus-visible {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 3px;
+}
+
+/* ===================== SCROLLBAR — PREMIUM ======================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(23, 24, 31, 0.16) transparent;
+}
+
+.room-app.dark-mode * {
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(23, 24, 31, 0.16);
+  border-radius: 99px;
+}
+
+.room-app.dark-mode *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ===================== DESKTOP PANEL DIVIDER — PREMIUM ======================== */
+.desktop-panel-divider span {
+  background: color-mix(in srgb, var(--pb-accent) 48%, rgba(128, 128, 128, 0.45));
+  border-radius: 4px;
+  transition:
+    width var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.desktop-panel-divider:hover span,
+.desktop-panel-divider:focus-visible span {
+  background: var(--pb-accent);
+  box-shadow: 0 0 0 4px rgba(247, 201, 72, 0.16);
+}
+
+/* ===================== LOADING / SYNCING STATE ======================== */
+.syncing-state svg {
+  color: var(--pb-teal);
+}
+
+/* ===================== VOLUME POPOVER — PREMIUM ======================== */
+.volume-popover {
+  border-radius: var(--radius-md);
+  background: rgba(16, 18, 28, 0.96);
+  backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.3);
+}
+
+/* ===================== ADD SHEET — PREMIUM ======================== */
+.add-sheet {
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+.room-app.dark-mode .add-panel {
+  background: #131721;
+}
+
+/* ===================== PLAYER FULLSCREEN — PREMIUM ======================== */
+.now-playing-card.is-fullscreen-player {
+  background:
+    radial-gradient(ellipse at top left, rgba(247, 201, 72, 0.16), transparent 40%),
+    radial-gradient(ellipse at bottom right, rgba(57, 198, 163, 0.12), transparent 44%),
+    linear-gradient(160deg, #1a1c26 0%, #0d0f16 100%);
+}
+
+/* ===================== REACTION STRIP ======================== */
+.emoji-summary {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: -0.01em;
+}
+
+/* ===================== LANDING VERSION ======================== */
+.landing-version {
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  opacity: 0.72;
+}
+
+/* ===================== PLAYER EMPTY STATE ======================== */
+.player-empty {
+  background:
+    radial-gradient(ellipse at center, rgba(255, 79, 130, 0.08), rgba(41, 214, 255, 0.06)),
+    #0c0d12;
+}
+
+.player-empty svg {
+  opacity: 0.4;
+  width: 48px;
+  height: 48px;
+  color: var(--pb-accent);
+}
+
+/* ===================== QUEUE PANEL PREMIUM (light) ======================== */
+.now-playing-card,
+.add-panel,
+.queue-panel,
+.people-panel {
+  box-shadow: var(--shadow-card-light);
+}
+
+.room-app.dark-mode .now-playing-card,
+.room-app.dark-mode .add-panel,
+.room-app.dark-mode .queue-panel,
+.room-app.dark-mode .people-panel {
+  box-shadow: var(--shadow-card-dark);
+}
+
+/* ===================== SMOOTH SCROLLING ======================== */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
