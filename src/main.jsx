@@ -136,7 +136,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.03";
+const APP_VERSION = "2026.06.10.04";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -522,7 +522,7 @@ function App() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [creatingRoom, setCreatingRoom] = useState(false);
   const [toast, setToast] = useState("");
-  const [searchMode, setSearchMode] = useState("internal");
+  const [searchMode, setSearchMode] = useState("external");
   const [searchQuery, setSearchQuery] = useState("");
   const [youtubeLink, setYoutubeLink] = useState("");
   const [externalSearchStep, setExternalSearchStep] = useState("search");
@@ -921,6 +921,14 @@ function App() {
   const trackNoticeSeconds = Math.min(30, Math.max(1, Number(room?.trackNoticeSeconds) || DEFAULT_TRACK_NOTICE_SECONDS));
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
   const toastEnabled = room?.toastEnabled === true;
+  const internalSearchEnabled = room?.internalSearchEnabled === true;
+
+  useEffect(() => {
+    if (!internalSearchEnabled && searchMode === "internal") {
+      setSearchMode("external");
+    }
+  }, [internalSearchEnabled, searchMode]);
+
   const memberRecord = members.find((member) => member.id === user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
@@ -1386,6 +1394,7 @@ function App() {
             trackNoticeSeconds: DEFAULT_TRACK_NOTICE_SECONDS,
             joinNoticeEnabled: true,
             toastEnabled: false,
+            internalSearchEnabled: false,
             roomVolume: 80,
             nowPlayingId: null
           });
@@ -2537,6 +2546,11 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { toastEnabled: enabled, ...roomActivityUpdate() });
   }
 
+  async function updateInternalSearchEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { internalSearchEnabled: enabled, ...roomActivityUpdate() });
+  }
+
   async function leaveRoom() {
     const leavingRoomId = activeRoomId;
     const leavingUser = user;
@@ -3454,28 +3468,30 @@ function App() {
               </button>
             </div>
 
-            <div className="search-tabs" role="tablist" aria-label="Song search mode">
-              <button
-                className={searchMode === "internal" ? "is-active" : ""}
-                onClick={() => setSearchMode("internal")}
-                type="button"
-                role="tab"
-                aria-selected={searchMode === "internal"}
-              >
-                Internal Search
-              </button>
-              <button
-                className={searchMode === "external" ? "is-active" : ""}
-                onClick={() => setSearchMode("external")}
-                type="button"
-                role="tab"
-                aria-selected={searchMode === "external"}
-              >
-                External Search
-              </button>
-            </div>
+            {internalSearchEnabled && (
+              <div className="search-tabs" role="tablist" aria-label="Song search mode">
+                <button
+                  className={searchMode === "external" ? "is-active" : ""}
+                  onClick={() => setSearchMode("external")}
+                  type="button"
+                  role="tab"
+                  aria-selected={searchMode === "external"}
+                >
+                  External Search
+                </button>
+                <button
+                  className={searchMode === "internal" ? "is-active" : ""}
+                  onClick={() => setSearchMode("internal")}
+                  type="button"
+                  role="tab"
+                  aria-selected={searchMode === "internal"}
+                >
+                  Internal Search
+                </button>
+              </div>
+            )}
 
-            {searchMode === "internal" ? (
+            {internalSearchEnabled && searchMode === "internal" ? (
               <>
                 <form className="youtube-search" onSubmit={searchYouTube}>
                   <input
@@ -3880,6 +3896,20 @@ function App() {
                     type="button"
                   >
                     {toastEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Internal search</strong>
+                    <span>{internalSearchEnabled ? "Show internal and external search options" : "Only external song adding is available"}</span>
+                  </div>
+                  <button
+                    className={internalSearchEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateInternalSearchEnabled(!internalSearchEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {internalSearchEnabled ? "On" : "Off"}
                   </button>
                 </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
