@@ -137,7 +137,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.10";
+const APP_VERSION = "2026.06.10.11";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4516,7 +4516,9 @@ function YouTubePlayer({
       song?.videoId ? "player-frame" : "player-frame is-empty",
       visualizerEnabled && song?.videoId ? "is-visualizer" : ""
     ].filter(Boolean).join(" ")}>
-      <div className="youtube-frame" id={containerId.current} />
+      <div className="youtube-frame">
+        <div className="youtube-target" id={containerId.current} />
+      </div>
       {visualizerEnabled && song?.videoId && (
         <MusicVisualizer
           song={song}
