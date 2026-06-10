@@ -16,6 +16,7 @@ import {
   MoreVertical,
   Music2,
   Palette,
+  Pause,
   Pencil,
   Play,
   Plus,
@@ -136,7 +137,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.06";
+const APP_VERSION = "2026.06.10.07";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4238,6 +4239,7 @@ function YouTubePlayer({
   const playerReadyRef = useRef(false);
   const errorHandledSongRef = useRef("");
   const [playerError, setPlayerError] = useState("");
+  const [localPlaybackState, setLocalPlaybackState] = useState("paused");
 
   useEffect(() => {
     endedRef.current = onEnded;
@@ -4275,12 +4277,14 @@ function YouTubePlayer({
         playerTimerRef.current = null;
       }
       player.stopVideo?.();
+      setLocalPlaybackState("paused");
       return;
     }
     crossfadeTriggeredRef.current = false;
     lastPlaybackReportRef.current = 0;
     player.seekTo?.(0, true);
     player.playVideo?.();
+    setLocalPlaybackState("playing");
   }, [song?.id, playbackState?.songId, playbackState?.command, playbackState?.commandId, playbackState?.commandAt]);
 
   useEffect(() => {
@@ -4294,6 +4298,12 @@ function YouTubePlayer({
       playerRef.current?.setVolume?.(volumeRef.current);
     }
   }, [volume]);
+
+  useEffect(() => {
+    if (!song?.id || playbackState?.state === "paused") {
+      setLocalPlaybackState("paused");
+    }
+  }, [song?.id, playbackState?.state]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4414,9 +4424,11 @@ function YouTubePlayer({
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
+              setLocalPlaybackState("playing");
               if (pauseAfterLoadRef.current) {
                 pauseAfterLoadRef.current = false;
                 event.target.pauseVideo?.();
+                setLocalPlaybackState("paused");
                 reportPlayback(event.target, "paused", true);
                 return;
               }
@@ -4424,12 +4436,17 @@ function YouTubePlayer({
               startPlaybackTimer(event.target);
             }
             if (event.data === window.YT.PlayerState.PAUSED) {
+              setLocalPlaybackState("paused");
               stopPlaybackTimer();
               reportPlayback(event.target, "paused", true);
             }
             if (event.data === window.YT.PlayerState.ENDED) {
+              setLocalPlaybackState("paused");
               stopPlaybackTimer();
               endedRef.current?.();
+            }
+            if (event.data === window.YT.PlayerState.CUED || event.data === window.YT.PlayerState.UNSTARTED) {
+              setLocalPlaybackState("paused");
             }
           },
           onError: (event) => {
@@ -4463,6 +4480,33 @@ function YouTubePlayer({
     };
   }, []);
 
+  function syncVisualizerPlaybackState(state) {
+    const player = playerRef.current;
+    playbackUpdateRef.current?.({
+      songId: song.id,
+      seconds: Math.max(0, Number(player?.getCurrentTime?.()) || Number(playbackRef.current?.seconds) || 0),
+      state
+    });
+  }
+
+  function toggleVisualizerPlayback() {
+    const player = playerRef.current;
+    if (!song?.id || !playerReadyRef.current || !player) return;
+    const ytState = player.getPlayerState?.();
+    const isPlaying = ytState === window.YT?.PlayerState?.PLAYING || localPlaybackState === "playing";
+
+    if (isPlaying) {
+      player.pauseVideo?.();
+      setLocalPlaybackState("paused");
+      syncVisualizerPlaybackState("paused");
+      return;
+    }
+
+    player.playVideo?.();
+    setLocalPlaybackState("playing");
+    syncVisualizerPlaybackState("playing");
+  }
+
   return (
     <div className={[
       song?.videoId ? "player-frame" : "player-frame is-empty",
@@ -4470,7 +4514,12 @@ function YouTubePlayer({
     ].filter(Boolean).join(" ")}>
       <div className="youtube-frame" id={containerId.current} />
       {visualizerEnabled && song?.videoId && (
-        <MusicVisualizer song={song} displayTrack={displayTrack} playbackState={playbackState} />
+        <MusicVisualizer
+          song={song}
+          displayTrack={displayTrack}
+          isPlaying={localPlaybackState === "playing"}
+          onTogglePlayback={toggleVisualizerPlayback}
+        />
       )}
       {!song?.videoId && (
         <div className="player-empty">
@@ -4488,13 +4537,12 @@ function YouTubePlayer({
   );
 }
 
-function MusicVisualizer({ song, displayTrack, playbackState }) {
-  const isPlaying = playbackState?.state !== "paused";
+function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback }) {
   const title = displayTrack?.title || decodeHtmlEntities(song?.title || "Untitled");
   const artist = displayTrack?.artist || decodeHtmlEntities(song?.artist || "YouTube");
 
   return (
-    <div className={isPlaying ? "music-visualizer" : "music-visualizer is-paused"} aria-hidden="true">
+    <div className={isPlaying ? "music-visualizer" : "music-visualizer is-paused"}>
       <div className="visualizer-glow visualizer-glow-a" />
       <div className="visualizer-glow visualizer-glow-b" />
       <div className="visualizer-ring visualizer-ring-a" />
@@ -4503,6 +4551,15 @@ function MusicVisualizer({ song, displayTrack, playbackState }) {
         <Activity aria-hidden="true" />
         <strong>{title}</strong>
         <span>{artist}</span>
+        <button
+          className={isPlaying ? "visualizer-playback-button is-playing" : "visualizer-playback-button"}
+          onClick={onTogglePlayback}
+          type="button"
+          aria-label={isPlaying ? "Pause visualizer playback" : "Play visualizer playback"}
+        >
+          {isPlaying ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+          {isPlaying ? "Pause" : "Play"}
+        </button>
       </div>
       <div className="visualizer-bars">
         {Array.from({ length: 18 }, (_, index) => (
