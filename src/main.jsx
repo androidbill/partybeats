@@ -137,7 +137,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.11";
+const APP_VERSION = "2026.06.10.12";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4222,6 +4222,8 @@ function YouTubePlayer({
   onPlaybackUpdate
 }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
+  const playerFrameRef = useRef(null);
+  const qrOverlayRef = useRef(null);
   const playerRef = useRef(null);
   const playerTimerRef = useRef(null);
   const endedRef = useRef(onEnded);
@@ -4244,6 +4246,7 @@ function YouTubePlayer({
   const errorHandledSongRef = useRef("");
   const [playerError, setPlayerError] = useState("");
   const [localPlaybackState, setLocalPlaybackState] = useState("paused");
+  const [qrOverlayStyle, setQrOverlayStyle] = useState(null);
 
   useEffect(() => {
     endedRef.current = onEnded;
@@ -4308,6 +4311,71 @@ function YouTubePlayer({
       setLocalPlaybackState("paused");
     }
   }, [song?.id, playbackState?.state]);
+
+  useEffect(() => {
+    if (!qrDataUrl || !roomId || !song?.videoId || visualizerEnabled) {
+      setQrOverlayStyle(null);
+      return undefined;
+    }
+
+    let frame = 0;
+    const updateQrPosition = () => {
+      const frameEl = playerFrameRef.current;
+      const qrEl = qrOverlayRef.current;
+      if (!frameEl || !qrEl) return;
+
+      const frameRect = frameEl.getBoundingClientRect();
+      const qrRect = qrEl.getBoundingClientRect();
+      if (!frameRect.width || !frameRect.height || !qrRect.width || !qrRect.height) return;
+
+      const videoAspect = 16 / 9;
+      let contentWidth = frameRect.width;
+      let contentHeight = frameRect.width / videoAspect;
+      if (contentHeight > frameRect.height) {
+        contentHeight = frameRect.height;
+        contentWidth = frameRect.height * videoAspect;
+      }
+      const insetX = Math.max(0, (frameRect.width - contentWidth) / 2);
+      const insetY = Math.max(0, (frameRect.height - contentHeight) / 2);
+      const gap = Math.max(8, Math.min(18, frameRect.width * 0.018));
+      const left = Math.max(gap, insetX + contentWidth - qrRect.width - gap);
+      const top = Math.max(gap, insetY + contentHeight - qrRect.height - gap);
+      const nextStyle = {
+        left: `${Math.round(left)}px`,
+        top: `${Math.round(top)}px`,
+        right: "auto",
+        bottom: "auto"
+      };
+      setQrOverlayStyle((current) => (
+        current?.left === nextStyle.left
+        && current?.top === nextStyle.top
+        && current?.right === nextStyle.right
+        && current?.bottom === nextStyle.bottom
+          ? current
+          : nextStyle
+      ));
+    };
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(updateQrPosition);
+    };
+
+    scheduleUpdate();
+    const delayedUpdate = window.setTimeout(scheduleUpdate, 250);
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleUpdate);
+    resizeObserver?.observe(playerFrameRef.current);
+    resizeObserver?.observe(qrOverlayRef.current);
+    window.addEventListener("resize", scheduleUpdate);
+    document.addEventListener("fullscreenchange", scheduleUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(delayedUpdate);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+      document.removeEventListener("fullscreenchange", scheduleUpdate);
+    };
+  }, [qrDataUrl, roomId, song?.videoId, visualizerEnabled]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4512,10 +4580,13 @@ function YouTubePlayer({
   }
 
   return (
-    <div className={[
+    <div
+      ref={playerFrameRef}
+      className={[
       song?.videoId ? "player-frame" : "player-frame is-empty",
       visualizerEnabled && song?.videoId ? "is-visualizer" : ""
-    ].filter(Boolean).join(" ")}>
+    ].filter(Boolean).join(" ")}
+    >
       <div className="youtube-frame">
         <div className="youtube-target" id={containerId.current} />
       </div>
@@ -4528,7 +4599,12 @@ function YouTubePlayer({
         />
       )}
       {qrDataUrl && roomId && (
-        <div className="player-qr-overlay" aria-label={`Join room ${roomId}`}>
+        <div
+          ref={qrOverlayRef}
+          className="player-qr-overlay"
+          style={qrOverlayStyle || undefined}
+          aria-label={`Join room ${roomId}`}
+        >
           <img src={qrDataUrl} alt="" />
           <span>{roomId}</span>
         </div>
