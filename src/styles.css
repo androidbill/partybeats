@@ -398,6 +398,7 @@ input:focus {
 
 .player-frame {
   display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   position: relative;
 }
 
@@ -411,14 +412,15 @@ input:focus {
 }
 
 .player-qr-overlay {
+  position: absolute;
+  right: clamp(8px, 1.6vw, 16px);
+  bottom: clamp(8px, 1.6vw, 16px);
   z-index: 5;
-  align-self: end;
-  justify-self: end;
   display: grid;
   gap: 4px;
   justify-items: center;
   width: clamp(72px, 13vw, 118px);
-  margin: clamp(8px, 1.6vw, 16px);
+  margin: 0;
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 10px;
@@ -1290,8 +1292,9 @@ input:focus {
 
 .now-playing-card.is-fullscreen-player .player-qr-overlay,
 .now-playing-card:fullscreen .player-qr-overlay {
+  right: clamp(12px, 1.8vw, 22px);
+  bottom: clamp(12px, 1.8vw, 22px);
   width: clamp(88px, 10vw, 138px);
-  margin: clamp(12px, 1.8vw, 22px);
 }
 
 @media (min-width: 980px) {
@@ -2853,8 +2856,9 @@ input:focus {
   }
 
   .player-qr-overlay {
+    right: 8px;
+    bottom: 8px;
     width: clamp(58px, 18vw, 82px);
-    margin: 8px;
     padding: 4px;
     border-radius: 8px;
   }
