@@ -1381,6 +1381,7 @@ input:focus {
 }
 
 .search-tabs,
+.external-provider-toggle,
 .panel-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1396,6 +1397,7 @@ input:focus {
 }
 
 .search-tabs button,
+.external-provider-toggle button,
 .panel-tabs button {
   min-height: 38px;
   border-radius: 6px;
@@ -1406,22 +1408,26 @@ input:focus {
 }
 
 .search-tabs button.is-active,
+.external-provider-toggle button.is-active,
 .panel-tabs button.is-active {
   color: #12131a;
   background: #f7c948;
 }
 
 .room-app.dark-mode .search-tabs,
+.room-app.dark-mode .external-provider-toggle,
 .room-app.dark-mode .panel-tabs {
   background: rgba(255, 255, 255, 0.1);
 }
 
 .room-app.dark-mode .search-tabs button,
+.room-app.dark-mode .external-provider-toggle button,
 .room-app.dark-mode .panel-tabs button {
   color: #a7adbb;
 }
 
 .room-app.dark-mode .search-tabs button.is-active,
+.room-app.dark-mode .external-provider-toggle button.is-active,
 .room-app.dark-mode .panel-tabs button.is-active {
   color: #12131a;
 }
@@ -4221,11 +4227,13 @@ input:focus {
 }
 
 .search-tabs,
+.external-provider-toggle,
 .panel-tabs {
   background: rgba(23, 24, 31, 0.06);
 }
 
 .search-tabs button,
+.external-provider-toggle button,
 .panel-tabs button,
 .icon-button,
 .mini-action,
@@ -4236,6 +4244,7 @@ input:focus {
 }
 
 .search-tabs button:hover,
+.external-provider-toggle button:hover,
 .panel-tabs button:hover,
 .icon-button:hover,
 .mini-action:hover,
@@ -4418,6 +4427,7 @@ input:focus {
   .search-result:hover,
   .song-row:hover,
   .search-tabs button:hover,
+  .external-provider-toggle button:hover,
   .panel-tabs button:hover,
   .icon-button:hover,
   .mini-action:hover,

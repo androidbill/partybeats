@@ -136,7 +136,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.05";
+const APP_VERSION = "2026.06.10.06";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -240,6 +240,17 @@ function youtubeMusicSearchUrl(queryText) {
   return query
     ? `https://music.youtube.com/search?q=${encodeURIComponent(query)}`
     : "https://music.youtube.com/";
+}
+
+function youtubeSearchUrl(queryText) {
+  const query = queryText.trim();
+  return query
+    ? `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
+    : "https://www.youtube.com/";
+}
+
+function externalSearchUrl(provider, queryText) {
+  return provider === "youtube" ? youtubeSearchUrl(queryText) : youtubeMusicSearchUrl(queryText);
 }
 
 function cleanArtistName(value) {
@@ -443,6 +454,15 @@ function savedDesktopPlayerSplit() {
   }
 }
 
+function savedExternalSearchProvider() {
+  try {
+    const saved = localStorage.getItem("partybeats-external-search-provider");
+    return saved === "youtube" ? "youtube" : "music";
+  } catch {
+    return "music";
+  }
+}
+
 function savedDeviceId() {
   try {
     const existing = localStorage.getItem("partybeats-device-id");
@@ -524,6 +544,7 @@ function App() {
   const [toast, setToast] = useState("");
   const [searchMode, setSearchMode] = useState("external");
   const [searchQuery, setSearchQuery] = useState("");
+  const [externalSearchProvider, setExternalSearchProvider] = useState(savedExternalSearchProvider);
   const [youtubeLink, setYoutubeLink] = useState("");
   const [externalSearchStep, setExternalSearchStep] = useState("search");
   const [externalClipboardCandidate, setExternalClipboardCandidate] = useState(null);
@@ -717,6 +738,14 @@ function App() {
       // The divider still works if local storage is unavailable.
     }
   }, [desktopPlayerSplit]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("partybeats-external-search-provider", externalSearchProvider);
+    } catch {
+      // The external search choice still works if local storage is unavailable.
+    }
+  }, [externalSearchProvider]);
 
   function resizeDesktopPanels(event) {
     if (window.innerWidth < 980) return;
@@ -1887,8 +1916,9 @@ function App() {
     }
   }
 
-  function openExternalYouTubeMusicSearch() {
-    const searchUrl = youtubeMusicSearchUrl(searchQuery);
+  function openExternalSearch() {
+    const searchUrl = externalSearchUrl(externalSearchProvider, searchQuery);
+    const providerName = externalSearchProvider === "youtube" ? "YouTube" : "YouTube Music";
     clearExternalClipboardCheckTimer();
     resetExternalClipboardPrompt();
     setExternalSearchStep("paste");
@@ -1912,7 +1942,7 @@ function App() {
 
     const openedTab = window.open(searchUrl, "partybeats-youtube-music");
     if (!openedTab) {
-      setToast("YouTube Music was blocked. Allow popups for BP PartyBeats, then try again.");
+      setToast(`${providerName} was blocked. Allow popups for BP PartyBeats, then try again.`);
       setExternalSearchStep("search");
       externalClipboardCheckPendingRef.current = false;
       externalSearchLeftAppRef.current = false;
@@ -3570,8 +3600,28 @@ function App() {
                 {externalSearchStep === "search" ? (
                   <>
                     <div>
-                      <strong>Search outside the app</strong>
-                      <span>Open YouTube Music, copy a song link, then come back to PartyBeats.</span>
+                      <strong>Search {externalSearchProvider === "youtube" ? "YouTube" : "YouTube Music"}</strong>
+                      <span>Open {externalSearchProvider === "youtube" ? "YouTube" : "YouTube Music"}, copy a song link, then come back to PartyBeats.</span>
+                    </div>
+                    <div className="external-provider-toggle" role="tablist" aria-label="External search provider">
+                      <button
+                        className={externalSearchProvider === "music" ? "is-active" : ""}
+                        onClick={() => setExternalSearchProvider("music")}
+                        type="button"
+                        role="tab"
+                        aria-selected={externalSearchProvider === "music"}
+                      >
+                        YouTube Music
+                      </button>
+                      <button
+                        className={externalSearchProvider === "youtube" ? "is-active" : ""}
+                        onClick={() => setExternalSearchProvider("youtube")}
+                        type="button"
+                        role="tab"
+                        aria-selected={externalSearchProvider === "youtube"}
+                      >
+                        YouTube
+                      </button>
                     </div>
                     <div className="external-search-actions">
                       <input
@@ -3579,9 +3629,9 @@ function App() {
                         onChange={(event) => setSearchQuery(event.target.value)}
                         onFocus={placeCursorAtTextEnd}
                         onClick={placeCursorAtTextEnd}
-                        placeholder="Search YouTube Music"
+                        placeholder={`Search ${externalSearchProvider === "youtube" ? "YouTube" : "YouTube Music"}`}
                       />
-                      <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
+                      <button className="mini-action" onClick={openExternalSearch} type="button">
                         <ExternalLink aria-hidden="true" />
                         Open
                       </button>
@@ -3618,7 +3668,7 @@ function App() {
                       <>
                         <div>
                           <strong>{externalClipboardChecking ? "Checking clipboard" : "Add copied song link"}</strong>
-                          <span>{externalClipboardMessage || "Tap Add from Clipboard to add the copied YouTube Music link."}</span>
+                          <span>{externalClipboardMessage || "Tap Add from Clipboard to add the copied YouTube or YouTube Music link."}</span>
                         </div>
                         <button className="primary-action clipboard-check-action" onClick={addSongFromClipboard} disabled={externalClipboardChecking || Boolean(addingSongKey)} type="button">
                           <Plus aria-hidden="true" />
@@ -4488,7 +4538,7 @@ function ExternalSearchTutorial({ onClose }) {
         <div className="modal-header">
           <div>
             <h2 id="external-search-tutorial-title">Add Songs Using External Search</h2>
-            <p className="muted">Search YouTube Music, copy the song link, then paste it back into PartyBeats.</p>
+            <p className="muted">Search YouTube or YouTube Music, copy the song link, then paste it back into PartyBeats.</p>
           </div>
           <button className="icon-button" onClick={onClose} title="Close" type="button">
             <X aria-hidden="true" />
