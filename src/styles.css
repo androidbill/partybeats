@@ -410,6 +410,44 @@ input:focus {
   pointer-events: none;
 }
 
+.player-qr-overlay {
+  z-index: 5;
+  align-self: end;
+  justify-self: end;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  width: clamp(72px, 13vw, 118px);
+  margin: clamp(8px, 1.6vw, 16px);
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: #ffffff;
+  background: rgba(12, 13, 18, 0.7);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34);
+  pointer-events: none;
+}
+
+.player-qr-overlay img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.player-qr-overlay span {
+  max-width: 100%;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: clamp(0.55rem, 1.2vw, 0.72rem);
+  font-weight: 950;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .player-frame.is-empty .youtube-frame {
   visibility: hidden;
   height: 0;
@@ -1248,6 +1286,12 @@ input:focus {
 .now-playing-card.is-fullscreen-player .player-actions,
 .now-playing-card:fullscreen .player-actions {
   justify-content: flex-start;
+}
+
+.now-playing-card.is-fullscreen-player .player-qr-overlay,
+.now-playing-card:fullscreen .player-qr-overlay {
+  width: clamp(88px, 10vw, 138px);
+  margin: clamp(12px, 1.8vw, 22px);
 }
 
 @media (min-width: 980px) {
@@ -2806,6 +2850,13 @@ input:focus {
   .player-empty {
     aspect-ratio: 21 / 9;
     max-height: 24dvh;
+  }
+
+  .player-qr-overlay {
+    width: clamp(58px, 18vw, 82px);
+    margin: 8px;
+    padding: 4px;
+    border-radius: 8px;
   }
 
   .now-playing-card.is-fullscreen-player .player-frame,

@@ -137,7 +137,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.08";
+const APP_VERSION = "2026.06.10.09";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3115,6 +3115,8 @@ function App() {
               volume={roomVolume}
               visualizerEnabled={visualizerEnabled}
               displayTrack={nowPlayingDisplay}
+              qrDataUrl={qrDataUrl}
+              roomId={activeRoomId}
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
             />
@@ -4214,6 +4216,8 @@ function YouTubePlayer({
   volume,
   visualizerEnabled,
   displayTrack,
+  qrDataUrl,
+  roomId,
   playbackState,
   onPlaybackUpdate
 }) {
@@ -4520,6 +4524,12 @@ function YouTubePlayer({
           isPlaying={localPlaybackState === "playing"}
           onTogglePlayback={toggleVisualizerPlayback}
         />
+      )}
+      {qrDataUrl && roomId && (
+        <div className="player-qr-overlay" aria-label={`Join room ${roomId}`}>
+          <img src={qrDataUrl} alt="" />
+          <span>{roomId}</span>
+        </div>
       )}
       {!song?.videoId && (
         <div className="player-empty">
