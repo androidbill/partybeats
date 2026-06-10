@@ -847,6 +847,7 @@ function App() {
     const songsRef = query(collection(db, "rooms", activeRoomId, "songs"), orderBy("position", "asc"));
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
     const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"));
+    const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"));
 
     const handleRoomAccessLost = (error) => {
       setToast(error ? roomListenerErrorMessage(error) : "You were removed from this room.");
@@ -884,12 +885,26 @@ function App() {
       if (!active) return;
       setSongMessages(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
     }, handleRoomAccessLost);
+    const unsubReactions = onSnapshot(reactionsRef, (snap) => {
+      if (!active) return;
+      if (!reactionBaselineReadyRef.current) {
+        reactionBaselineReadyRef.current = true;
+        return;
+      }
+      snap.docChanges().forEach((change) => {
+        if (change.type !== "added") return;
+        const data = change.doc.data();
+        if (!EMOJIS.includes(data.emoji)) return;
+        spawnFloatingReaction(data.emoji);
+      });
+    }, handleRoomAccessLost);
     return () => {
       active = false;
       unsubRoom();
       unsubSongs();
       unsubMembers();
       unsubMessages();
+      unsubReactions();
     };
   }, [activeRoomId, user?.uid]);
 
@@ -915,6 +930,7 @@ function App() {
     noticeRoomId.current = activeRoomId;
     previousNowPlayingId.current = undefined;
     previousMemberIds.current = undefined;
+    reactionBaselineReadyRef.current = false;
     setNowPlayingNotice(null);
     setJoinNotice(null);
     setNoticeBaselineReady(false);
@@ -2479,6 +2495,23 @@ function App() {
     }, 2600);
   }
 
+  async function sendFloatingReaction(emoji = floatingReactionEmoji) {
+    if (!user || !activeRoomId || !EMOJIS.includes(emoji)) {
+      spawnFloatingReaction(emoji);
+      return;
+    }
+    try {
+      await setDoc(doc(collection(db, "rooms", activeRoomId, "reactions")), {
+        emoji,
+        uid: user.uid,
+        at: Date.now(),
+        createdAt: serverTimestamp()
+      });
+    } catch {
+      spawnFloatingReaction(emoji);
+    }
+  }
+
   function startFloatingReactionPress() {
     floatingReactionLongPressRef.current = false;
     window.clearTimeout(floatingReactionPressTimerRef.current);
@@ -2492,7 +2525,7 @@ function App() {
     window.clearTimeout(floatingReactionPressTimerRef.current);
     if (floatingReactionLongPressRef.current) return;
     setReactionPickerOpen(false);
-    spawnFloatingReaction();
+    sendFloatingReaction();
   }
 
   async function reactToSong(song, emoji) {
@@ -2590,6 +2623,8 @@ function App() {
     setEmojiSongId("");
     setMessageSongId("");
     setMessageDraft("");
+    setFloatingReactions([]);
+    setReactionPickerOpen(false);
     setRenameMemberId("");
     setRenameDraft("");
     setSelfRenameOpen(false);
@@ -2597,6 +2632,7 @@ function App() {
     setNowPlayingNotice(null);
     setJoinNotice(null);
     previousMemberIds.current = undefined;
+    reactionBaselineReadyRef.current = false;
     previousNowPlayingId.current = undefined;
     noticeRoomId.current = "";
     setNoticeBaselineReady(false);
