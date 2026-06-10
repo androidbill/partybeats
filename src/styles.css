@@ -3933,11 +3933,10 @@ input:focus {
 
 .visualizer-center strong {
   max-width: 100%;
-  overflow: hidden;
   font-size: clamp(1rem, 3.4vw, 1.9rem);
-  line-height: 1.04;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .visualizer-center span {
