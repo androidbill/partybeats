@@ -398,10 +398,16 @@ input:focus {
 
 .player-frame {
   display: grid;
+  position: relative;
 }
 
 .player-frame > * {
   grid-area: 1 / 1;
+}
+
+.player-frame.is-visualizer .youtube-frame {
+  opacity: 0.01;
+  pointer-events: none;
 }
 
 .player-frame.is-empty .youtube-frame {
@@ -433,6 +439,18 @@ input:focus {
   width: 40px;
   min-width: 40px;
   padding: 0;
+}
+
+.icon-only-toggle {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+}
+
+.icon-only-toggle.is-on {
+  color: #ffffff;
+  background: linear-gradient(135deg, #8b3ffc, #ff5a7a);
+  box-shadow: 0 12px 30px rgba(255, 90, 122, 0.28);
 }
 
 .volume-popover {
@@ -3828,6 +3846,170 @@ input:focus {
     #0c0d12;
 }
 
+.music-visualizer {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: clamp(18px, 4vw, 44px);
+  overflow: hidden;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255, 90, 122, 0.55), transparent 30%),
+    radial-gradient(circle at 78% 24%, rgba(41, 214, 255, 0.48), transparent 32%),
+    radial-gradient(circle at 50% 82%, rgba(139, 63, 252, 0.36), transparent 36%),
+    linear-gradient(135deg, #11131b, #090a10);
+  isolation: isolate;
+}
+
+.visualizer-glow,
+.visualizer-ring,
+.visualizer-center,
+.visualizer-bars {
+  grid-area: 1 / 1;
+}
+
+.visualizer-glow {
+  width: min(54vw, 420px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  filter: blur(30px);
+  opacity: 0.7;
+  animation: visualizerDrift 7s ease-in-out infinite;
+}
+
+.visualizer-glow-a {
+  background: rgba(255, 11, 132, 0.54);
+  transform: translate(-28%, -18%);
+}
+
+.visualizer-glow-b {
+  background: rgba(41, 214, 255, 0.48);
+  transform: translate(28%, 18%);
+  animation-delay: -3.5s;
+}
+
+.visualizer-ring {
+  width: min(46vw, 310px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  box-shadow: inset 0 0 44px rgba(255, 255, 255, 0.08);
+  animation: visualizerPulse 2.8s ease-in-out infinite;
+}
+
+.visualizer-ring-b {
+  width: min(62vw, 430px);
+  border-color: rgba(247, 201, 72, 0.18);
+  animation-delay: -1.4s;
+}
+
+.visualizer-center {
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: min(82%, 420px);
+  padding: clamp(12px, 2.4vw, 20px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(12, 13, 18, 0.54);
+  backdrop-filter: blur(18px);
+  text-align: center;
+}
+
+.visualizer-center svg {
+  width: clamp(24px, 4vw, 42px);
+  height: clamp(24px, 4vw, 42px);
+  color: #f7c948;
+}
+
+.visualizer-center strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(1rem, 3.4vw, 1.9rem);
+  line-height: 1.04;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visualizer-center span {
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: clamp(0.78rem, 1.8vw, 1rem);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.visualizer-bars {
+  z-index: 1;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: clamp(4px, 0.8vw, 9px);
+  width: min(86%, 620px);
+  height: 42%;
+  align-self: end;
+  padding-bottom: clamp(12px, 3vw, 30px);
+  opacity: 0.82;
+}
+
+.visualizer-bars i {
+  display: block;
+  width: clamp(5px, 1vw, 11px);
+  height: calc(20% + (var(--bar-index) % 6) * 8%);
+  border-radius: 999px 999px 4px 4px;
+  background: linear-gradient(180deg, #ffffff, #29d6ff 58%, #ff5a7a);
+  transform-origin: 50% 100%;
+  animation: visualizerBar 0.92s ease-in-out infinite;
+  animation-delay: calc(var(--bar-index) * -0.075s);
+}
+
+.music-visualizer.is-paused .visualizer-glow,
+.music-visualizer.is-paused .visualizer-ring,
+.music-visualizer.is-paused .visualizer-bars i {
+  animation-play-state: paused;
+}
+
+@keyframes visualizerPulse {
+  0%,
+  100% {
+    transform: scale(0.86);
+    opacity: 0.34;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 0.86;
+  }
+}
+
+@keyframes visualizerDrift {
+  0%,
+  100% {
+    transform: translate(-20%, -12%) scale(0.92);
+  }
+
+  50% {
+    transform: translate(18%, 14%) scale(1.08);
+  }
+}
+
+@keyframes visualizerBar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+
+  45% {
+    transform: scaleY(1);
+  }
+}
+
 .player-error-overlay {
   z-index: 3;
   display: grid;
@@ -4898,6 +5080,9 @@ input,
   .now-playing-card::before,
   .add-song-fab,
   .equalizer i,
+  .visualizer-glow,
+  .visualizer-ring,
+  .visualizer-bars i,
   .emoji-burst i,
   .confetti-piece {
     animation: none !important;

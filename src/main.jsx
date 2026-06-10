@@ -136,7 +136,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.04";
+const APP_VERSION = "2026.06.10.05";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -922,6 +922,7 @@ function App() {
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
   const toastEnabled = room?.toastEnabled === true;
   const internalSearchEnabled = room?.internalSearchEnabled === true;
+  const visualizerEnabled = room?.visualizerEnabled === true;
 
   useEffect(() => {
     if (!internalSearchEnabled && searchMode === "internal") {
@@ -1395,6 +1396,7 @@ function App() {
             joinNoticeEnabled: true,
             toastEnabled: false,
             internalSearchEnabled: false,
+            visualizerEnabled: false,
             roomVolume: 80,
             nowPlayingId: null
           });
@@ -2361,6 +2363,25 @@ function App() {
     });
   }
 
+  async function updateVisualizerEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { visualizerEnabled: enabled, ...roomActivityUpdate() });
+  }
+
+  function renderVisualizerControl() {
+    return (
+      <button
+        className={visualizerEnabled ? "mini-action icon-only-toggle is-on" : "mini-action icon-only-toggle"}
+        type="button"
+        aria-label={visualizerEnabled ? "Hide visualizer" : "Show visualizer"}
+        title={visualizerEnabled ? "Hide visualizer" : "Show visualizer"}
+        onClick={() => updateVisualizerEnabled(!visualizerEnabled)}
+      >
+        <Activity aria-hidden="true" />
+      </button>
+    );
+  }
+
   function renderVolumeControl() {
     return (
       <div className={`room-volume-control${volumeControlOpen ? " is-open" : ""}`}>
@@ -3061,6 +3082,8 @@ function App() {
               crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
               crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
               volume={roomVolume}
+              visualizerEnabled={visualizerEnabled}
+              displayTrack={nowPlayingDisplay}
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
             />
@@ -3095,6 +3118,7 @@ function App() {
                   YouTube
                 </a>
               )}
+              {renderVisualizerControl()}
               {renderVolumeControl()}
             </div>
           </>
@@ -3116,6 +3140,7 @@ function App() {
               <SkipForward aria-hidden="true" />
               Next
             </button>
+            {renderVisualizerControl()}
             {renderVolumeControl()}
             <button className="mini-action" onClick={takeOverDj} type="button">
               <Crown aria-hidden="true" />
@@ -4136,6 +4161,8 @@ function YouTubePlayer({
   crossfadeEnabled,
   crossfadeSeconds,
   volume,
+  visualizerEnabled,
+  displayTrack,
   playbackState,
   onPlaybackUpdate
 }) {
@@ -4387,8 +4414,14 @@ function YouTubePlayer({
   }, []);
 
   return (
-    <div className={song?.videoId ? "player-frame" : "player-frame is-empty"}>
+    <div className={[
+      song?.videoId ? "player-frame" : "player-frame is-empty",
+      visualizerEnabled && song?.videoId ? "is-visualizer" : ""
+    ].filter(Boolean).join(" ")}>
       <div className="youtube-frame" id={containerId.current} />
+      {visualizerEnabled && song?.videoId && (
+        <MusicVisualizer song={song} displayTrack={displayTrack} playbackState={playbackState} />
+      )}
       {!song?.videoId && (
         <div className="player-empty">
           <Music2 aria-hidden="true" />
@@ -4401,6 +4434,31 @@ function YouTubePlayer({
           <span>{playerError}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function MusicVisualizer({ song, displayTrack, playbackState }) {
+  const isPlaying = playbackState?.state !== "paused";
+  const title = displayTrack?.title || decodeHtmlEntities(song?.title || "Untitled");
+  const artist = displayTrack?.artist || decodeHtmlEntities(song?.artist || "YouTube");
+
+  return (
+    <div className={isPlaying ? "music-visualizer" : "music-visualizer is-paused"} aria-hidden="true">
+      <div className="visualizer-glow visualizer-glow-a" />
+      <div className="visualizer-glow visualizer-glow-b" />
+      <div className="visualizer-ring visualizer-ring-a" />
+      <div className="visualizer-ring visualizer-ring-b" />
+      <div className="visualizer-center">
+        <Activity aria-hidden="true" />
+        <strong>{title}</strong>
+        <span>{artist}</span>
+      </div>
+      <div className="visualizer-bars">
+        {Array.from({ length: 18 }, (_, index) => (
+          <i key={index} style={{ "--bar-index": index }} />
+        ))}
+      </div>
     </div>
   );
 }
