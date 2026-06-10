@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
+  Check,
   Crown,
   Download,
   DoorOpen,
@@ -14,6 +15,7 @@ import {
   Moon,
   MoreVertical,
   Music2,
+  Palette,
   Pencil,
   Play,
   Plus,
@@ -112,16 +114,31 @@ const ROOM_WORDS = [
 ].filter((word) => word.length === 4);
 
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
+const COLOR_THEMES = [
+  { id: "sunset", name: "Sunset Funk", note: "Coral, gold + tropic teal" },
+  { id: "aurora", name: "Aurora", note: "Polar teal + violet glow" },
+  { id: "midnight", name: "Midnight Club", note: "Deep blue + electric cyan" },
+  { id: "neon", name: "Neon Rave", note: "Mint, magenta + ultraviolet" },
+  { id: "ocean", name: "Ocean Drive", note: "Azure + deep-sea blue" },
+  { id: "candy", name: "Candy Pop", note: "Bubblegum pink + grape" },
+  { id: "fire", name: "Firestarter", note: "Blaze orange + ember red" },
+  { id: "ice", name: "On Ice", note: "Frost blue + arctic white" },
+  { id: "royal", name: "Royal Velvet", note: "Violet + champagne gold" },
+  { id: "forest", name: "Forest Rave", note: "Pine green + glow lime" },
+  { id: "lime", name: "Limelight", note: "Lime + spring green" },
+  { id: "mono", name: "Monochrome", note: "Ink, slate + silver" }
+];
+const EMOJI_BURST_LIFETIME_MS = 1600;
+const CONFETTI_LIFETIME_MS = 3200;
 const DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 const DEFAULT_CROSSFADE_SECONDS = 5;
 const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.05.21";
+const APP_VERSION = "2026.06.10.01";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
-const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -407,6 +424,15 @@ function savedTheme() {
   }
 }
 
+function savedColorTheme() {
+  try {
+    const saved = localStorage.getItem("partybeats-color-theme");
+    return COLOR_THEMES.some((option) => option.id === saved) ? saved : "sunset";
+  } catch {
+    return "sunset";
+  }
+}
+
 function savedDesktopPlayerSplit() {
   try {
     const savedSplit = Number(localStorage.getItem("partybeats-desktop-player-split"));
@@ -434,21 +460,6 @@ function roomActivityUpdate() {
   };
 }
 
-function compareAppVersions(left, right) {
-  const leftParts = String(left || "").split(".").map((part) => Number(part) || 0);
-  const rightParts = String(right || "").split(".").map((part) => Number(part) || 0);
-  const length = Math.max(leftParts.length, rightParts.length, 4);
-  for (let index = 0; index < length; index += 1) {
-    const delta = (leftParts[index] || 0) - (rightParts[index] || 0);
-    if (delta !== 0) return delta;
-  }
-  return 0;
-}
-
-function newerAppVersion(left, right) {
-  return compareAppVersions(left, right) >= 0 ? left : right;
-}
-
 function isImportantToast(message) {
   return /could not|cannot|can't|failed|blocked|unavailable|expired|closed|removed|permission|only the|choose a|sign in|allow popups|no previous|no available|does not exist/i.test(
     String(message || "")
@@ -465,19 +476,6 @@ function selectExistingText(event) {
   const input = event.currentTarget;
   input.select();
   window.setTimeout(() => input.select(), 0);
-}
-
-function placeCursorAtTextEnd(event) {
-  const input = event.currentTarget;
-  const end = input.value.length;
-  window.setTimeout(() => {
-    try {
-      input.setSelectionRange(end, end);
-    } catch {
-      input.selectionStart = end;
-      input.selectionEnd = end;
-    }
-  }, 0);
 }
 
 function App() {
@@ -498,10 +496,6 @@ function App() {
   const [searchMode, setSearchMode] = useState("internal");
   const [searchQuery, setSearchQuery] = useState("");
   const [youtubeLink, setYoutubeLink] = useState("");
-  const [externalSearchStep, setExternalSearchStep] = useState("search");
-  const [externalClipboardCandidate, setExternalClipboardCandidate] = useState(null);
-  const [externalClipboardChecking, setExternalClipboardChecking] = useState(false);
-  const [externalClipboardMessage, setExternalClipboardMessage] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [addingSongKey, setAddingSongKey] = useState("");
@@ -536,12 +530,14 @@ function App() {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [theme, setTheme] = useState(savedTheme);
+  const [colorTheme, setColorTheme] = useState(savedColorTheme);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [emojiBursts, setEmojiBursts] = useState([]);
+  const [confettiKey, setConfettiKey] = useState(0);
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
   const [deviceId] = useState(savedDeviceId);
   const [playerChoicePrompt, setPlayerChoicePrompt] = useState(null);
   const [dismissedPlayerPromptKey, setDismissedPlayerPromptKey] = useState("");
-  const [volumeControlOpen, setVolumeControlOpen] = useState(false);
-  const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
@@ -550,12 +546,6 @@ function App() {
   const nicknameInputRef = useRef(null);
   const playerCardRef = useRef(null);
   const externalYouTubeTabRef = useRef(null);
-  const externalClipboardCheckPendingRef = useRef(false);
-  const externalSearchLeftAppRef = useRef(false);
-  const externalSearchOpenedAtRef = useRef(0);
-  const externalSearchLeftAtRef = useRef(0);
-  const externalClipboardCheckTimerRef = useRef(null);
-  const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
@@ -565,12 +555,6 @@ function App() {
   const lastPlayedSongId = useRef("");
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const isDarkTheme = theme === "dark";
-
-  function clearExternalClipboardCheckTimer() {
-    if (!externalClipboardCheckTimerRef.current) return;
-    window.clearTimeout(externalClipboardCheckTimerRef.current);
-    externalClipboardCheckTimerRef.current = null;
-  }
 
   useEffect(() => {
     const preventZoom = (event) => event.preventDefault();
@@ -592,24 +576,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    function stopAutomaticExternalClipboardCheck() {
-      clearExternalClipboardCheckTimer();
-      externalClipboardCheckPendingRef.current = false;
-      externalSearchOpenedAtRef.current = 0;
-      externalSearchLeftAtRef.current = 0;
-    }
-
-    function markExternalSearchLeftApp() {
-      if (!externalClipboardCheckPendingRef.current) return;
-      externalSearchLeftAppRef.current = true;
-      if (!externalSearchLeftAtRef.current) externalSearchLeftAtRef.current = Date.now();
-    }
-
-    function handleExternalSearchReturn() {
-      if (document.visibilityState === "hidden") {
-        markExternalSearchLeftApp();
-        return;
-      }
+    function closeExternalYouTubeTabOnReturn() {
       if (document.visibilityState !== "visible") return;
       try {
         const externalTab = externalYouTubeTabRef.current;
@@ -618,21 +585,13 @@ function App() {
         // Some browsers isolate YouTube's tab after navigation.
       }
       externalYouTubeTabRef.current = null;
-      if (externalClipboardCheckPendingRef.current) {
-        stopAutomaticExternalClipboardCheck();
-      }
     }
 
-    window.addEventListener("focus", handleExternalSearchReturn);
-    window.addEventListener("pagehide", markExternalSearchLeftApp);
-    window.addEventListener("pageshow", handleExternalSearchReturn);
-    document.addEventListener("visibilitychange", handleExternalSearchReturn);
+    window.addEventListener("focus", closeExternalYouTubeTabOnReturn);
+    document.addEventListener("visibilitychange", closeExternalYouTubeTabOnReturn);
     return () => {
-      window.removeEventListener("focus", handleExternalSearchReturn);
-      window.removeEventListener("pagehide", markExternalSearchLeftApp);
-      window.removeEventListener("pageshow", handleExternalSearchReturn);
-      document.removeEventListener("visibilitychange", handleExternalSearchReturn);
-      clearExternalClipboardCheckTimer();
+      window.removeEventListener("focus", closeExternalYouTubeTabOnReturn);
+      document.removeEventListener("visibilitychange", closeExternalYouTubeTabOnReturn);
     };
   }, []);
 
@@ -663,6 +622,21 @@ function App() {
     }
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("partybeats-color-theme", colorTheme);
+    } catch {
+      // Color theme persistence is a convenience; the picker still works without storage.
+    }
+    document.documentElement.dataset.colorTheme = colorTheme;
+  }, [colorTheme]);
+
+  useEffect(() => {
+    if (!confettiKey) return undefined;
+    const timer = window.setTimeout(() => setConfettiKey(0), CONFETTI_LIFETIME_MS);
+    return () => window.clearTimeout(timer);
+  }, [confettiKey]);
 
   useEffect(() => {
     try {
@@ -882,8 +856,6 @@ function App() {
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
   const roomSyncing = roomLoading || songsLoading || membersLoading;
-  const latestRoomVersion = room?.latestAppVersion || room?.appVersion || APP_VERSION;
-  const appNeedsRefresh = Boolean(activeRoomId && room && compareAppVersions(APP_VERSION, latestRoomVersion) < 0);
   const nowPlayingSyncing = Boolean(room?.nowPlayingId && !nowPlayingSong && songsLoading);
   const roomNeedsFirstTrack = !songsLoading && songs.length === 0 && !room?.nowPlayingId;
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
@@ -1325,9 +1297,6 @@ function App() {
             activeDjUid: user.uid,
             activeDjName: activeNickname,
             activePlayerDeviceId: deviceId,
-            appVersion: APP_VERSION,
-            latestAppVersion: APP_VERSION,
-            latestAppVersionUpdatedAt: serverTimestamp(),
             createdAt: serverTimestamp(),
             ...roomActivityUpdate(),
             closed: false,
@@ -1402,15 +1371,9 @@ function App() {
         },
         { merge: true }
       );
-      const roomData = roomSnap.data();
-      const latestAppVersion = newerAppVersion(roomData.latestAppVersion || roomData.appVersion || APP_VERSION, APP_VERSION);
-      await updateDoc(doc(db, "rooms", nextRoomId), {
-        latestAppVersion,
-        latestAppVersionUpdatedAt: serverTimestamp(),
-        ...roomActivityUpdate()
-      }).catch(() => undefined);
+      await updateDoc(doc(db, "rooms", nextRoomId), roomActivityUpdate()).catch(() => undefined);
       setNickname(roomNickname);
-      setRoom({ id: nextRoomId, ...roomData, latestAppVersion });
+      setRoom({ id: nextRoomId, ...roomSnap.data() });
       setRoomLoading(false);
       setSongsLoading(true);
       setMembersLoading(true);
@@ -1425,6 +1388,7 @@ function App() {
       setActiveRoomId(nextRoomId);
       setRoomId(nextRoomId);
       window.history.replaceState({}, "", `${window.location.pathname}?room=${nextRoomId}`);
+      if (!options.silent) setConfettiKey(Date.now());
     } catch (error) {
       if (!options.silent) setToast(roomJoinErrorMessage(error));
     }
@@ -1432,49 +1396,49 @@ function App() {
 
   async function addSong(event, selectedVideo = null) {
     event?.preventDefault();
-    if (!user || !activeRoomId) return false;
+    if (!user || !activeRoomId) return;
 
     const videoId = selectedVideo?.videoId;
     const addKey = `${activeRoomId}:${videoId || "none"}`;
     if (!videoId) {
       setToast("Choose a YouTube search result.");
-      return false;
+      return;
     }
-    if (addingSongKey === addKey) return false;
+    if (addingSongKey === addKey) return;
     if (!canAddSong) {
       setToast(cooldownRemaining > 0
         ? `Cooldown active: ${Math.ceil(cooldownRemaining / 1000)}s left.`
         : "Song cooldown is on.");
-      return false;
+      return;
     }
 
     setAddingSongKey(addKey);
     if (!YOUTUBE_API_KEY) {
       setToast("Could not verify whether that song can play inside PartyBeats.");
       setAddingSongKey("");
-      return false;
+      return;
     }
     const playbackDetails = await fetchYouTubePlaybackDetails(videoId);
     if (!playbackDetails) {
       setToast("Could not verify whether that song can play inside PartyBeats, so it was not added.");
       setAddingSongKey("");
-      return false;
+      return;
     }
     if (!playbackDetails.embeddable) {
       setToast("That song cannot play inside PartyBeats, so it was not added.");
       setAddingSongKey("");
-      return false;
+      return;
     }
     const durationSeconds = playbackDetails.durationSeconds || Number(selectedVideo?.durationSeconds) || null;
     if (!isAdmin && !durationSeconds) {
       setToast("Could not verify song length. Ask an admin to add this track.");
       setAddingSongKey("");
-      return false;
+      return;
     }
     if (!isAdmin && durationSeconds > NON_ADMIN_MAX_SONG_SECONDS) {
       setToast("Only admins can add songs longer than 10 minutes.");
       setAddingSongKey("");
-      return false;
+      return;
     }
 
     const title = decodeHtmlEntities(selectedVideo?.title || "YouTube track");
@@ -1518,7 +1482,7 @@ function App() {
         ? "Could not add that song. Check cooldown, song length, or room permissions."
         : "Could not add that song. Try again.");
       setAddingSongKey("");
-      return false;
+      return;
     }
     setRecentlyAddedSongId(songRef.id);
     window.setTimeout(() => {
@@ -1529,7 +1493,6 @@ function App() {
     setSearchResults([]);
     setYoutubeLink("");
     setAddSheetOpen(false);
-    return true;
   }
 
   async function fetchYouTubePlaybackDetails(videoId) {
@@ -1617,112 +1580,7 @@ function App() {
       return;
     }
     const selectedVideo = await fetchYouTubeLinkDetails(videoId);
-    const added = await addSong(null, selectedVideo);
-    if (added) {
-      await clearClipboardAfterExternalSearch();
-      resetExternalClipboardPrompt();
-      setExternalSearchStep("search");
-    }
-  }
-
-  function resetExternalClipboardPrompt() {
-    setExternalClipboardCandidate(null);
-    setExternalClipboardMessage("");
-    setExternalClipboardChecking(false);
-    lastClipboardVideoIdRef.current = "";
-  }
-
-  async function clearClipboardAfterExternalSearch() {
-    try {
-      await navigator.clipboard?.writeText("");
-    } catch {
-      // Clipboard writes can be blocked by the browser or OS permissions.
-    }
-  }
-
-  async function checkExternalSearchClipboard() {
-    if (!navigator.clipboard?.readText) {
-      setExternalClipboardMessage("Tap Check Clipboard or paste the copied YouTube link below.");
-      return;
-    }
-
-    setExternalClipboardChecking(true);
-    setExternalClipboardMessage("Checking clipboard...");
-    try {
-      const clipboardText = (await navigator.clipboard.readText()).trim();
-      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
-      if (!videoId) {
-        setExternalClipboardCandidate(null);
-        setExternalClipboardMessage("No YouTube link found. Tap Check Clipboard again or paste it below.");
-        return;
-      }
-      if (videoId === lastClipboardVideoIdRef.current) {
-        setExternalClipboardMessage("");
-        return;
-      }
-      lastClipboardVideoIdRef.current = videoId;
-      setYoutubeLink(clipboardText);
-      const selectedVideo = await fetchYouTubeLinkDetails(videoId);
-      setExternalClipboardCandidate({ ...selectedVideo, sourceLink: clipboardText });
-      setExternalClipboardMessage("");
-    } catch {
-      setExternalClipboardCandidate(null);
-      setExternalClipboardMessage("Tap Check Clipboard or paste the copied YouTube link below.");
-    } finally {
-      setExternalClipboardChecking(false);
-    }
-  }
-
-  async function addSongFromClipboard() {
-    if (!navigator.clipboard?.readText) {
-      await cancelExternalPasteStep();
-      return;
-    }
-
-    setExternalClipboardChecking(true);
-    setExternalClipboardMessage("Checking clipboard...");
-    try {
-      const clipboardText = (await navigator.clipboard.readText()).trim();
-      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
-      if (!videoId) {
-        await cancelExternalPasteStep();
-        return;
-      }
-      setYoutubeLink(clipboardText);
-      const selectedVideo = await fetchYouTubeLinkDetails(videoId);
-      const added = await addSong(null, selectedVideo);
-      if (added) {
-        await clearClipboardAfterExternalSearch();
-        resetExternalClipboardPrompt();
-        setExternalSearchStep("search");
-      }
-    } catch {
-      await cancelExternalPasteStep();
-    } finally {
-      setExternalClipboardChecking(false);
-    }
-  }
-
-  async function addClipboardCandidate() {
-    if (!externalClipboardCandidate) return;
-    const added = await addSong(null, externalClipboardCandidate);
-    if (added) {
-      await clearClipboardAfterExternalSearch();
-      resetExternalClipboardPrompt();
-      setExternalSearchStep("search");
-    }
-  }
-
-  async function cancelExternalPasteStep() {
-    await clearClipboardAfterExternalSearch();
-    clearExternalClipboardCheckTimer();
-    externalClipboardCheckPendingRef.current = false;
-    externalSearchLeftAppRef.current = false;
-    externalSearchOpenedAtRef.current = 0;
-    externalSearchLeftAtRef.current = 0;
-    resetExternalClipboardPrompt();
-    setYoutubeLink("");
-    setExternalSearchStep("search");
+    await addSong(null, selectedVideo);
   }
 
   async function importYouTubePlaylist(playlistId) {
@@ -1831,13 +1689,6 @@ function App() {
 
   function openExternalYouTubeMusicSearch() {
     const searchUrl = youtubeMusicSearchUrl(searchQuery);
-    clearExternalClipboardCheckTimer();
-    resetExternalClipboardPrompt();
-    setExternalSearchStep("paste");
-    externalClipboardCheckPendingRef.current = true;
-    externalSearchLeftAppRef.current = false;
-    externalSearchOpenedAtRef.current = Date.now();
-    externalSearchLeftAtRef.current = 0;
     const isDesktop = window.matchMedia("(min-width: 760px)").matches;
     if (!isDesktop) {
       window.open(searchUrl, "_blank", "noopener,noreferrer");
@@ -1855,16 +1706,9 @@ function App() {
     const openedTab = window.open(searchUrl, "partybeats-youtube-music");
     if (!openedTab) {
       setToast("YouTube Music was blocked. Allow popups for BP PartyBeats, then try again.");
-      setExternalSearchStep("search");
-      externalClipboardCheckPendingRef.current = false;
-      externalSearchLeftAppRef.current = false;
-      externalSearchOpenedAtRef.current = 0;
-      externalSearchLeftAtRef.current = 0;
       return;
     }
     externalYouTubeTabRef.current = openedTab;
-    externalSearchLeftAppRef.current = true;
-    externalSearchLeftAtRef.current = Date.now();
     openedTab.focus();
   }
 
@@ -2305,35 +2149,19 @@ function App() {
     });
   }
 
-  function renderVolumeControl() {
-    return (
-      <div className={`room-volume-control${volumeControlOpen ? " is-open" : ""}`}>
-        <button
-          className="mini-action volume-toggle"
-          type="button"
-          aria-label={`Volume ${roomVolume}%`}
-          aria-expanded={volumeControlOpen}
-          onClick={() => setVolumeControlOpen((isOpen) => !isOpen)}
-        >
-          <Volume2 aria-hidden="true" />
-        </button>
-        {volumeControlOpen && (
-          <label className="volume-popover">
-            <span>
-              Volume
-              <strong>{roomVolume}%</strong>
-            </span>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={roomVolume}
-              onChange={(event) => updateRoomVolume(event.target.value)}
-            />
-          </label>
-        )}
-      </div>
-    );
+  function spawnEmojiBurst(song, emoji) {
+    const row = songListRef.current?.querySelector(`[data-song-id="${song.id}"]`);
+    const rect = row?.getBoundingClientRect();
+    const burst = {
+      id: `${song.id}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      emoji,
+      x: rect ? rect.left + rect.width / 2 : window.innerWidth / 2,
+      y: rect ? rect.top + rect.height / 2 : window.innerHeight / 2
+    };
+    setEmojiBursts((current) => [...current.slice(-5), burst]);
+    window.setTimeout(() => {
+      setEmojiBursts((current) => current.filter((item) => item.id !== burst.id));
+    }, EMOJI_BURST_LIFETIME_MS);
   }
 
   async function reactToSong(song, emoji) {
@@ -2347,6 +2175,7 @@ function App() {
         return;
       }
       await updateDoc(songRef, { [path]: emoji });
+      spawnEmojiBurst(song, emoji);
       await touchRoomActivity();
     } catch {
       setToast("Could not save that reaction. Try again.");
@@ -2416,7 +2245,6 @@ function App() {
     setSongMessages([]);
     setPlayerChoicePrompt(null);
     setDismissedPlayerPromptKey("");
-    setDismissedVersionPrompt("");
     setRoomLoading(false);
     setSongsLoading(false);
     setMembersLoading(false);
@@ -2646,9 +2474,82 @@ function App() {
     return <SetupMissing />;
   }
 
+  const themePickerModal = themePickerOpen && (
+    <div
+      className="modal-backdrop theme-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose a theme"
+      onClick={() => setThemePickerOpen(false)}
+    >
+      <section className="about-modal color-theme-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2>Themes</h2>
+            <p className="muted">Pick a vibe. It only changes this device.</p>
+          </div>
+          <button className="icon-button" onClick={() => setThemePickerOpen(false)} title="Close" type="button">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <div className="color-theme-grid">
+          {COLOR_THEMES.map((option) => (
+            <button
+              className={colorTheme === option.id ? "color-theme-option is-selected" : "color-theme-option"}
+              data-theme-choice={option.id}
+              key={option.id}
+              onClick={() => setColorTheme(option.id)}
+              type="button"
+            >
+              <span className="theme-swatch" aria-hidden="true" />
+              <strong>
+                {option.name}
+                {colorTheme === option.id && <Check className="theme-check" aria-hidden="true" />}
+              </strong>
+              <small>{option.note}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+
+  const confettiLayer = confettiKey > 0 && (
+    <div className="confetti-layer" key={confettiKey} aria-hidden="true">
+      {Array.from({ length: 28 }, (_, index) => (
+        <i
+          key={index}
+          className={`confetti-piece tone-${index % 4}`}
+          style={{
+            "--confetti-x": `${((index * 137) % 100)}%`,
+            "--confetti-delay": `${(index % 9) * 110}ms`,
+            "--confetti-spin": `${((index * 47) % 280) - 140}deg`,
+            "--confetti-drift": `${((index * 31) % 90) - 45}px`
+          }}
+        />
+      ))}
+    </div>
+  );
+
   if (!activeRoomId || !room) {
     return (
       <main className="app-shell landing-shell">
+        <div className="landing-notes" aria-hidden="true">
+          <span>♪</span>
+          <span>♫</span>
+          <span>♪</span>
+          <span>♬</span>
+          <span>♫</span>
+          <span>♪</span>
+        </div>
+        <button
+          className="icon-button landing-theme-button"
+          onClick={() => setThemePickerOpen(true)}
+          title="Themes"
+          type="button"
+        >
+          <Palette aria-hidden="true" />
+        </button>
         <section className="landing-hero">
           <div className="brand-mark">
             <AppIcon />
@@ -2657,6 +2558,12 @@ function App() {
           <div className="landing-copy">
             <h1>BP PartyBeats</h1>
             <p>Start a room, pass around the code, and let everyone build the music queue from their phone.</p>
+            <div className="landing-chips" aria-hidden="true">
+              <span>Live shared queue</span>
+              <span>Emoji reactions</span>
+              <span>Crossfade</span>
+              <span>QR invites</span>
+            </div>
           </div>
 
           <div className="auth-panel">
@@ -2677,7 +2584,7 @@ function App() {
             <h2>Start or Join</h2>
             <p className="muted">Google users can create rooms. Guests can join with a nickname.</p>
             <div className="room-actions">
-              <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous || creatingRoom} type="button">
+              <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous || creatingRoom}>
                 <Wand2 aria-hidden="true" />
                 {creatingRoom ? "Creating Room..." : "Create Room"}
               </button>
@@ -2688,7 +2595,7 @@ function App() {
                   placeholder="VIBE123"
                   maxLength={7}
                 />
-                <button onClick={() => joinRoomById()} disabled={!user && nickname.trim().length < 2} type="button">
+                <button onClick={() => joinRoomById()} disabled={!user && nickname.trim().length < 2}>
                   <DoorOpen aria-hidden="true" />
                   Join
                 </button>
@@ -2698,8 +2605,11 @@ function App() {
           <p className="landing-version">Version {APP_VERSION}</p>
         </section>
 
+        {themePickerModal}
+        {confettiLayer}
+
         {toast && (
-          <button className="toast" onClick={() => setToast("")} type="button">
+          <button className="toast" onClick={() => setToast("")}>
             {toast}
           </button>
         )}
@@ -2747,6 +2657,14 @@ function App() {
             {isDarkTheme ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
           </button>
           <button
+            className="icon-button palette-toggle"
+            onClick={() => setThemePickerOpen(true)}
+            title="Themes"
+            type="button"
+          >
+            <Palette aria-hidden="true" />
+          </button>
+          <button
             className="icon-button"
             onClick={() => {
               setRoomPanelTab("people");
@@ -2773,46 +2691,50 @@ function App() {
             </strong>
           </div>
           <div className="menu-wrap">
-            <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu" type="button">
+            <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu">
               <MoreVertical aria-hidden="true" />
             </button>
             {menuOpen && (
               <div className="overflow-menu">
-                <button onClick={() => { setRoomPanelTab("room"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
+                <button onClick={() => { setRoomPanelTab("room"); setRoomPanelOpen(true); setMenuOpen(false); }}>
                   <Info aria-hidden="true" />
                   Room
                 </button>
-                <button onClick={() => { setRoomPanelTab("settings"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
+                <button onClick={() => { setRoomPanelTab("settings"); setRoomPanelOpen(true); setMenuOpen(false); }}>
                   <SlidersHorizontal aria-hidden="true" />
                   Settings
                 </button>
-                <button onClick={() => { setRoomPanelTab("analytics"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
+                <button onClick={() => { setThemePickerOpen(true); setMenuOpen(false); }}>
+                  <Palette aria-hidden="true" />
+                  Themes
+                </button>
+                <button onClick={() => { setRoomPanelTab("analytics"); setRoomPanelOpen(true); setMenuOpen(false); }}>
                   <Activity aria-hidden="true" />
                   Analytics
                 </button>
                 {isAdmin && (
-                  <button onClick={() => { setRoomPanelTab("diagnostics"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
+                  <button onClick={() => { setRoomPanelTab("diagnostics"); setRoomPanelOpen(true); setMenuOpen(false); }}>
                     <Activity aria-hidden="true" />
                     Diagnostics
                   </button>
                 )}
-                <button onClick={shareApp} type="button">
+                <button onClick={shareApp}>
                   <Share2 aria-hidden="true" />
                   Share
                 </button>
-                <button onClick={installApp} type="button">
+                <button onClick={installApp}>
                   <Download aria-hidden="true" />
                   Install App
                 </button>
-                <button onClick={refreshApp} type="button">
+                <button onClick={refreshApp}>
                   <RotateCcw aria-hidden="true" />
                   Refresh App
                 </button>
-                <button onClick={leaveRoom} type="button">
+                <button onClick={leaveRoom}>
                   <DoorOpen aria-hidden="true" />
                   Leave Room
                 </button>
-                <button onClick={handleSignOut} type="button">
+                <button onClick={handleSignOut}>
                   <LogOut aria-hidden="true" />
                   Sign Out
                 </button>
@@ -2821,23 +2743,6 @@ function App() {
           </div>
         </div>
       </header>
-
-      {appNeedsRefresh && dismissedVersionPrompt !== latestRoomVersion && (
-        <div className="version-refresh-banner" role="alert">
-          <Info aria-hidden="true" />
-          <div>
-            <strong>Refresh PartyBeats</strong>
-            <span>You are running {APP_VERSION}. Latest is {latestRoomVersion}.</span>
-          </div>
-          <button className="primary-action" onClick={refreshApp} type="button">
-            <RotateCcw aria-hidden="true" />
-            Refresh
-          </button>
-          <button className="icon-button" onClick={() => setDismissedVersionPrompt(latestRoomVersion)} title="Dismiss" type="button">
-            <X aria-hidden="true" />
-          </button>
-        </div>
-      )}
 
       <section
         ref={playerCardRef}
@@ -2853,17 +2758,11 @@ function App() {
           </a>
         )}
         <div className="now-playing-copy">
-          <span>{isActiveDj ? "This device is playing" : "Now playing"}</span>
-          <div className="fullscreen-title-row">
-            <div className="fullscreen-room-brand" aria-label={`PartyBeats room ${activeRoomId}`}>
-              <AppIcon />
-              <div>
-                <strong>PartyBeats</strong>
-                <span>Room {activeRoomId}</span>
-              </div>
-            </div>
-            <h1>{nowPlayingSong ? nowPlayingDisplay?.title || "Untitled" : nowPlayingSyncing ? "Syncing current track" : "Nothing playing yet"}</h1>
-          </div>
+          <span>
+            {nowPlayingSong && <Equalizer paused={playbackState.state !== "playing"} />}
+            {isActiveDj ? "This device is playing" : "Now playing"}
+          </span>
+          <h1>{nowPlayingSong ? nowPlayingDisplay?.title || "Untitled" : nowPlayingSyncing ? "Syncing current track" : "Nothing playing yet"}</h1>
           <p className="track-credit">
             {nowPlayingSong
               ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
@@ -2911,7 +2810,7 @@ function App() {
                 <RotateCcw aria-hidden="true" />
                 Replay Last
               </button>
-              <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
+              <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
                 <SkipForward aria-hidden="true" />
                 Next
               </button>
@@ -2921,7 +2820,17 @@ function App() {
                   YouTube
                 </a>
               )}
-              {renderVolumeControl()}
+              <label className="room-volume-control">
+                <span><Volume2 aria-hidden="true" /> Volume</span>
+                <strong>{roomVolume}%</strong>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={roomVolume}
+                  onChange={(event) => updateRoomVolume(event.target.value)}
+                />
+              </label>
             </div>
           </>
         ) : isAdmin ? (
@@ -2938,11 +2847,21 @@ function App() {
               <RotateCcw aria-hidden="true" />
               Replay Last
             </button>
-            <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
+            <button className="mini-action" onClick={playNextSong} disabled={!songs.length}>
               <SkipForward aria-hidden="true" />
               Next
             </button>
-            {renderVolumeControl()}
+            <label className="room-volume-control">
+              <span><Volume2 aria-hidden="true" /> Volume</span>
+              <strong>{roomVolume}%</strong>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={roomVolume}
+                onChange={(event) => updateRoomVolume(event.target.value)}
+              />
+            </label>
             <button className="mini-action" onClick={takeOverDj} type="button">
               <Crown aria-hidden="true" />
               Play From This Device
@@ -3057,7 +2976,12 @@ function App() {
                   <button className="song-main" type="button">
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
-                      {isCurrentSong && <em>Now</em>}
+                      {isCurrentSong && (
+                        <em className="now-tag">
+                          <Equalizer paused={playbackState.state !== "playing"} />
+                          Now
+                        </em>
+                      )}
                       {isUpNextSong && <em>Up next</em>}
                       {isPlayedSong && <em>Played</em>}
                       {isRecentlyAddedSong && <em>Added</em>}
@@ -3085,18 +3009,18 @@ function App() {
 
                   {isAdmin && isSelectedSong && (
                     <div className="admin-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-                      <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={queueIndex <= 0} type="button">
+                      <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={queueIndex <= 0}>
                         <ArrowUp aria-hidden="true" />
                       </button>
-                      <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={queueIndex < 0 || queueIndex === songs.length - 1} type="button">
+                      <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={queueIndex < 0 || queueIndex === songs.length - 1}>
                         <ArrowDown aria-hidden="true" />
                       </button>
                       {isActiveDj && (
-                        <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play" type="button">
+                        <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play">
                           <Play aria-hidden="true" />
                         </button>
                       )}
-                      <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song" type="button">
+                      <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song">
                         <Trash2 aria-hidden="true" />
                       </button>
                     </div>
@@ -3316,11 +3240,11 @@ function App() {
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    onFocus={placeCursorAtTextEnd}
-                    onClick={placeCursorAtTextEnd}
+                    onFocus={selectExistingText}
+                    onClick={selectExistingText}
                     placeholder={YOUTUBE_API_KEY ? "Search YouTube" : "Add VITE_YOUTUBE_API_KEY"}
                   />
-                    <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching} type="submit">
+                  <button className="primary-action" disabled={!YOUTUBE_API_KEY || searching}>
                     <Search aria-hidden="true" />
                     {searching ? "..." : "Search"}
                   </button>
@@ -3342,7 +3266,7 @@ function App() {
                               {durationLabel || "Length verifies on add"}
                             </span>
                           </div>
-                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || Boolean(addingSongKey)} type="button">
+                          <button className="mini-action" onClick={() => addSong(null, result)} disabled={!canAddSong || Boolean(addingSongKey)}>
                             <Plus aria-hidden="true" />
                             {isAddingThisSong ? "Adding" : "Add"}
                           </button>
@@ -3361,82 +3285,38 @@ function App() {
               </>
             ) : (
               <div className="external-search-panel">
-                {externalSearchStep === "search" ? (
-                  <>
-                    <div>
-                      <strong>Search outside the app</strong>
-                      <span>Open YouTube Music, copy a song link, then come back to PartyBeats.</span>
-                    </div>
-                    <div className="external-search-actions">
-                      <input
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                        onFocus={placeCursorAtTextEnd}
-                        onClick={placeCursorAtTextEnd}
-                        placeholder="Search YouTube Music"
-                      />
-                      <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
-                        <ExternalLink aria-hidden="true" />
-                        Open
-                      </button>
-                    </div>
-                    <button className="external-tutorial-button" onClick={() => setExternalTutorialOpen(true)} type="button">
-                      <Info aria-hidden="true" />
-                      How do I add a song?
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {externalClipboardCandidate ? (
-                      <div className="clipboard-link-card">
-                        <span>Found link in your clipboard</span>
-                        <div className="clipboard-track">
-                          <img src={externalClipboardCandidate.thumbnail} alt="" />
-                          <div>
-                            <strong>{externalClipboardCandidate.title}</strong>
-                            <small>{externalClipboardCandidate.channelTitle}</small>
-                          </div>
-                        </div>
-                        <div className="clipboard-actions">
-                          <button className="primary-action" onClick={addClipboardCandidate} disabled={!canAddSong || Boolean(addingSongKey)} type="button">
-                            <Plus aria-hidden="true" />
-                            {addingSongKey ? "Adding..." : "Add to Playlist"}
-                          </button>
-                          <button className="mini-action" onClick={cancelExternalPasteStep} type="button">
-                            <X aria-hidden="true" />
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div>
-                          <strong>{externalClipboardChecking ? "Checking clipboard" : "Add copied song link"}</strong>
-                          <span>{externalClipboardMessage || "Tap Add from Clipboard to add the copied YouTube Music link."}</span>
-                        </div>
-                        <button className="primary-action clipboard-check-action" onClick={addSongFromClipboard} disabled={externalClipboardChecking || Boolean(addingSongKey)} type="button">
-                          <Plus aria-hidden="true" />
-                          {externalClipboardChecking || addingSongKey ? "Adding..." : "Add from Clipboard"}
-                        </button>
-                        <form className="youtube-link-form compact-link-form" onSubmit={addSongFromLink}>
-                          <input
-                            value={youtubeLink}
-                            onChange={(event) => setYoutubeLink(event.target.value)}
-                            placeholder="Paste song, album, or playlist link"
-                          />
-                          <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)} type="submit">
-                            <Plus aria-hidden="true" />
-                            {addingSongKey ? "Adding..." : "Add Link"}
-                          </button>
-                        </form>
-                        <button className="mini-action" onClick={cancelExternalPasteStep} type="button">
-                          <X aria-hidden="true" />
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
+                <div>
+                  <strong>Search outside the app</strong>
+                  <span>Open YouTube Music, copy a song link, then paste it here. This avoids YouTube search quota.</span>
+                </div>
+                <div className="external-search-actions">
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    onFocus={selectExistingText}
+                    onClick={selectExistingText}
+                    placeholder="Search YouTube Music"
+                  />
+                  <button className="mini-action" onClick={openExternalYouTubeMusicSearch} type="button">
+                    <ExternalLink aria-hidden="true" />
+                    Open
+                  </button>
+                </div>
+                <button className="external-tutorial-button" onClick={() => setExternalTutorialOpen(true)} type="button">
+                  <Info aria-hidden="true" />
+                  How do I add a song?
+                </button>
+                <form className="youtube-link-form" onSubmit={addSongFromLink}>
+                  <input
+                    value={youtubeLink}
+                    onChange={(event) => setYoutubeLink(event.target.value)}
+                    placeholder="Paste song, album, or playlist link"
+                  />
+                  <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)}>
+                    <Plus aria-hidden="true" />
+                    {addingSongKey ? "Adding..." : "Add Link"}
+                  </button>
+                </form>
               </div>
             )}
           </section>
@@ -3886,12 +3766,49 @@ function App() {
         </div>
       )}
 
+      {themePickerModal}
+      {confettiLayer}
+
+      {emojiBursts.length > 0 && (
+        <div className="emoji-burst-layer" aria-hidden="true">
+          {emojiBursts.map((burst) => (
+            <span className="emoji-burst" key={burst.id} style={{ left: `${burst.x}px`, top: `${burst.y}px` }}>
+              {Array.from({ length: 6 }, (_, index) => (
+                <i
+                  key={index}
+                  style={{
+                    "--burst-dx": `${(index - 2.5) * 30 + ((index * 13) % 11) - 5}px`,
+                    "--burst-dy": `${-(96 + (index % 3) * 26)}px`,
+                    "--burst-delay": `${index * 45}ms`,
+                    "--burst-scale": `${0.8 + (index % 3) * 0.25}`
+                  }}
+                >
+                  {burst.emoji}
+                </i>
+              ))}
+            </span>
+          ))}
+        </div>
+      )}
+
       {(toastEnabled || isImportantToast(toast)) && toast && (
-        <button className="toast" onClick={() => setToast("")} role={isImportantToast(toast) ? "alert" : "status"} type="button">
+        <button className="toast" onClick={() => setToast("")} role={isImportantToast(toast) ? "alert" : "status"}>
           {toast}
         </button>
       )}
     </main>
+  );
+}
+
+function Equalizer({ paused = false }) {
+  return (
+    <span className={paused ? "equalizer is-paused" : "equalizer"} aria-hidden="true">
+      <i />
+      <i />
+      <i />
+      <i />
+      <i />
+    </span>
   );
 }
 
@@ -4212,8 +4129,7 @@ function ExternalSearchTutorial({ onClose }) {
           <div className="tutorial-step step-3">3. Tap 3 Dot Menu beside song</div>
           <div className="tutorial-step step-4">4. Tap Share</div>
           <div className="tutorial-step step-5">5. Tap Copy Link</div>
-          <div className="tutorial-step step-6">6. Go back to PartyBeats</div>
-          <div className="tutorial-step step-7">7. Tap Add from Clipboard</div>
+          <div className="tutorial-step step-6">6. Paste Link, then tap Add Link</div>
         </div>
 
         <button className="primary-action tutorial-done" onClick={onClose} type="button">
@@ -4227,7 +4143,7 @@ function ExternalSearchTutorial({ onClose }) {
 function SignedOut({ nickname, setNickname, onGoogle }) {
   return (
     <div className="signed-out">
-      <button className="google-action" onClick={onGoogle} type="button">
+      <button className="google-action" onClick={onGoogle}>
         <span className="google-mark" aria-hidden="true">G</span>
         Continue with Google
       </button>
@@ -4261,7 +4177,7 @@ function SignedIn({ user, nickname, setNickname, onSignOut }) {
           maxLength={30}
         />
       )}
-      <button className="icon-button" onClick={onSignOut} title="Sign out" type="button">
+      <button className="icon-button" onClick={onSignOut} title="Sign out">
         <LogOut aria-hidden="true" />
       </button>
     </div>
