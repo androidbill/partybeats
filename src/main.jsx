@@ -137,7 +137,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.12";
+const APP_VERSION = "2026.06.10.14";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -588,6 +588,9 @@ function App() {
   const [colorTheme, setColorTheme] = useState(savedColorTheme);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [emojiBursts, setEmojiBursts] = useState([]);
+  const [floatingReactions, setFloatingReactions] = useState([]);
+  const [floatingReactionEmoji, setFloatingReactionEmoji] = useState(EMOJIS[0]);
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
   const [deviceId] = useState(savedDeviceId);
@@ -611,11 +614,14 @@ function App() {
   const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
+  const floatingReactionPressTimerRef = useRef(0);
+  const floatingReactionLongPressRef = useRef(false);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
   const noticeRoomId = useRef("");
   const lastPlayedSongId = useRef("");
+  const reactionBaselineReadyRef = useRef(false);
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const isDarkTheme = theme === "dark";
 
@@ -2459,6 +2465,36 @@ function App() {
     }, EMOJI_BURST_LIFETIME_MS);
   }
 
+  function spawnFloatingReaction(emoji = floatingReactionEmoji) {
+    const reaction = {
+      id: `float-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      emoji,
+      x: Math.round(12 + Math.random() * 76),
+      drift: Math.round((Math.random() - 0.5) * 80),
+      scale: Number((0.9 + Math.random() * 0.45).toFixed(2))
+    };
+    setFloatingReactions((current) => [...current.slice(-18), reaction]);
+    window.setTimeout(() => {
+      setFloatingReactions((current) => current.filter((item) => item.id !== reaction.id));
+    }, 2600);
+  }
+
+  function startFloatingReactionPress() {
+    floatingReactionLongPressRef.current = false;
+    window.clearTimeout(floatingReactionPressTimerRef.current);
+    floatingReactionPressTimerRef.current = window.setTimeout(() => {
+      floatingReactionLongPressRef.current = true;
+      setReactionPickerOpen(true);
+    }, 520);
+  }
+
+  function finishFloatingReactionPress() {
+    window.clearTimeout(floatingReactionPressTimerRef.current);
+    if (floatingReactionLongPressRef.current) return;
+    setReactionPickerOpen(false);
+    spawnFloatingReaction();
+  }
+
   async function reactToSong(song, emoji) {
     if (!user || !activeRoomId) return;
     const songRef = doc(db, "rooms", activeRoomId, "songs", song.id);
@@ -3350,6 +3386,43 @@ function App() {
         Add Song
       </button>
 
+      <div className={reactionPickerOpen ? "floating-reaction-control is-picker-open" : "floating-reaction-control"}>
+        {reactionPickerOpen && (
+          <div className="floating-reaction-picker" role="menu" aria-label="Choose reaction emoji">
+            {EMOJIS.map((emoji) => (
+              <button
+                className={floatingReactionEmoji === emoji ? "is-active" : ""}
+                key={emoji}
+                onClick={() => {
+                  setFloatingReactionEmoji(emoji);
+                  setReactionPickerOpen(false);
+                }}
+                type="button"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          className="floating-reaction-button"
+          type="button"
+          aria-label={`Send ${floatingReactionEmoji} reaction`}
+          title="Tap to react. Hold to change emoji."
+          onPointerDown={startFloatingReactionPress}
+          onPointerUp={finishFloatingReactionPress}
+          onPointerCancel={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
+          onPointerLeave={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
+          onClick={(event) => event.preventDefault()}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setReactionPickerOpen(true);
+          }}
+        >
+          {floatingReactionEmoji}
+        </button>
+      </div>
+
       {emojiSongId && (
         <button
           className="emoji-dismiss-layer"
@@ -4179,6 +4252,24 @@ function App() {
                   {burst.emoji}
                 </i>
               ))}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {floatingReactions.length > 0 && (
+        <div className="floating-reaction-layer" aria-hidden="true">
+          {floatingReactions.map((reaction) => (
+            <span
+              className="floating-reaction"
+              key={reaction.id}
+              style={{
+                left: `${reaction.x}%`,
+                "--float-drift": `${reaction.drift}px`,
+                "--float-scale": reaction.scale
+              }}
+            >
+              {reaction.emoji}
             </span>
           ))}
         </div>
