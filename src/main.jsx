@@ -139,7 +139,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.03";
+const APP_VERSION = "2026.06.11.05";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1993,6 +1993,16 @@ function App() {
   function openExternalSearch() {
     const searchUrl = externalSearchUrl(externalSearchProvider, searchQuery);
     const providerName = externalSearchProvider === "youtube" ? "YouTube" : "YouTube Music";
+    const isDesktop = window.matchMedia("(min-width: 760px)").matches;
+    if (!isDesktop && isActiveDj && nowPlayingSong) {
+      if (internalSearchEnabled) {
+        setSearchMode("internal");
+        setToast("Use Internal Search on the player phone so the music keeps playing.");
+      } else {
+        setToast("External search can stop the player phone. Search from another device to keep music playing.");
+      }
+      return;
+    }
     clearExternalClipboardCheckTimer();
     resetExternalClipboardPrompt();
     setExternalSearchStep("paste");
@@ -2000,7 +2010,6 @@ function App() {
     externalSearchLeftAppRef.current = false;
     externalSearchOpenedAtRef.current = Date.now();
     externalSearchLeftAtRef.current = 0;
-    const isDesktop = window.matchMedia("(min-width: 760px)").matches;
     if (!isDesktop) {
       window.open(searchUrl, "_blank", "noopener,noreferrer");
       return;
@@ -3215,12 +3224,21 @@ function App() {
       >
         {(nowPlayingSong || isAdmin) && (
           <div className="now-playing-corner-actions">
-            {nowPlayingSong && (
+            {nowPlayingSong && isActiveDj ? (
+              <button
+                className="lyrics-corner-button"
+                onClick={() => setToast("Lyrics are best opened from another device so the player keeps playing.")}
+                type="button"
+              >
+                <Search aria-hidden="true" />
+                Lyrics
+              </button>
+            ) : nowPlayingSong ? (
               <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
                 <Search aria-hidden="true" />
                 Lyrics
               </a>
-            )}
+            ) : null}
             {isAdmin && (
               <button
                 className="mobile-player-collapse-toggle"
