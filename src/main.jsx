@@ -14,7 +14,6 @@ import {
   MessageCircle,
   Maximize2,
   Minimize2,
-  Moon,
   MoreVertical,
   Music2,
   Palette,
@@ -28,7 +27,6 @@ import {
   Share2,
   SlidersHorizontal,
   Square,
-  Sun,
   Volume2,
   SkipForward,
   Trash2,
@@ -117,10 +115,10 @@ const ROOM_WORDS = [
 
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const COLOR_THEMES = [
+  { id: "neon", name: "Neon Rave", note: "Mint, magenta + ultraviolet" },
   { id: "sunset", name: "Sunset Funk", note: "Coral, gold + tropic teal" },
   { id: "aurora", name: "Aurora", note: "Polar teal + violet glow" },
   { id: "midnight", name: "Midnight Club", note: "Deep blue + electric cyan" },
-  { id: "neon", name: "Neon Rave", note: "Mint, magenta + ultraviolet" },
   { id: "ocean", name: "Ocean Drive", note: "Azure + deep-sea blue" },
   { id: "candy", name: "Candy Pop", note: "Bubblegum pink + grape" },
   { id: "fire", name: "Firestarter", note: "Blaze orange + ember red" },
@@ -138,7 +136,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.08";
+const APP_VERSION = "2026.06.11.09";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -447,7 +445,7 @@ function adminMapFor(room) {
 
 function savedTheme() {
   try {
-    return localStorage.getItem("partybeats-theme") || "dark";
+    return "dark";
   } catch {
     return "dark";
   }
@@ -456,9 +454,10 @@ function savedTheme() {
 function savedColorTheme() {
   try {
     const saved = localStorage.getItem("partybeats-color-theme");
-    return COLOR_THEMES.some((option) => option.id === saved) ? saved : "sunset";
+    if (!saved || saved === "sunset") return "neon";
+    return COLOR_THEMES.some((option) => option.id === saved) ? saved : "neon";
   } catch {
-    return "sunset";
+    return "neon";
   }
 }
 
@@ -605,7 +604,7 @@ function App() {
     crossfadeEnabled: false,
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
-  const [theme, setTheme] = useState(savedTheme);
+  const [theme] = useState(savedTheme);
   const [colorTheme, setColorTheme] = useState(savedColorTheme);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [emojiBursts, setEmojiBursts] = useState([]);
@@ -737,11 +736,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem("partybeats-theme", theme);
-    } catch {
-      // Theme persistence is a convenience; the toggle still works without storage.
-    }
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
@@ -3004,7 +2998,7 @@ function App() {
         <div className="modal-header">
           <div>
             <h2>Themes</h2>
-            <p className="muted">Pick a vibe. It only changes this device.</p>
+            <p className="muted">Pick the colors for this device.</p>
           </div>
           <button className="icon-button" onClick={() => setThemePickerOpen(false)} title="Close" type="button">
             <X aria-hidden="true" />
@@ -3151,22 +3145,14 @@ function App() {
             <span>{activeRoomId}</span>
             <span className="topbar-room-meta">{members.length} people · {activeDjStatus}</span>
             <small className="topbar-version">{APP_VERSION}</small>
-            <button className="topbar-user-button" onClick={openSelfRename} type="button">
-              {!user.isAnonymous && <GoogleBadge />}
-              <span>{activeNickname}</span>
-              <small>{user.isAnonymous ? "Guest" : "Google"}</small>
-            </button>
           </div>
         </div>
 
         <div className="topbar-actions">
-          <button
-            className="icon-button theme-toggle"
-            onClick={() => setTheme(isDarkTheme ? "light" : "dark")}
-            title={isDarkTheme ? "Light mode" : "Dark mode"}
-            type="button"
-          >
-            {isDarkTheme ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+          <button className="topbar-user-button" onClick={openSelfRename} type="button">
+            {!user.isAnonymous && <GoogleBadge />}
+            <span>{activeNickname}</span>
+            <small>{user.isAnonymous ? "Guest" : "Google"}</small>
           </button>
           <div className="menu-wrap">
             <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu" type="button">

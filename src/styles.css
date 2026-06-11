@@ -267,19 +267,9 @@ input:focus {
   background: rgba(23, 24, 31, 0.08);
 }
 
-.theme-toggle {
-  color: #17181f;
-  background: rgba(247, 201, 72, 0.28);
-}
-
 .room-app.dark-mode .icon-button {
   color: #f6f7fb;
   background: rgba(255, 255, 255, 0.1);
-}
-
-.room-app.dark-mode .theme-toggle {
-  color: #12131a;
-  background: #f7c948;
 }
 
 .icon-button.danger {
@@ -1018,7 +1008,7 @@ input:focus {
   width: fit-content;
   max-width: 100%;
   min-height: 26px;
-  margin-top: 5px;
+  margin: 0;
   padding: 3px 8px;
   border: 1px solid rgba(23, 24, 31, 0.12);
   border-radius: 999px;
@@ -2183,6 +2173,8 @@ input:focus {
   z-index: 35;
   background: transparent;
   cursor: default;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .emoji-action-sheet {
@@ -2195,6 +2187,8 @@ input:focus {
   max-width: calc(100dvw - 24px);
   max-height: calc(100dvh - 24px);
   overflow: visible;
+  pointer-events: auto;
+  touch-action: manipulation;
   transform: translateX(-50%);
   transition: top 120ms ease, left 120ms ease;
 }
@@ -3276,14 +3270,13 @@ input:focus {
   }
 
   .topbar-user-button {
-    max-width: min(180px, 48vw);
-    min-height: 24px;
-    margin-top: 4px;
+    max-width: min(160px, 38vw);
+    min-height: 34px;
     padding: 2px 7px;
   }
 
   .topbar-user-button span {
-    max-width: 110px;
+    max-width: 100px;
     font-size: 0.7rem;
   }
 
@@ -3482,8 +3475,6 @@ a { color: var(--pb-link); }
 }
 
 .primary-action,
-.theme-toggle,
-.room-app.dark-mode .theme-toggle,
 .admin-pill,
 .toggle-button.is-on {
   background: var(--pb-highlight);
