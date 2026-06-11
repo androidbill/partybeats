@@ -136,7 +136,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.11";
+const APP_VERSION = "2026.06.11.12";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -2535,19 +2535,27 @@ function App() {
           <Volume2 aria-hidden="true" />
         </button>
         {volumeControlOpen && (
-          <label className="volume-popover">
-            <span>
-              Volume
-              <strong>{roomVolume}%</strong>
-            </span>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={roomVolume}
-              onChange={(event) => updateRoomVolume(event.target.value)}
+          <>
+            <button
+              className="tap-away-layer volume-tap-away"
+              aria-label="Close volume menu"
+              onClick={() => setVolumeControlOpen(false)}
+              type="button"
             />
-          </label>
+            <label className="volume-popover">
+              <span>
+                Volume
+                <strong>{roomVolume}%</strong>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={roomVolume}
+                onChange={(event) => updateRoomVolume(event.target.value)}
+              />
+            </label>
+          </>
         )}
       </div>
     );
@@ -3154,44 +3162,44 @@ function App() {
               <MoreVertical aria-hidden="true" />
             </button>
             {menuOpen && (
-              <div className="overflow-menu">
-                <button onClick={() => { setRoomPanelTab("room"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
-                  <Info aria-hidden="true" />
-                  Room
-                </button>
-                <button onClick={() => { setRoomPanelTab("settings"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
-                  <SlidersHorizontal aria-hidden="true" />
-                  Settings
-                </button>
-                <button onClick={() => { setThemePickerOpen(true); setMenuOpen(false); }} type="button">
-                  <Palette aria-hidden="true" />
-                  Themes
-                </button>
-                <button onClick={() => { setRoomPanelTab("analytics"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
-                  <Activity aria-hidden="true" />
-                  Analytics
-                </button>
-                <button onClick={() => { setShareChoiceOpen(true); setMenuOpen(false); }} type="button">
-                  <Share2 aria-hidden="true" />
-                  Share
-                </button>
-                <button onClick={installApp} type="button">
-                  <Download aria-hidden="true" />
-                  Install App
-                </button>
-                <button onClick={refreshApp} type="button">
-                  <RotateCcw aria-hidden="true" />
-                  Refresh App
-                </button>
-                <button onClick={leaveRoom} type="button">
-                  <DoorOpen aria-hidden="true" />
-                  Leave Room
-                </button>
-                <button onClick={handleSignOut} type="button">
-                  <LogOut aria-hidden="true" />
-                  Sign Out
-                </button>
-              </div>
+              <>
+                <button
+                  className="tap-away-layer menu-tap-away"
+                  aria-label="Close menu"
+                  onClick={() => setMenuOpen(false)}
+                  type="button"
+                />
+                <div className="overflow-menu">
+                  <button onClick={() => { setRoomPanelTab("settings"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
+                    <SlidersHorizontal aria-hidden="true" />
+                    Settings
+                  </button>
+                  <button onClick={() => { setThemePickerOpen(true); setMenuOpen(false); }} type="button">
+                    <Palette aria-hidden="true" />
+                    Themes
+                  </button>
+                  <button onClick={() => { setShareChoiceOpen(true); setMenuOpen(false); }} type="button">
+                    <Share2 aria-hidden="true" />
+                    Share
+                  </button>
+                  <button onClick={installApp} type="button">
+                    <Download aria-hidden="true" />
+                    Install App
+                  </button>
+                  <button onClick={refreshApp} type="button">
+                    <RotateCcw aria-hidden="true" />
+                    Refresh App
+                  </button>
+                  <button onClick={leaveRoom} type="button">
+                    <DoorOpen aria-hidden="true" />
+                    Leave Room
+                  </button>
+                  <button onClick={handleSignOut} type="button">
+                    <LogOut aria-hidden="true" />
+                    Sign Out
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -3531,21 +3539,29 @@ function App() {
 
       <div className={reactionPickerOpen ? "floating-reaction-control is-picker-open" : "floating-reaction-control"}>
         {reactionPickerOpen && (
-          <div className="floating-reaction-picker" role="menu" aria-label="Choose reaction emoji">
-            {EMOJIS.map((emoji) => (
-              <button
-                className={floatingReactionEmoji === emoji ? "is-active" : ""}
-                key={emoji}
-                onClick={() => {
-                  setFloatingReactionEmoji(emoji);
-                  setReactionPickerOpen(false);
-                }}
-                type="button"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
+          <>
+            <button
+              className="tap-away-layer reaction-tap-away"
+              aria-label="Close reaction picker"
+              onClick={() => setReactionPickerOpen(false)}
+              type="button"
+            />
+            <div className="floating-reaction-picker" role="menu" aria-label="Choose reaction emoji">
+              {EMOJIS.map((emoji) => (
+                <button
+                  className={floatingReactionEmoji === emoji ? "is-active" : ""}
+                  key={emoji}
+                  onClick={() => {
+                    setFloatingReactionEmoji(emoji);
+                    setReactionPickerOpen(false);
+                  }}
+                  type="button"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </>
         )}
         <button
           className="floating-reaction-button"
@@ -3727,8 +3743,8 @@ function App() {
       )}
 
       {addSheetOpen && (
-        <div className="modal-backdrop add-sheet-backdrop" role="dialog" aria-modal="true">
-          <section className="add-panel add-sheet">
+        <div className="modal-backdrop add-sheet-backdrop" role="dialog" aria-modal="true" onClick={() => setAddSheetOpen(false)}>
+          <section className="add-panel add-sheet" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h2>Add Song</h2>
@@ -3930,8 +3946,8 @@ function App() {
       )}
 
       {roomPanelOpen && (
-        <div className="modal-backdrop room-panel-backdrop" role="dialog" aria-modal="true">
-          <section className="about-modal room-panel">
+        <div className="modal-backdrop room-panel-backdrop" role="dialog" aria-modal="true" onClick={() => setRoomPanelOpen(false)}>
+          <section className="about-modal room-panel" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h2>Room</h2>
