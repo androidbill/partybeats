@@ -33,7 +33,6 @@ import {
   SkipForward,
   Trash2,
   UserRound,
-  UsersRound,
   Wand2,
   X
 } from "lucide-react";
@@ -139,7 +138,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.05";
+const APP_VERSION = "2026.06.11.07";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -576,6 +575,7 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [roomPanelOpen, setRoomPanelOpen] = useState(false);
   const [roomPanelTab, setRoomPanelTab] = useState("room");
+  const [shareChoiceOpen, setShareChoiceOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState("");
@@ -587,6 +587,10 @@ function App() {
   const [appInstalled, setAppInstalled] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+  });
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia?.("(max-width: 759px)")?.matches ?? false;
   });
   const [restoreRoomId, setRestoreRoomId] = useState("");
   const [renameMemberId, setRenameMemberId] = useState("");
@@ -816,6 +820,15 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const mobileQuery = window.matchMedia?.("(max-width: 759px)");
+    if (!mobileQuery) return undefined;
+    const updateMobileViewport = () => setIsMobileViewport(mobileQuery.matches);
+    updateMobileViewport();
+    mobileQuery.addEventListener?.("change", updateMobileViewport);
+    return () => mobileQuery.removeEventListener?.("change", updateMobileViewport);
+  }, []);
+
+  useEffect(() => {
     const handleFullscreenChange = () => {
       setPlayerFullscreen(document.fullscreenElement === playerCardRef.current);
     };
@@ -979,6 +992,7 @@ function App() {
   const activePlayerDeviceId = room?.activePlayerDeviceId || "";
   const isActiveDjAccount = Boolean(user && activeDjUid === user.uid);
   const isActiveDj = Boolean(isActiveDjAccount && (!activePlayerDeviceId || activePlayerDeviceId === deviceId));
+  const isActiveDjPhone = Boolean(isActiveDj && isMobileViewport);
   const cooldownEnabled = room?.cooldownEnabled === true;
   const cooldownMinutes = Math.min(
     30,
@@ -992,13 +1006,20 @@ function App() {
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
   const toastEnabled = room?.toastEnabled === true;
   const internalSearchEnabled = room?.internalSearchEnabled === true;
+  const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
 
   useEffect(() => {
-    if (!internalSearchEnabled && searchMode === "internal") {
+    if (!internalSearchAvailable && searchMode === "internal") {
       setSearchMode("external");
     }
-  }, [internalSearchEnabled, searchMode]);
+  }, [internalSearchAvailable, searchMode]);
+
+  useEffect(() => {
+    if (addSheetOpen && isActiveDjPhone && internalSearchAvailable) {
+      setSearchMode("internal");
+    }
+  }, [addSheetOpen, internalSearchAvailable, isActiveDjPhone]);
 
   const memberRecord = members.find((member) => member.id === user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
@@ -1029,10 +1050,6 @@ function App() {
   const livePlaybackSeconds = playbackState.state === "playing" && playbackState.updatedAt
     ? playbackState.seconds + Math.max(0, (Date.now() - playbackState.updatedAt) / 1000)
     : playbackState.seconds;
-  const playbackPositionLabel = formatDuration(livePlaybackSeconds);
-  const lastAddedLabel = memberRecord?.lastAddedAt?.toMillis
-    ? formatDateTime(memberRecord.lastAddedAt.toMillis())
-    : "No add yet";
   const activeNickname = (memberRecord?.name || nickname).trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
   const activeDjStatus = isActiveDj
@@ -1995,7 +2012,7 @@ function App() {
     const providerName = externalSearchProvider === "youtube" ? "YouTube" : "YouTube Music";
     const isDesktop = window.matchMedia("(min-width: 760px)").matches;
     if (!isDesktop && isActiveDj && nowPlayingSong) {
-      if (internalSearchEnabled) {
+      if (internalSearchAvailable) {
         setSearchMode("internal");
         setToast("Use Internal Search on the player phone so the music keeps playing.");
       } else {
@@ -2695,6 +2712,7 @@ function App() {
     setMenuOpen(false);
     setRoomPanelOpen(false);
     setRoomPanelTab("room");
+    setShareChoiceOpen(false);
     setAddSheetOpen(false);
     setAddingSongKey("");
     setRecentlyAddedSongId("");
@@ -2848,6 +2866,7 @@ function App() {
       url: shareUrl
     };
     setMenuOpen(false);
+    setShareChoiceOpen(false);
     if (navigator.share) {
       await navigator.share(shareData).catch(() => undefined);
       return;
@@ -2868,6 +2887,7 @@ function App() {
       url: appUrl
     };
     setMenuOpen(false);
+    setShareChoiceOpen(false);
     if (navigator.share) {
       await navigator.share(shareData).catch(() => undefined);
       return;
@@ -2888,6 +2908,7 @@ function App() {
 
   async function exportPlaylist() {
     setMenuOpen(false);
+    setShareChoiceOpen(false);
     if (!songs.length) {
       setToast("There are no songs to share yet.");
       return;
@@ -2921,6 +2942,41 @@ function App() {
     }
     await navigator.clipboard?.writeText(`${playlistText}\n\nJoin: ${shareUrl}`);
     setToast("Playlist copied.");
+  }
+
+  async function shareAnalytics() {
+    setMenuOpen(false);
+    const lines = [
+      "BP PartyBeats Analytics",
+      `Room: ${activeRoomId}`,
+      `Shared: ${new Date().toLocaleString()}`,
+      "",
+      `Songs: ${songs.length}`,
+      `Reactions: ${totalReactions}`,
+      `Messages: ${totalMessages}`,
+      `People: ${members.length}`,
+      `Google users: ${googleMemberCount}`,
+      `Guests: ${guestMemberCount}`,
+      "",
+      "People",
+      ...analyticsPeople.map((member) => `${member.name || "Guest"} (${member.isAnonymous ? "Guest" : "Google"}): ${member.added} adds, ${member.reactions} reacts, ${member.messages} msgs`),
+      "",
+      "Top Tracks",
+      ...(mostReactedSongs.length
+        ? mostReactedSongs.map((song, index) => `${index + 1}. ${song.display.artist ? `${song.display.artist} - ` : ""}${song.display.title}: ${song.reactionCount} reacts, ${song.messageCount} msgs`)
+        : ["No reactions or messages yet."])
+    ];
+    const text = lines.join("\n");
+    const shareData = {
+      title: `BP PartyBeats ${activeRoomId} analytics`,
+      text
+    };
+    if (navigator.share) {
+      await navigator.share(shareData).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard?.writeText(text);
+    setToast("Analytics copied.");
   }
 
   if (!firebaseReady) {
@@ -3086,21 +3142,15 @@ function App() {
             <span>{activeRoomId}</span>
             <span className="topbar-room-meta">{members.length} people · {activeDjStatus}</span>
             <small className="topbar-version">{APP_VERSION}</small>
+            <button className="topbar-user-button" onClick={openSelfRename} type="button">
+              {!user.isAnonymous && <GoogleBadge />}
+              <span>{activeNickname}</span>
+              <small>{user.isAnonymous ? "Guest" : "Google"}</small>
+            </button>
           </div>
         </div>
 
         <div className="topbar-actions">
-          <button
-            className="icon-button qr-toggle"
-            onClick={() => {
-              setRoomPanelTab("room");
-              setRoomPanelOpen(true);
-            }}
-            title="Show room QR"
-            type="button"
-          >
-            <QrCode aria-hidden="true" />
-          </button>
           <button
             className="icon-button theme-toggle"
             onClick={() => setTheme(isDarkTheme ? "light" : "dark")}
@@ -3109,40 +3159,6 @@ function App() {
           >
             {isDarkTheme ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
           </button>
-          <button
-            className="icon-button palette-toggle"
-            onClick={() => setThemePickerOpen(true)}
-            title="Themes"
-            type="button"
-          >
-            <Palette aria-hidden="true" />
-          </button>
-          <button
-            className="icon-button"
-            onClick={() => {
-              setRoomPanelTab("people");
-              setRoomPanelOpen(true);
-            }}
-            title="People in room"
-            type="button"
-          >
-            <UsersRound aria-hidden="true" />
-          </button>
-          <button
-            className="icon-button"
-            onClick={openSelfRename}
-            title="Change nickname"
-            type="button"
-          >
-            <Pencil aria-hidden="true" />
-          </button>
-          <div className="session-chip">
-            <span>{user.isAnonymous ? "Guest" : "Google"}</span>
-            <strong>
-              {!user.isAnonymous && <GoogleBadge />}
-              {activeNickname}
-            </strong>
-          </div>
           <div className="menu-wrap">
             <button className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="Menu" type="button">
               <MoreVertical aria-hidden="true" />
@@ -3165,13 +3181,7 @@ function App() {
                   <Activity aria-hidden="true" />
                   Analytics
                 </button>
-                {isAdmin && (
-                  <button onClick={() => { setRoomPanelTab("diagnostics"); setRoomPanelOpen(true); setMenuOpen(false); }} type="button">
-                    <Activity aria-hidden="true" />
-                    Diagnostics
-                  </button>
-                )}
-                <button onClick={shareApp} type="button">
+                <button onClick={() => { setShareChoiceOpen(true); setMenuOpen(false); }} type="button">
                   <Share2 aria-hidden="true" />
                   Share
                 </button>
@@ -3224,16 +3234,7 @@ function App() {
       >
         {(nowPlayingSong || isAdmin) && (
           <div className="now-playing-corner-actions">
-            {nowPlayingSong && isActiveDj ? (
-              <button
-                className="lyrics-corner-button"
-                onClick={() => setToast("Lyrics are best opened from another device so the player keeps playing.")}
-                type="button"
-              >
-                <Search aria-hidden="true" />
-                Lyrics
-              </button>
-            ) : nowPlayingSong ? (
+            {nowPlayingSong && !isActiveDjPhone ? (
               <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
                 <Search aria-hidden="true" />
                 Lyrics
@@ -3751,7 +3752,7 @@ function App() {
               </button>
             </div>
 
-            {internalSearchEnabled && (
+            {internalSearchAvailable && (
               <div className="search-tabs" role="tablist" aria-label="Song search mode">
                 <button
                   className={searchMode === "external" ? "is-active" : ""}
@@ -3774,7 +3775,7 @@ function App() {
               </div>
             )}
 
-            {internalSearchEnabled && searchMode === "internal" ? (
+            {internalSearchAvailable && searchMode === "internal" ? (
               <>
                 <form className="youtube-search" onSubmit={searchYouTube}>
                   <input
@@ -3981,17 +3982,6 @@ function App() {
               >
                 Analytics
               </button>
-              {isAdmin && (
-                <button
-                  className={roomPanelTab === "diagnostics" ? "is-active" : ""}
-                  onClick={() => setRoomPanelTab("diagnostics")}
-                  type="button"
-                  role="tab"
-                  aria-selected={roomPanelTab === "diagnostics"}
-                >
-                  Diagnostics
-                </button>
-              )}
             </div>
 
             {roomPanelTab === "room" && (
@@ -4221,6 +4211,10 @@ function App() {
 
             {roomPanelTab === "analytics" && (
               <div className="room-panel-page analytics-page">
+                <button className="primary-action analytics-share-action" onClick={shareAnalytics} type="button">
+                  <Share2 aria-hidden="true" />
+                  Share Analytics
+                </button>
                 <div className="analytics-grid">
                   <div>
                     <span>Songs</span>
@@ -4293,65 +4287,45 @@ function App() {
                 </div>
               </div>
             )}
+          </section>
+        </div>
+      )}
 
-            {isAdmin && roomPanelTab === "diagnostics" && (
-              <div className="room-panel-page diagnostics-page">
-                <div className="diagnostics-grid">
-                  <div>
-                    <span>Auth</span>
-                    <strong>{user.isAnonymous ? "Guest" : "Google"}</strong>
-                    <small>{user.uid}</small>
-                  </div>
-                  <div>
-                    <span>Room</span>
-                    <strong>{activeRoomId}</strong>
-                    <small>{room?.closed ? "Closed" : "Open"}</small>
-                  </div>
-                  <div>
-                    <span>Player</span>
-                    <strong>{activeDjName}</strong>
-                    <small>{activeDjUid || "None"} · {activePlayerDeviceId || "legacy device"}</small>
-                  </div>
-                  <div>
-                    <span>Playback</span>
-                    <strong>{playbackState.state}</strong>
-                    <small>{playbackPositionLabel || "0:00"} · {formatDateTime(playbackState.updatedAt)}</small>
-                  </div>
-                  <div>
-                    <span>Now Playing ID</span>
-                    <strong>{room?.nowPlayingId || "None"}</strong>
-                    <small>{nowPlayingSong?.videoId || "No video loaded"}</small>
-                  </div>
-                  <div>
-                    <span>Queue</span>
-                    <strong>{songs.length} songs</strong>
-                    <small>{members.length} people in room</small>
-                  </div>
-                  <div>
-                    <span>Add Status</span>
-                    <strong>{canAddSong ? "Can add" : `Cooldown ${Math.ceil(cooldownRemaining / 1000)}s`}</strong>
-                    <small>Last add: {lastAddedLabel}</small>
-                  </div>
-                  <div>
-                    <span>Settings</span>
-                    <strong>
-                      {cooldownEnabled ? "Cooldown on" : "Cooldown off"}
-                    </strong>
-                    <small>
-                      Crossfade {crossfadeEnabled ? "on" : "off"} · Notices {trackNoticeEnabled ? "on" : "off"}
-                    </small>
-                  </div>
-                  <div>
-                    <span>Build</span>
-                    <strong>{APP_VERSION}</strong>
-                    <small>{window.location.origin}</small>
-                  </div>
-                </div>
-                <p className="muted">
-                  Use this during phone testing to confirm auth, room, Active DJ, playback, and cooldown state.
-                </p>
+      {shareChoiceOpen && (
+        <div
+          className="modal-backdrop share-choice-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="share-choice-title"
+          onClick={() => setShareChoiceOpen(false)}
+        >
+          <section className="about-modal share-choice-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 id="share-choice-title">Share</h2>
+                <p className="muted">Choose what to send.</p>
               </div>
-            )}
+              <button className="icon-button" onClick={() => setShareChoiceOpen(false)} title="Close" type="button">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <div className="share-choice-grid">
+              <button onClick={shareApp} type="button">
+                <Share2 aria-hidden="true" />
+                <strong>App</strong>
+                <span>Send the BP PartyBeats link.</span>
+              </button>
+              <button onClick={shareRoom} type="button">
+                <QrCode aria-hidden="true" />
+                <strong>Room ID</strong>
+                <span>Invite people to room {activeRoomId}.</span>
+              </button>
+              <button onClick={exportPlaylist} type="button">
+                <Music2 aria-hidden="true" />
+                <strong>Playlist</strong>
+                <span>Share the current queue.</span>
+              </button>
+            </div>
           </section>
         </div>
       )}
