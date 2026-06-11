@@ -115,18 +115,18 @@ const ROOM_WORDS = [
 
 const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
 const COLOR_THEMES = [
-  { id: "neon", name: "Neon Rave", note: "Mint, magenta + ultraviolet" },
-  { id: "sunset", name: "Sunset Funk", note: "Coral, gold + tropic teal" },
-  { id: "aurora", name: "Aurora", note: "Polar teal + violet glow" },
-  { id: "midnight", name: "Midnight Club", note: "Deep blue + electric cyan" },
-  { id: "ocean", name: "Ocean Drive", note: "Azure + deep-sea blue" },
-  { id: "candy", name: "Candy Pop", note: "Bubblegum pink + grape" },
-  { id: "fire", name: "Firestarter", note: "Blaze orange + ember red" },
-  { id: "ice", name: "On Ice", note: "Frost blue + arctic white" },
-  { id: "royal", name: "Royal Velvet", note: "Violet + champagne gold" },
-  { id: "forest", name: "Forest Rave", note: "Pine green + glow lime" },
-  { id: "lime", name: "Limelight", note: "Lime + spring green" },
-  { id: "mono", name: "Monochrome", note: "Ink, slate + silver" }
+  { id: "neon", name: "Neon Rave", note: "Mint, magenta + ultraviolet", base: "dark" },
+  { id: "sunset", name: "Sunset Funk", note: "Coral, gold + tropic teal", base: "light" },
+  { id: "aurora", name: "Aurora", note: "Polar teal + violet glow", base: "dark" },
+  { id: "midnight", name: "Midnight Club", note: "Deep blue + electric cyan", base: "dark" },
+  { id: "ocean", name: "Ocean Drive", note: "Azure + deep-sea blue", base: "light" },
+  { id: "candy", name: "Candy Pop", note: "Bubblegum pink + grape", base: "light" },
+  { id: "fire", name: "Firestarter", note: "Blaze orange + ember red", base: "light" },
+  { id: "ice", name: "On Ice", note: "Frost blue + arctic white", base: "light" },
+  { id: "royal", name: "Royal Velvet", note: "Violet + champagne gold", base: "dark" },
+  { id: "forest", name: "Forest Rave", note: "Pine green + glow lime", base: "dark" },
+  { id: "lime", name: "Limelight", note: "Lime + spring green", base: "light" },
+  { id: "mono", name: "Monochrome", note: "Ink, slate + silver", base: "dark" }
 ];
 const EMOJI_BURST_LIFETIME_MS = 1600;
 const CONFETTI_LIFETIME_MS = 3200;
@@ -136,7 +136,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.09";
+const APP_VERSION = "2026.06.11.10";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -443,18 +443,15 @@ function adminMapFor(room) {
   };
 }
 
-function savedTheme() {
-  try {
-    return "dark";
-  } catch {
-    return "dark";
-  }
-}
-
 function savedColorTheme() {
   try {
     const saved = localStorage.getItem("partybeats-color-theme");
-    if (!saved || saved === "sunset") return "neon";
+    const migratedDefault = localStorage.getItem("partybeats-color-theme-default-migrated");
+    if (!saved) return "neon";
+    if (saved === "sunset" && !migratedDefault) {
+      localStorage.setItem("partybeats-color-theme-default-migrated", "true");
+      return "neon";
+    }
     return COLOR_THEMES.some((option) => option.id === saved) ? saved : "neon";
   } catch {
     return "neon";
@@ -604,7 +601,6 @@ function App() {
     crossfadeEnabled: false,
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
-  const [theme] = useState(savedTheme);
   const [colorTheme, setColorTheme] = useState(savedColorTheme);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [emojiBursts, setEmojiBursts] = useState([]);
@@ -644,7 +640,9 @@ function App() {
   const lastPlayedSongId = useRef("");
   const reactionBaselineReadyRef = useRef(false);
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
-  const isDarkTheme = theme === "dark";
+  const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
+  const baseTheme = selectedColorTheme.base || "dark";
+  const isDarkTheme = baseTheme === "dark";
 
   function clearExternalClipboardCheckTimer() {
     if (!externalClipboardCheckTimerRef.current) return;
@@ -736,17 +734,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  useEffect(() => {
     try {
       localStorage.setItem("partybeats-color-theme", colorTheme);
     } catch {
       // Color theme persistence is a convenience; the picker still works without storage.
     }
+    document.documentElement.dataset.theme = baseTheme;
     document.documentElement.dataset.colorTheme = colorTheme;
-  }, [colorTheme]);
+  }, [baseTheme, colorTheme]);
 
   useEffect(() => {
     if (!confettiKey) return undefined;
@@ -2998,7 +2993,7 @@ function App() {
         <div className="modal-header">
           <div>
             <h2>Themes</h2>
-            <p className="muted">Pick the colors for this device.</p>
+            <p className="muted">Pick the full look for this device.</p>
           </div>
           <button className="icon-button" onClick={() => setThemePickerOpen(false)} title="Close" type="button">
             <X aria-hidden="true" />
