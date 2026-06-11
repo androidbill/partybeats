@@ -138,7 +138,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.07";
+const APP_VERSION = "2026.06.11.08";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1204,6 +1204,7 @@ function App() {
 
       const rowRect = row.getBoundingClientRect();
       const barRect = bar.getBoundingClientRect();
+      const panelRect = queuePanelRef.current?.getBoundingClientRect();
       const viewport = window.visualViewport;
       const viewportTop = viewport?.offsetTop || 0;
       const viewportLeft = viewport?.offsetLeft || 0;
@@ -1211,6 +1212,7 @@ function App() {
       const viewportHeight = viewport?.height || window.innerHeight;
       const safeTop = viewportTop + 12;
       const safeBottom = viewportTop + viewportHeight - 12;
+      const rowSafeTop = Math.max(safeTop, (panelRect?.top || safeTop) + 12);
       const sheetWidth = Math.min(360, Math.max(260, viewportWidth - 24));
       const maxHeight = Math.max(120, viewportHeight - 24);
       const gap = 8;
@@ -1240,7 +1242,7 @@ function App() {
 
       let placement = "";
       let top = rowRect.top - barRect.height - gap;
-      if (top >= safeTop) {
+      if (top >= rowSafeTop) {
         placement = "above";
       } else {
         top = rowRect.bottom + gap;
@@ -2676,6 +2678,13 @@ function App() {
     action();
   }
 
+  function closeEmojiPopoverSoon() {
+    window.setTimeout(() => {
+      setEmojiSongId("");
+      setMessageSongId("");
+    }, 140);
+  }
+
   function popoverPressProps(key, action) {
     const handleStart = (event) => {
       event.preventDefault();
@@ -3611,12 +3620,19 @@ function App() {
           role="dialog"
           aria-label="React to song"
           onClick={(event) => event.stopPropagation()}
+          onClickCapture={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
+          onPointerDownCapture={(event) => event.stopPropagation()}
           onPointerUp={(event) => event.stopPropagation()}
+          onPointerUpCapture={(event) => event.stopPropagation()}
           onTouchStart={(event) => event.stopPropagation()}
+          onTouchStartCapture={(event) => event.stopPropagation()}
           onTouchEnd={(event) => event.stopPropagation()}
+          onTouchEndCapture={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
+          onMouseDownCapture={(event) => event.stopPropagation()}
           onMouseUp={(event) => event.stopPropagation()}
+          onMouseUpCapture={(event) => event.stopPropagation()}
         >
           {EMOJIS.map((emoji) => (
             <button
@@ -3624,7 +3640,7 @@ function App() {
               key={emoji}
               {...popoverPressProps(`${reactionSong.id}:emoji:${emoji}`, () => {
                 reactToSong(reactionSong, emoji);
-                setEmojiSongId("");
+                closeEmojiPopoverSoon();
               })}
               type="button"
             >
