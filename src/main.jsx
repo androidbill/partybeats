@@ -12,6 +12,8 @@ import {
   Info,
   LogOut,
   MessageCircle,
+  Maximize2,
+  Minimize2,
   Moon,
   MoreVertical,
   Music2,
@@ -137,7 +139,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.10.14";
+const APP_VERSION = "2026.06.11.01";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -598,6 +600,7 @@ function App() {
   const [dismissedPlayerPromptKey, setDismissedPlayerPromptKey] = useState("");
   const [volumeControlOpen, setVolumeControlOpen] = useState(false);
   const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
+  const [mobilePlayerCollapsed, setMobilePlayerCollapsed] = useState(false);
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
@@ -2287,6 +2290,25 @@ function App() {
     });
   }
 
+  async function togglePlayback() {
+    if (!isAdmin || !activeRoomId || !nowPlayingSong) {
+      setToast("Choose a track first.");
+      return;
+    }
+    const nextState = playbackState.state === "playing" ? "paused" : "playing";
+    await updateDoc(doc(db, "rooms", activeRoomId), {
+      playbackSongId: nowPlayingSong.id,
+      playbackSeconds: Math.max(0, livePlaybackSeconds),
+      playbackState: nextState,
+      playbackCommand: nextState === "playing" ? "play" : "pause",
+      playbackCommandId: `${deviceId}-${Date.now()}`,
+      playbackCommandAt: serverTimestamp(),
+      playbackUpdatedAt: serverTimestamp(),
+      playbackUpdatedBy: user.uid,
+      ...roomActivityUpdate()
+    });
+  }
+
   async function handlePlaybackUnavailable(errorCode) {
     const failedSong = nowPlayingSong;
     if (!isActiveDj || !activeRoomId || !failedSong || unavailableHandlingRef.current === failedSong.id) return;
@@ -2625,6 +2647,7 @@ function App() {
     setMessageDraft("");
     setFloatingReactions([]);
     setReactionPickerOpen(false);
+    setMobilePlayerCollapsed(false);
     setRenameMemberId("");
     setRenameDraft("");
     setSelfRenameOpen(false);
@@ -3138,7 +3161,8 @@ function App() {
         ref={playerCardRef}
         className={[
           playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card",
-          nowPlayingSong ? "has-track" : "is-idle"
+          nowPlayingSong ? "has-track" : "is-idle",
+          isActiveDj && mobilePlayerCollapsed ? "is-mobile-collapsed" : ""
         ].join(" ")}
       >
         {nowPlayingSong && (
@@ -3148,6 +3172,16 @@ function App() {
           </a>
         )}
         <div className="now-playing-copy">
+          {isActiveDj && (
+            <button
+              className="mobile-player-collapse-toggle"
+              onClick={() => setMobilePlayerCollapsed((collapsed) => !collapsed)}
+              type="button"
+            >
+              {mobilePlayerCollapsed ? <Maximize2 aria-hidden="true" /> : <Minimize2 aria-hidden="true" />}
+              {mobilePlayerCollapsed ? "Expand" : "Collapse"}
+            </button>
+          )}
           <span>
             {nowPlayingSong && <Equalizer paused={playbackState.state !== "playing"} />}
             {isActiveDj ? "This device is playing" : "Now playing"}
@@ -3176,6 +3210,16 @@ function App() {
         </div>
         {isActiveDj ? (
           <>
+            <div className="mobile-compact-player-controls" aria-label="Collapsed player controls">
+              <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
+                {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+                {playbackState.state === "playing" ? "Pause" : "Play"}
+              </button>
+              <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
+                <SkipForward aria-hidden="true" />
+                Next
+              </button>
+            </div>
             <YouTubePlayer
               song={nowPlayingSong}
               onEnded={playNextSong}
@@ -4396,7 +4440,7 @@ function YouTubePlayer({
   useEffect(() => {
     const player = playerRef.current;
     if (!song?.id || !playerReadyRef.current || !player || playbackState?.songId !== song.id) return;
-    if (!["restart", "select", "next", "stop"].includes(playbackState.command) || !playbackState.commandId) return;
+    if (!["restart", "select", "next", "stop", "play", "pause"].includes(playbackState.command) || !playbackState.commandId) return;
     if (lastAppliedPlaybackCommandRef.current === playbackState.commandId) return;
     if (!playbackState.commandAt || Date.now() - playbackState.commandAt > PLAYBACK_COMMAND_WINDOW_MS) return;
 
@@ -4412,6 +4456,20 @@ function YouTubePlayer({
       }
       player.stopVideo?.();
       setLocalPlaybackState("paused");
+      return;
+    }
+    if (playbackState.command === "pause") {
+      if (playerTimerRef.current) {
+        window.clearInterval(playerTimerRef.current);
+        playerTimerRef.current = null;
+      }
+      player.pauseVideo?.();
+      setLocalPlaybackState("paused");
+      return;
+    }
+    if (playbackState.command === "play") {
+      player.playVideo?.();
+      setLocalPlaybackState("playing");
       return;
     }
     crossfadeTriggeredRef.current = false;
