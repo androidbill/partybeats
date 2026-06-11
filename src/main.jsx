@@ -139,7 +139,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.01";
+const APP_VERSION = "2026.06.11.03";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -319,6 +319,21 @@ function extractYouTubePlaylistId(value) {
   }
 
   return "";
+}
+
+function shouldImportYouTubePlaylist(value) {
+  const playlistId = extractYouTubePlaylistId(value);
+  if (!playlistId) return false;
+  const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(value));
+  if (!videoId) return true;
+
+  try {
+    const url = new URL(value.trim());
+    const path = url.pathname.toLowerCase();
+    return path.includes("/playlist");
+  } catch {
+    return false;
+  }
 }
 
 function cleanYouTubeVideoId(videoId) {
@@ -1720,8 +1735,13 @@ function App() {
   async function addSongFromLink(event) {
     event.preventDefault();
     const playlistId = extractYouTubePlaylistId(youtubeLink);
-    if (playlistId && !extractYouTubeVideoId(youtubeLink)) {
-      await importYouTubePlaylist(playlistId);
+    if (shouldImportYouTubePlaylist(youtubeLink)) {
+      const imported = await importYouTubePlaylist(playlistId);
+      if (imported) {
+        await clearClipboardAfterExternalSearch();
+        resetExternalClipboardPrompt();
+        setExternalSearchStep("search");
+      }
       return;
     }
     const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(youtubeLink));
@@ -1763,6 +1783,19 @@ function App() {
     setExternalClipboardMessage("Checking clipboard...");
     try {
       const clipboardText = (await navigator.clipboard.readText()).trim();
+      const playlistId = extractYouTubePlaylistId(clipboardText);
+      if (shouldImportYouTubePlaylist(clipboardText)) {
+        const playlistKey = `playlist:${playlistId}`;
+        if (playlistKey === lastClipboardVideoIdRef.current) {
+          setExternalClipboardMessage("");
+          return;
+        }
+        lastClipboardVideoIdRef.current = playlistKey;
+        setYoutubeLink(clipboardText);
+        setExternalClipboardCandidate(null);
+        setExternalClipboardMessage("Playlist link found. Tap Add from Clipboard to import it.");
+        return;
+      }
       const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
       if (!videoId) {
         setExternalClipboardCandidate(null);
@@ -1796,6 +1829,19 @@ function App() {
     setExternalClipboardMessage("Checking clipboard...");
     try {
       const clipboardText = (await navigator.clipboard.readText()).trim();
+      const playlistId = extractYouTubePlaylistId(clipboardText);
+      if (shouldImportYouTubePlaylist(clipboardText)) {
+        setYoutubeLink(clipboardText);
+        const imported = await importYouTubePlaylist(playlistId);
+        if (imported) {
+          await clearClipboardAfterExternalSearch();
+          resetExternalClipboardPrompt();
+          setExternalSearchStep("search");
+        } else {
+          setExternalClipboardMessage("Playlist link found. Try again or paste a different link below.");
+        }
+        return;
+      }
       const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
       if (!videoId) {
         await cancelExternalPasteStep();
@@ -1841,11 +1887,11 @@ function App() {
   async function importYouTubePlaylist(playlistId) {
     if (!isAdmin) {
       setToast("Only admins can add a full album or playlist.");
-      return;
+      return false;
     }
     if (!YOUTUBE_API_KEY) {
       setToast("Album imports require VITE_YOUTUBE_API_KEY.");
-      return;
+      return false;
     }
 
     setAddingSongKey(`${activeRoomId}:playlist:${playlistId}`);
@@ -1872,7 +1918,7 @@ function App() {
       if (!playlistItems.length) {
         setToast("No available songs were found in that album or playlist.");
         setAddingSongKey("");
-        return;
+        return false;
       }
 
       const videoParams = new URLSearchParams({
@@ -1935,8 +1981,10 @@ function App() {
       setToast(`Added ${tracks.length} playable tracks${skippedCount ? ` and skipped ${skippedCount} unavailable tracks` : ""}.`);
       setYoutubeLink("");
       setAddSheetOpen(false);
+      return true;
     } catch (error) {
       setToast(error.message || "Could not import that album or playlist.");
+      return false;
     } finally {
       setAddingSongKey("");
     }
@@ -3162,26 +3210,30 @@ function App() {
         className={[
           playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card",
           nowPlayingSong ? "has-track" : "is-idle",
-          isActiveDj && mobilePlayerCollapsed ? "is-mobile-collapsed" : ""
+          mobilePlayerCollapsed ? "is-mobile-collapsed" : ""
         ].join(" ")}
       >
-        {nowPlayingSong && (
-          <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
-            <Search aria-hidden="true" />
-            Lyrics
-          </a>
+        {(nowPlayingSong || isAdmin) && (
+          <div className="now-playing-corner-actions">
+            {nowPlayingSong && (
+              <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+                <Search aria-hidden="true" />
+                Lyrics
+              </a>
+            )}
+            {isAdmin && (
+              <button
+                className="mobile-player-collapse-toggle"
+                onClick={() => setMobilePlayerCollapsed((collapsed) => !collapsed)}
+                type="button"
+              >
+                {mobilePlayerCollapsed ? <Maximize2 aria-hidden="true" /> : <Minimize2 aria-hidden="true" />}
+                {mobilePlayerCollapsed ? "Expand" : "Collapse"}
+              </button>
+            )}
+          </div>
         )}
         <div className="now-playing-copy">
-          {isActiveDj && (
-            <button
-              className="mobile-player-collapse-toggle"
-              onClick={() => setMobilePlayerCollapsed((collapsed) => !collapsed)}
-              type="button"
-            >
-              {mobilePlayerCollapsed ? <Maximize2 aria-hidden="true" /> : <Minimize2 aria-hidden="true" />}
-              {mobilePlayerCollapsed ? "Expand" : "Collapse"}
-            </button>
-          )}
           <span>
             {nowPlayingSong && <Equalizer paused={playbackState.state !== "playing"} />}
             {isActiveDj ? "This device is playing" : "Now playing"}
@@ -3208,18 +3260,20 @@ function App() {
             {isAdmin && !isActiveDj ? " · You can move the player to this device." : ""}
           </p>
         </div>
+        {isAdmin && (
+          <div className="mobile-compact-player-controls" aria-label="Collapsed player controls">
+            <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
+              {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+              {playbackState.state === "playing" ? "Pause" : "Play"}
+            </button>
+            <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
+              <SkipForward aria-hidden="true" />
+              Next
+            </button>
+          </div>
+        )}
         {isActiveDj ? (
           <>
-            <div className="mobile-compact-player-controls" aria-label="Collapsed player controls">
-              <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
-                {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-                {playbackState.state === "playing" ? "Pause" : "Play"}
-              </button>
-              <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
-                <SkipForward aria-hidden="true" />
-                Next
-              </button>
-            </div>
             <YouTubePlayer
               song={nowPlayingSong}
               onEnded={playNextSong}
