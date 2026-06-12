@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.13";
+const APP_VERSION = "2026.06.11.14";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -601,6 +601,7 @@ function App() {
   const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState("");
   const [emojiSongId, setEmojiSongId] = useState("");
+  const [emojiPickerMode, setEmojiPickerMode] = useState("react");
   const [emojiBarPosition, setEmojiBarPosition] = useState(null);
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -2651,25 +2652,28 @@ function App() {
     sendFloatingReaction();
   }
 
-  function openSongEmojiPicker(song) {
+  function openSongEmojiPicker(song, mode = "react") {
     setMessageSongId("");
+    setEmojiPickerMode(mode);
     setEmojiSongId(song.id);
   }
 
   function startSongReactionPress(event, song) {
     event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     songReactionLongPressRef.current = false;
     window.clearTimeout(songReactionPressTimerRef.current);
     songReactionPressTimerRef.current = window.setTimeout(() => {
       songReactionLongPressRef.current = true;
-      openSongEmojiPicker(song);
+      openSongEmojiPicker(song, "choose");
     }, 520);
   }
 
   function finishSongReactionPress(event, song) {
     event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
     window.clearTimeout(songReactionPressTimerRef.current);
     if (songReactionLongPressRef.current) return;
     reactToSong(song, songReactionEmoji);
@@ -2735,6 +2739,7 @@ function App() {
     window.setTimeout(() => {
       setEmojiSongId("");
       setMessageSongId("");
+      setEmojiPickerMode("react");
     }, 140);
   }
 
@@ -2780,6 +2785,7 @@ function App() {
     setRecentlyAddedSongId("");
     setSelectedSongId("");
     setEmojiSongId("");
+    setEmojiPickerMode("react");
     setMessageSongId("");
     setMessageDraft("");
     setFloatingReactions([]);
@@ -3595,11 +3601,10 @@ function App() {
                         onPointerDown={(event) => startSongReactionPress(event, song)}
                         onPointerUp={(event) => finishSongReactionPress(event, song)}
                         onPointerCancel={cancelSongReactionPress}
-                        onPointerLeave={cancelSongReactionPress}
                         onClick={(event) => event.preventDefault()}
                         onContextMenu={(event) => {
                           event.preventDefault();
-                          openSongEmojiPicker(song);
+                          openSongEmojiPicker(song, "choose");
                         }}
                       >
                         {songReactionEmoji}
@@ -3612,6 +3617,7 @@ function App() {
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
+                          setEmojiPickerMode("react");
                           setEmojiSongId(song.id);
                           setMessageSongId(song.id);
                         }}
@@ -3685,6 +3691,7 @@ function App() {
             setEmojiSongId("");
             setMessageSongId("");
             setMessageDraft("");
+            setEmojiPickerMode("react");
           }}
           type="button"
         />
@@ -3728,11 +3735,17 @@ function App() {
         >
           {EMOJIS.map((emoji) => (
             <button
-              className={reactionSong.emojiByUser?.[user.uid] === emoji ? "selected" : ""}
+              className={
+                (emojiPickerMode === "choose" ? songReactionEmoji === emoji : reactionSong.emojiByUser?.[user.uid] === emoji)
+                  ? "selected"
+                  : ""
+              }
               key={emoji}
               {...popoverPressProps(`${reactionSong.id}:emoji:${emoji}`, () => {
                 setSongReactionEmoji(emoji);
-                reactToSong(reactionSong, emoji);
+                if (emojiPickerMode !== "choose") {
+                  reactToSong(reactionSong, emoji);
+                }
                 closeEmojiPopoverSoon();
               })}
               type="button"
