@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.19";
+const APP_VERSION = "2026.06.11.20";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -302,7 +302,7 @@ function youtubeThumb(videoId) {
 }
 
 function extractYouTubeVideoId(value) {
-  const rawValue = value.trim();
+  const rawValue = extractYouTubeShareUrl(value);
   if (!rawValue) return "";
 
   try {
@@ -327,7 +327,7 @@ function extractYouTubeVideoId(value) {
 }
 
 function extractYouTubePlaylistId(value) {
-  const rawValue = value.trim();
+  const rawValue = extractYouTubeShareUrl(value);
   if (!rawValue) return "";
 
   try {
@@ -350,12 +350,19 @@ function shouldImportYouTubePlaylist(value) {
   if (!videoId) return true;
 
   try {
-    const url = new URL(value.trim());
+    const url = new URL(extractYouTubeShareUrl(value));
     const path = url.pathname.toLowerCase();
     return path.includes("/playlist");
   } catch {
     return false;
   }
+}
+
+function extractYouTubeShareUrl(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+  const urlMatch = rawValue.match(/https?:\/\/(?:www\.|m\.)?(?:music\.)?(?:youtube\.com|youtu\.be|youtube-nocookie\.com)\/[^\s"'<>]+/i);
+  return (urlMatch?.[0] || rawValue).replace(/[)\].,;]+$/, "");
 }
 
 function cleanYouTubeVideoId(videoId) {
@@ -1823,20 +1830,21 @@ function App() {
     setExternalClipboardMessage("Checking clipboard...");
     try {
       const clipboardText = (await navigator.clipboard.readText()).trim();
-      const playlistId = extractYouTubePlaylistId(clipboardText);
-      if (shouldImportYouTubePlaylist(clipboardText)) {
+      const shareUrl = extractYouTubeShareUrl(clipboardText);
+      const playlistId = extractYouTubePlaylistId(shareUrl);
+      if (shouldImportYouTubePlaylist(shareUrl)) {
         const playlistKey = `playlist:${playlistId}`;
         if (playlistKey === lastClipboardVideoIdRef.current) {
           setExternalClipboardMessage("");
           return;
         }
         lastClipboardVideoIdRef.current = playlistKey;
-        setYoutubeLink(clipboardText);
+        setYoutubeLink(shareUrl);
         setExternalClipboardCandidate(null);
         setExternalClipboardMessage("Playlist link found. Tap Add from Clipboard to import it.");
         return;
       }
-      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
+      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(shareUrl));
       if (!videoId) {
         setExternalClipboardCandidate(null);
         setExternalClipboardMessage("No YouTube link found. Tap Check Clipboard again or paste it below.");
@@ -1847,9 +1855,9 @@ function App() {
         return;
       }
       lastClipboardVideoIdRef.current = videoId;
-      setYoutubeLink(clipboardText);
+      setYoutubeLink(shareUrl);
       const selectedVideo = await fetchYouTubeLinkDetails(videoId);
-      setExternalClipboardCandidate({ ...selectedVideo, sourceLink: clipboardText });
+      setExternalClipboardCandidate({ ...selectedVideo, sourceLink: shareUrl });
       setExternalClipboardMessage("");
     } catch {
       setExternalClipboardCandidate(null);
@@ -1861,7 +1869,7 @@ function App() {
 
   async function addSongFromClipboard() {
     if (!navigator.clipboard?.readText) {
-      await cancelExternalPasteStep();
+      setExternalClipboardMessage("iPhone blocked clipboard access. Paste the copied link below, then tap Add Link.");
       return;
     }
 
@@ -1869,9 +1877,11 @@ function App() {
     setExternalClipboardMessage("Checking clipboard...");
     try {
       const clipboardText = (await navigator.clipboard.readText()).trim();
-      const playlistId = extractYouTubePlaylistId(clipboardText);
-      if (shouldImportYouTubePlaylist(clipboardText)) {
-        setYoutubeLink(clipboardText);
+      const shareUrl = extractYouTubeShareUrl(clipboardText);
+      const playlistId = extractYouTubePlaylistId(shareUrl);
+      if (shouldImportYouTubePlaylist(shareUrl)) {
+        setYoutubeLink(shareUrl);
+        setExternalClipboardMessage("Importing playlist...");
         const imported = await importYouTubePlaylist(playlistId);
         if (imported) {
           await clearClipboardAfterExternalSearch();
@@ -1882,21 +1892,25 @@ function App() {
         }
         return;
       }
-      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(clipboardText));
+      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(shareUrl));
       if (!videoId) {
-        await cancelExternalPasteStep();
+        setYoutubeLink(clipboardText);
+        setExternalClipboardMessage("No playable YouTube song link was found. Paste the link below, then tap Add Link.");
         return;
       }
-      setYoutubeLink(clipboardText);
+      setYoutubeLink(shareUrl);
+      setExternalClipboardMessage("Adding song...");
       const selectedVideo = await fetchYouTubeLinkDetails(videoId);
       const added = await addSong(null, selectedVideo);
       if (added) {
         await clearClipboardAfterExternalSearch();
         resetExternalClipboardPrompt();
         setExternalSearchStep("search");
+      } else {
+        setExternalClipboardMessage("Could not add this link. Try Add Link below, or copy a different YouTube song link.");
       }
     } catch {
-      await cancelExternalPasteStep();
+      setExternalClipboardMessage("iPhone could not read the clipboard. Paste the copied link below, then tap Add Link.");
     } finally {
       setExternalClipboardChecking(false);
     }
