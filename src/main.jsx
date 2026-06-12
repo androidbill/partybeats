@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.21";
+const APP_VERSION = "2026.06.11.22";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1424,7 +1424,7 @@ function App() {
   async function signInGoogle() {
     if (!firebaseReady) {
       setToast("Add your Firebase config first.");
-      return;
+      return null;
     }
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
@@ -1434,16 +1434,24 @@ function App() {
         setUser(result.user);
         setNickname(nicknameFor(result.user, ""));
       }
+      return result?.user || null;
     } catch (error) {
       if (error.code === "auth/popup-blocked") {
         setToast("Google sign-in popup was blocked. Allow popups for BP PartyBeats, then try again.");
-        return;
+        return null;
       }
       if (["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error.code)) {
-        return;
+        return null;
       }
       setToast(authErrorMessage(error));
+      return null;
     }
+  }
+
+  async function signInAndCreateRoom() {
+    const googleUser = user && !user.isAnonymous ? user : await signInGoogle();
+    if (!googleUser || googleUser.isAnonymous) return;
+    await createRoom(googleUser);
   }
 
   async function signInNickname() {
@@ -1489,15 +1497,16 @@ function App() {
     }
   }
 
-  async function createRoom() {
+  async function createRoom(hostUser = user) {
     if (creatingRoomRef.current) return;
-    if (!user || user.isAnonymous) {
+    if (!hostUser || hostUser.isAnonymous) {
       setToast("Sign in with Google to create a room.");
       return;
     }
 
     creatingRoomRef.current = true;
     setCreatingRoom(true);
+    const hostName = (hostUser.uid === user?.uid ? activeNickname : nicknameFor(hostUser, "")).trim() || nicknameFor(hostUser, "Host");
 
     try {
       let nextId = "";
@@ -1507,11 +1516,11 @@ function App() {
         try {
           await setDoc(doc(db, "rooms", candidate), {
             roomId: candidate,
-            adminUid: user.uid,
-            adminUids: { [user.uid]: true },
-            adminName: activeNickname,
-            activeDjUid: user.uid,
-            activeDjName: activeNickname,
+            adminUid: hostUser.uid,
+            adminUids: { [hostUser.uid]: true },
+            adminName: hostName,
+            activeDjUid: hostUser.uid,
+            activeDjName: hostName,
             activePlayerDeviceId: deviceId,
             appVersion: APP_VERSION,
             latestAppVersion: APP_VERSION,
@@ -1543,7 +1552,7 @@ function App() {
       if (!nextId) {
         throw lastCreateError || new Error("Could not find a free room ID.");
       }
-      await joinRoomById(nextId);
+      await joinRoomById(nextId, { userOverride: hostUser, nicknameOverride: hostName });
     } catch (error) {
       setToast(roomCreateErrorMessage(error));
     } finally {
@@ -1558,7 +1567,7 @@ function App() {
       if (!options.silent) setToast("Room IDs look like VIBE123.");
       return;
     }
-    const joiningUser = user || await ensureUserForJoin();
+    const joiningUser = options.userOverride || user || await ensureUserForJoin();
     if (!joiningUser) {
       return;
     }
@@ -1581,7 +1590,7 @@ function App() {
         if (error?.code !== "permission-denied") throw error;
       }
       const savedMemberName = memberSnap?.exists() ? (memberSnap.data().name || "").trim() : "";
-      const roomNickname = (savedMemberName || activeNickname).slice(0, 30);
+      const roomNickname = (savedMemberName || options.nicknameOverride || activeNickname || nicknameFor(joiningUser, "Guest")).slice(0, 30);
       await setDoc(
         memberRef,
         {
@@ -3151,41 +3160,56 @@ function App() {
             </div>
           </div>
 
-          <div className="auth-panel">
-            {authLoading ? (
-              <div className="muted">Checking session...</div>
-            ) : user ? (
-              <SignedIn user={user} nickname={nickname} setNickname={setNickname} onSignOut={handleSignOut} />
-            ) : (
-              <SignedOut
-                nickname={nickname}
-                setNickname={setNickname}
-                onGoogle={signInGoogle}
-              />
-            )}
-          </div>
-
-          <div className="room-card">
-            <h2>Start or Join</h2>
-            <p className="muted">Google users can create rooms. Guests can join with a nickname.</p>
-            <div className="room-actions">
-              <button className="primary-action" onClick={createRoom} disabled={!user || user.isAnonymous || creatingRoom} type="button">
-                <Wand2 aria-hidden="true" />
-                {creatingRoom ? "Creating Room..." : "Create Room"}
+          <div className="landing-actions-grid">
+            <section className="landing-action-card create-room-card">
+              <div>
+                <span className="landing-card-kicker">Host</span>
+                <h2>Create a Room</h2>
+                <p className="muted">Sign in with Google, create the room, and become the Active DJ.</p>
+              </div>
+              <button className="google-action create-google-action" onClick={signInAndCreateRoom} disabled={authLoading || creatingRoom} type="button">
+                <span className="google-mark" aria-hidden="true">G</span>
+                {creatingRoom ? "Creating Room..." : user && !user.isAnonymous ? "Create Room" : "Continue with Google"}
               </button>
-              <div className="join-row">
-                <input
-                  value={roomId}
-                  onChange={(event) => setRoomId(normalizeRoomId(event.target.value))}
-                  placeholder="VIBE123"
-                  maxLength={7}
-                />
-                <button onClick={() => joinRoomById()} disabled={!user && nickname.trim().length < 2} type="button">
+              {user && !user.isAnonymous && (
+                <span className="landing-signed-in">
+                  Signed in as <GoogleBadge /> {nickname || nicknameFor(user)}
+                </span>
+              )}
+            </section>
+
+            <section className="landing-action-card join-room-card">
+              <div>
+                <span className="landing-card-kicker">Guest</span>
+                <h2>Join a Room</h2>
+                <p className="muted">Enter your nickname and the room code from the host.</p>
+              </div>
+              <div className="landing-join-form">
+                <label>
+                  <span>Nickname</span>
+                  <input
+                    value={nickname}
+                    onChange={(event) => setNickname(event.target.value)}
+                    onFocus={selectExistingText}
+                    placeholder="Your name"
+                    maxLength={30}
+                  />
+                </label>
+                <label>
+                  <span>Room ID</span>
+                  <input
+                    value={roomId}
+                    onChange={(event) => setRoomId(normalizeRoomId(event.target.value))}
+                    placeholder="VIBE123"
+                    maxLength={7}
+                  />
+                </label>
+                <button onClick={() => joinRoomById()} disabled={authLoading || nickname.trim().length < 2 || normalizeRoomId(roomId).length !== 7} type="button">
                   <DoorOpen aria-hidden="true" />
-                  Join
+                  Join Room
                 </button>
               </div>
-            </div>
+            </section>
           </div>
           <p className="landing-version">Version {APP_VERSION}</p>
         </section>
