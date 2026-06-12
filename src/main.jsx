@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.19";
+const APP_VERSION = "2026.06.12.20";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4304,7 +4304,7 @@ function App() {
 
             {roomPanelTab === "room" && (
               <div className="room-panel-page">
-                <div className="about-grid">
+                <div className="about-grid room-summary-grid">
                   <div>
                     <span>Room ID</span>
                     <strong>{activeRoomId}</strong>

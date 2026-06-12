@@ -2705,6 +2705,15 @@ input:focus {
   gap: 8px;
 }
 
+.room-summary-grid {
+  grid-template-columns:
+    minmax(74px, 1fr)
+    minmax(48px, 0.58fr)
+    minmax(70px, 1fr)
+    minmax(96px, 1.08fr);
+  gap: 6px;
+}
+
 .analytics-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2733,6 +2742,19 @@ input:focus {
 .analytics-grid strong {
   overflow-wrap: anywhere;
   font-size: 0.9rem;
+}
+
+.room-summary-grid div {
+  padding: 8px;
+}
+
+.room-summary-grid span {
+  font-size: 0.64rem;
+}
+
+.room-summary-grid strong {
+  font-size: clamp(0.68rem, 2.4vw, 0.86rem);
+  line-height: 1.15;
 }
 
 .analytics-section {
