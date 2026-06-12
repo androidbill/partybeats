@@ -1878,6 +1878,7 @@ input:focus {
   padding: 6px;
   scroll-margin-top: 10px;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition:
     background 220ms ease,
     border-color 220ms ease,
@@ -1890,7 +1891,10 @@ input:focus {
 .song-row,
 .song-row *:not(input):not(textarea) {
   -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
 }
 
@@ -1977,6 +1981,19 @@ input:focus {
   color: #17181f;
   background: transparent;
   text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.song-main:focus {
+  outline: none;
+}
+
+.song-main:focus-visible {
+  outline: 2px solid var(--pb-link);
+  outline-offset: 2px;
 }
 
 .room-app.dark-mode .song-main,
