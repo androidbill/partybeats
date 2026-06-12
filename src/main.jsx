@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.15";
+const APP_VERSION = "2026.06.12.16";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1051,6 +1051,7 @@ function App() {
   const joinNoticeEnabled = room?.joinNoticeEnabled !== false;
   const toastEnabled = room?.toastEnabled === true;
   const internalSearchEnabled = room?.internalSearchEnabled === true;
+  const floatingReactionsEnabled = room?.floatingReactionsEnabled !== false;
   const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
 
@@ -1618,6 +1619,7 @@ function App() {
             joinNoticeEnabled: true,
             toastEnabled: false,
             internalSearchEnabled: false,
+            floatingReactionsEnabled: true,
             visualizerEnabled: false,
             roomVolume: 80,
             nowPlayingId: null
@@ -2907,6 +2909,11 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { internalSearchEnabled: enabled, ...roomActivityUpdate() });
   }
 
+  async function updateFloatingReactionsEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { floatingReactionsEnabled: enabled, ...roomActivityUpdate() });
+  }
+
   async function leaveSpecificRoom(leavingRoomId, leavingUser) {
     if (!leavingRoomId || !leavingUser) return;
     const normalizedRoomId = normalizeRoomId(leavingRoomId);
@@ -3708,15 +3715,6 @@ function App() {
                       setSelectedSongId(song.id);
                     }
                   }}
-                  onPointerDown={(event) => {
-                    if (!isAdmin) return;
-                    const timer = window.setTimeout(() => {
-                      openSongEmojiPicker(song);
-                    }, 520);
-                    event.currentTarget.dataset.pressTimer = String(timer);
-                  }}
-                  onPointerUp={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
-                  onPointerLeave={(event) => window.clearTimeout(Number(event.currentTarget.dataset.pressTimer))}
                 >
                   <button className="song-main" type="button">
                     <span className="song-index">{index + 1}</span>
@@ -3771,7 +3769,7 @@ function App() {
                     </div>
                   )}
 
-                  {!isAdmin && isSelectedSong && (
+                  {isSelectedSong && (
                     <div className="song-reaction-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                       <button
                         className="song-reaction-button"
@@ -3818,6 +3816,7 @@ function App() {
         Add Song
       </button>
 
+      {floatingReactionsEnabled && (
       <div className={reactionPickerOpen ? "floating-reaction-control is-picker-open" : "floating-reaction-control"}>
         {reactionPickerOpen && (
           <>
@@ -3862,6 +3861,7 @@ function App() {
           {floatingReactionEmoji}
         </button>
       </div>
+      )}
 
       {emojiSongId && (
         <button
@@ -4515,6 +4515,20 @@ function App() {
                     type="button"
                   >
                     {internalSearchEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Main react button</strong>
+                    <span>{floatingReactionsEnabled ? "Show the floating emoji react button" : "Floating emoji reactions are hidden"}</span>
+                  </div>
+                  <button
+                    className={floatingReactionsEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateFloatingReactionsEnabled(!floatingReactionsEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {floatingReactionsEnabled ? "On" : "Off"}
                   </button>
                 </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
