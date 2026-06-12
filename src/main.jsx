@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.32";
+const APP_VERSION = "2026.06.12.33";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -520,6 +520,17 @@ function savedExternalSearchProvider() {
   }
 }
 
+function savedPartyMotionOverride() {
+  try {
+    const saved = localStorage.getItem("partybeats-party-motion-override");
+    if (saved === "on") return true;
+    if (saved === "off") return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function savedDeviceId() {
   try {
     const existing = localStorage.getItem("partybeats-device-id");
@@ -663,6 +674,7 @@ function App() {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS
   });
   const [colorTheme, setColorTheme] = useState(savedColorTheme);
+  const [partyMotionOverride, setPartyMotionOverride] = useState(savedPartyMotionOverride);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [emojiBursts, setEmojiBursts] = useState([]);
   const [floatingReactions, setFloatingReactions] = useState([]);
@@ -1072,7 +1084,8 @@ function App() {
   const floatingReactionsEnabled = room?.floatingReactionsEnabled !== false;
   const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
-  const partyMotionEnabled = room?.partyMotionEnabled === true;
+  const roomPartyMotionEnabled = room?.partyMotionEnabled === true;
+  const partyMotionEnabled = isAdmin ? roomPartyMotionEnabled : partyMotionOverride ?? roomPartyMotionEnabled;
 
   useEffect(() => {
     if (!internalSearchAvailable && searchMode === "internal") {
@@ -2997,6 +3010,15 @@ function App() {
 
   async function updatePartyMotionEnabled(enabled) {
     if (!user || !activeRoomId) return;
+    if (!isAdmin) {
+      setPartyMotionOverride(enabled);
+      try {
+        localStorage.setItem("partybeats-party-motion-override", enabled ? "on" : "off");
+      } catch {
+        // Local storage can be blocked in private browsing.
+      }
+      return;
+    }
     await updateDoc(doc(db, "rooms", activeRoomId), { partyMotionEnabled: enabled, ...roomActivityUpdate() });
   }
 
@@ -4748,7 +4770,11 @@ function App() {
                 <div className="setting-row">
                   <div>
                     <strong>Party Motion</strong>
-                    <span>{partyMotionEnabled ? "Animated room background is live" : "Animated room background is off"}</span>
+                    <span>
+                      {isAdmin
+                        ? roomPartyMotionEnabled ? "Room-wide animated background is live" : "Room-wide animated background is off"
+                        : partyMotionEnabled ? "Animated background is on for this device" : "Animated background is off for this device"}
+                    </span>
                   </div>
                   <button
                     className={partyMotionEnabled ? "toggle-button is-on" : "toggle-button"}
