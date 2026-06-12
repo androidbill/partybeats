@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.20";
+const APP_VERSION = "2026.06.11.21";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -430,6 +430,13 @@ function formatDuration(seconds) {
   return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
+function formatCountdown(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(Number(milliseconds) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 function formatDateTime(value) {
   if (!value) return "Never";
   try {
@@ -649,6 +656,7 @@ function App() {
   const [volumeControlOpen, setVolumeControlOpen] = useState(false);
   const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
   const [mobilePlayerCollapsed, setMobilePlayerCollapsed] = useState(false);
+  const [cooldownNow, setCooldownNow] = useState(Date.now());
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
@@ -1049,9 +1057,17 @@ function App() {
     }
   }, [addSheetOpen, internalSearchAvailable, isActiveDjPhone]);
 
+  useEffect(() => {
+    if (!addSheetOpen || !cooldownEnabled || isAdmin) return undefined;
+    setCooldownNow(Date.now());
+    const timer = window.setInterval(() => setCooldownNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [addSheetOpen, cooldownEnabled, isAdmin]);
+
   const memberRecord = members.find((member) => member.id === user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
-  const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
+  const cooldownRemaining = Math.max(0, cooldownUntil - cooldownNow);
+  const cooldownCountdown = formatCountdown(cooldownRemaining);
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
@@ -3863,6 +3879,18 @@ function App() {
                 <X aria-hidden="true" />
               </button>
             </div>
+
+            {!isAdmin && cooldownEnabled && !roomNeedsFirstTrack && (
+              <div className={cooldownRemaining > 0 ? "cooldown-countdown is-waiting" : "cooldown-countdown is-ready"} role="status" aria-live="polite">
+                <span>{cooldownRemaining > 0 ? "Cooldown" : "Ready"}</span>
+                <strong>{cooldownRemaining > 0 ? cooldownCountdown : "Add now"}</strong>
+                <small>
+                  {cooldownRemaining > 0
+                    ? "You can add another song when this reaches 0:00."
+                    : "You can add a song now."}
+                </small>
+              </div>
+            )}
 
             {internalSearchAvailable && (
               <div className="search-tabs" role="tablist" aria-label="Song search mode">

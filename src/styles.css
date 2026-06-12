@@ -1613,6 +1613,53 @@ input:focus {
   -webkit-overflow-scrolling: touch;
 }
 
+.cooldown-countdown {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 12px;
+  align-items: center;
+  margin: 2px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(247, 201, 72, 0.26);
+  border-radius: 12px;
+  background: rgba(247, 201, 72, 0.12);
+}
+
+.cooldown-countdown span {
+  color: #696c78;
+  font-size: 0.74rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.cooldown-countdown strong {
+  justify-self: end;
+  color: #f7c948;
+  font-size: 1.2rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.cooldown-countdown small {
+  grid-column: 1 / -1;
+  color: #696c78;
+  font-size: 0.8rem;
+}
+
+.cooldown-countdown.is-ready {
+  border-color: rgba(57, 198, 163, 0.28);
+  background: rgba(57, 198, 163, 0.12);
+}
+
+.cooldown-countdown.is-ready strong {
+  color: #39c6a3;
+}
+
+.room-app.dark-mode .cooldown-countdown span,
+.room-app.dark-mode .cooldown-countdown small {
+  color: #c4cad7;
+}
+
 .search-tabs,
 .external-provider-toggle,
 .panel-tabs {
