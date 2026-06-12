@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.21";
+const APP_VERSION = "2026.06.12.22";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -603,6 +603,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [externalSearchProvider, setExternalSearchProvider] = useState(savedExternalSearchProvider);
   const [youtubeLink, setYoutubeLink] = useState("");
+  const [songDedication, setSongDedication] = useState("");
+  const [mysteryAdd, setMysteryAdd] = useState(false);
   const [externalSearchStep, setExternalSearchStep] = useState("search");
   const [externalClipboardCandidate, setExternalClipboardCandidate] = useState(null);
   const [externalClipboardChecking, setExternalClipboardChecking] = useState(false);
@@ -663,6 +665,7 @@ function App() {
   const [dismissedPlayerPromptKey, setDismissedPlayerPromptKey] = useState("");
   const [volumeControlOpen, setVolumeControlOpen] = useState(false);
   const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
+  const [taglineDraft, setTaglineDraft] = useState("");
   const [cooldownNow, setCooldownNow] = useState(Date.now());
   const [playbackClock, setPlaybackClock] = useState(Date.now());
   const roomAppRef = useRef(null);
@@ -692,6 +695,7 @@ function App() {
   const lastPlayedSongId = useRef("");
   const reactionBaselineReadyRef = useRef(false);
   const reactionSeenIdsRef = useRef(new Set());
+  const previousHypeScoreRef = useRef(0);
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
   const baseTheme = selectedColorTheme.base || "dark";
@@ -1110,6 +1114,7 @@ function App() {
     commandAt: room?.playbackCommandAt?.toMillis?.() || 0
   };
   const roomVolume = Math.min(100, Math.max(0, Number(room?.roomVolume ?? 80)));
+  const roomTagline = String(room?.tagline || "").trim();
   const livePlaybackSeconds = playbackState.state === "playing" && playbackState.updatedAt
     ? playbackState.seconds + Math.max(0, (playbackClock - playbackState.updatedAt) / 1000)
     : playbackState.seconds;
@@ -1150,6 +1155,14 @@ function App() {
     ...songMessages.filter((message) => message.songId === song?.id)
   ];
   const totalMessages = songs.reduce((total, song) => total + messagesForSong(song).length, 0);
+  const hypeScore = Math.min(100, Math.round((totalReactions * 8) + (totalMessages * 10) + (members.length * 3)));
+  const topEmoji = EMOJIS
+    .map((emoji) => ({
+      emoji,
+      count: songs.reduce((total, song) => total + Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length, 0)
+    }))
+    .sort((a, b) => b.count - a.count)[0];
+  const partyMood = topEmoji?.count > 0 ? topEmoji.emoji : "🎶";
   const googleMemberCount = members.filter((member) => member.isAnonymous === false).length;
   const guestMemberCount = Math.max(0, members.length - googleMemberCount);
   const analyticsPeople = members
@@ -1172,6 +1185,27 @@ function App() {
     .filter((song) => song.reactionCount > 0 || song.messageCount > 0)
     .sort((a, b) => (b.reactionCount + b.messageCount) - (a.reactionCount + a.messageCount))
     .slice(0, 5);
+  const crowdFavoriteSongId = mostReactedSongs[0]?.id || "";
+  const mostMessagedSongId = [...songs]
+    .map((song) => ({ id: song.id, count: messagesForSong(song).length }))
+    .sort((a, b) => b.count - a.count)[0]?.count > 0
+      ? [...songs].map((song) => ({ id: song.id, count: messagesForSong(song).length })).sort((a, b) => b.count - a.count)[0].id
+      : "";
+  const activeReactionStreak = members
+    .map((member) => {
+      let streak = 0;
+      let best = 0;
+      songs.forEach((song) => {
+        if (song.emojiByUser?.[member.id]) {
+          streak += 1;
+          best = Math.max(best, streak);
+        } else {
+          streak = 0;
+        }
+      });
+      return { ...member, streak: best };
+    })
+    .sort((a, b) => b.streak - a.streak)[0];
 
   async function touchRoomActivity(roomOverride = activeRoomId) {
     if (!roomOverride || !user) return;
@@ -1192,6 +1226,22 @@ function App() {
       };
     });
   }, [nowPlayingSong?.id, crossfadeEnabled, crossfadeSeconds]);
+
+  useEffect(() => {
+    setTaglineDraft(roomTagline);
+  }, [roomTagline]);
+
+  useEffect(() => {
+    if (!noticeBaselineReady) {
+      previousHypeScoreRef.current = hypeScore;
+      return;
+    }
+    const previousScore = previousHypeScoreRef.current;
+    previousHypeScoreRef.current = hypeScore;
+    if (hypeScore < 40 || Math.floor(previousScore / 25) >= Math.floor(hypeScore / 25)) return;
+    setConfettiKey((key) => key + 1);
+    setToast(`Party moment ${partyMood} Hype hit ${hypeScore}%`);
+  }, [hypeScore, noticeBaselineReady, partyMood]);
 
   useEffect(() => {
     if (!activeRoomId || noticeBaselineReady || !room || members.length === 0) return;
@@ -1622,6 +1672,7 @@ function App() {
             internalSearchEnabled: false,
             floatingReactionsEnabled: true,
             visualizerEnabled: false,
+            tagline: "",
             roomVolume: 80,
             nowPlayingId: null
           });
@@ -1770,6 +1821,7 @@ function App() {
     const title = decodeHtmlEntities(selectedVideo?.title || "YouTube track");
     const channelTitle = decodeHtmlEntities(selectedVideo?.channelTitle || "YouTube");
     const thumbnail = selectedVideo?.thumbnail || youtubeThumb(videoId);
+    const dedication = songDedication.trim().slice(0, 48);
     const nextPosition = nextQueuePosition(songs);
     const songRef = doc(collection(db, "rooms", activeRoomId, "songs"));
     const batch = writeBatch(db);
@@ -1785,6 +1837,8 @@ function App() {
       addedByName: activeNickname,
       addedByIsAnonymous: user.isAnonymous,
       position: nextPosition,
+      dedication,
+      mystery: mysteryAdd,
       emojiByUser: {},
       createdAt: serverTimestamp()
     });
@@ -1818,6 +1872,8 @@ function App() {
     setAddingSongKey("");
     setSearchResults([]);
     setYoutubeLink("");
+    setSongDedication("");
+    setMysteryAdd(false);
     setAddSheetOpen(false);
     return true;
   }
@@ -2110,6 +2166,7 @@ function App() {
 
       const batch = writeBatch(db);
       const startingPosition = nextQueuePosition(songs);
+      const dedication = songDedication.trim().slice(0, 48);
       let firstSongRef = null;
       tracks.forEach((track, index) => {
         const details = detailsById.get(track.videoId);
@@ -2127,6 +2184,8 @@ function App() {
           addedByName: activeNickname,
           addedByIsAnonymous: user.isAnonymous,
           position: startingPosition + (index / 1000),
+          dedication,
+          mystery: mysteryAdd,
           emojiByUser: {},
           createdAt: serverTimestamp()
         });
@@ -2149,6 +2208,8 @@ function App() {
       const skippedCount = playlistItems.length - tracks.length;
       setToast(`Added ${tracks.length} playable tracks${skippedCount ? ` and skipped ${skippedCount} unavailable tracks` : ""}.`);
       setYoutubeLink("");
+      setSongDedication("");
+      setMysteryAdd(false);
       setAddSheetOpen(false);
       return true;
     } catch (error) {
@@ -2919,6 +2980,18 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { floatingReactionsEnabled: enabled, ...roomActivityUpdate() });
   }
 
+  async function saveRoomTagline(event) {
+    event?.preventDefault();
+    if (!isAdmin || !activeRoomId) return;
+    const nextTagline = taglineDraft.trim().slice(0, 60);
+    if (hasProfanity(nextTagline)) {
+      setToast("Tagline blocked for profanity.");
+      return;
+    }
+    await updateDoc(doc(db, "rooms", activeRoomId), { tagline: nextTagline, ...roomActivityUpdate() });
+    setToast(nextTagline ? "Room vibe updated." : "Room vibe cleared.");
+  }
+
   async function leaveSpecificRoom(leavingRoomId, leavingUser) {
     if (!leavingRoomId || !leavingUser) return;
     const normalizedRoomId = normalizeRoomId(leavingRoomId);
@@ -3200,6 +3273,40 @@ function App() {
     setToast("Analytics copied.");
   }
 
+  async function sharePartyRecap() {
+    setMenuOpen(false);
+    const topTrack = mostReactedSongs[0];
+    const topPerson = analyticsPeople[0];
+    const lines = [
+      "BP PartyBeats Recap",
+      `Room: ${activeRoomId}`,
+      `Date: ${new Date().toLocaleString()}`,
+      `Songs: ${songs.length}`,
+      `People: ${members.length}`,
+      `Hype: ${hypeScore}% ${partyMood}`,
+      topTrack ? `Crowd favorite: ${topTrack.display.artist ? `${topTrack.display.artist} - ` : ""}${topTrack.display.title}` : "Crowd favorite: none yet",
+      topPerson ? `Most active: ${topPerson.name || "Guest"} (${topPerson.total} actions)` : "Most active: none yet",
+      activeReactionStreak?.streak > 1 ? `Reaction streak: ${activeReactionStreak.name || "Guest"} hit ${activeReactionStreak.streak} songs` : "",
+      "",
+      "Playlist",
+      ...songs.map((song, index) => {
+        const display = playlistTrackDisplay(song);
+        return `${index + 1}. ${display.artist ? `${display.artist} - ` : ""}${display.title}${song.link ? ` ${song.link}` : ""}`;
+      })
+    ].filter(Boolean);
+    const text = lines.join("\n");
+    const shareData = {
+      title: `BP PartyBeats ${activeRoomId} recap`,
+      text
+    };
+    if (navigator.share) {
+      await navigator.share(shareData).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard?.writeText(text);
+    setToast("Party recap copied.");
+  }
+
   if (!firebaseReady) {
     return <SetupMissing />;
   }
@@ -3416,7 +3523,7 @@ function App() {
     <main
       ref={roomAppRef}
       className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"}`}
-      style={{ "--desktop-player-split": `${desktopPlayerSplit}%` }}
+      style={{ "--desktop-player-split": `${desktopPlayerSplit}%`, "--hype-score": `${hypeScore}%` }}
     >
       <header className="app-topbar">
         <div className="topbar-brand">
@@ -3547,11 +3654,17 @@ function App() {
           </div>
           <p className="track-credit">
             {nowPlayingSong
-              ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
+              ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}${nowPlayingSong.dedication ? ` · for ${nowPlayingSong.dedication}` : ""}`
               : nowPlayingSyncing
                 ? "Fetching the song that is already playing in this room."
-              : "The Active DJ starts playback from the phone connected to the speaker."}
+                : "The Active DJ starts playback from the phone connected to the speaker."}
           </p>
+          {roomTagline && <p className="room-vibe-line">{roomTagline}</p>}
+          <div className="hype-meter" aria-label={`Party hype ${hypeScore}%`}>
+            <span>{partyMood} Hype</span>
+            <i><b /></i>
+            <strong>{hypeScore}%</strong>
+          </div>
         </div>
         {isActiveDj ? (
           <>
@@ -3695,6 +3808,10 @@ function App() {
               const isUpNextSong = song.id === nextQueuedSong(songs, room.nowPlayingId)?.id;
               const isRecentlyAddedSong = recentlyAddedSongId === song.id;
               const isSelectedSong = selectedSongId === song.id;
+              const hideMysteryTrack = song.mystery && !isCurrentSong && !isPlayedSong && !isAdmin;
+              const visibleTrackDisplay = hideMysteryTrack
+                ? { artist: "Mystery Track", title: `from ${song.addedByName || "Guest"}` }
+                : trackDisplay;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
               const emojiCounts = EMOJIS.map((emoji) => ({
@@ -3738,11 +3855,16 @@ function App() {
                       {isPlayedSong && <em>Played</em>}
                       {isRecentlyAddedSong && <em>Added</em>}
                       {song.unavailable && <em>Unavailable</em>}
-                      {trackDisplay.artist && <b>{trackDisplay.artist}</b>}
-                      <strong>{trackDisplay.title}</strong>
+                      {song.mystery && <em>Mystery</em>}
+                      {song.dedication && <em>For {song.dedication}</em>}
+                      {song.id === crowdFavoriteSongId && <em>Crowd favorite</em>}
+                      {song.id === mostMessagedSongId && <em>Most talked about</em>}
+                      {visibleTrackDisplay.artist && <b>{visibleTrackDisplay.artist}</b>}
+                      <strong>{visibleTrackDisplay.title}</strong>
                     </span>
                     <span className="uploaded-by">
                       Uploaded by {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                      {song.dedication ? ` · dedicated to ${song.dedication}` : ""}
                     </span>
                   </button>
 
@@ -4074,6 +4196,27 @@ function App() {
                 </small>
               </div>
             )}
+
+            <div className="song-fun-options">
+              <label>
+                <span>Dedication</span>
+                <input
+                  value={songDedication}
+                  onChange={(event) => setSongDedication(event.target.value.slice(0, 48))}
+                  onFocus={selectExistingText}
+                  placeholder="Optional: for someone in the room"
+                  maxLength={48}
+                />
+              </label>
+              <label className="mystery-toggle">
+                <input
+                  type="checkbox"
+                  checked={mysteryAdd}
+                  onChange={(event) => setMysteryAdd(event.target.checked)}
+                />
+                <span>Mystery add</span>
+              </label>
+            </div>
 
             {internalSearchAvailable && (
               <div className="search-tabs" role="tablist" aria-label="Song search mode">
@@ -4431,6 +4574,23 @@ function App() {
 
             {roomPanelTab === "settings" && (
               <div className="room-panel-page">
+                <form className="setting-row tagline-setting" onSubmit={saveRoomTagline}>
+                  <div>
+                    <strong>DJ tagline</strong>
+                    <span>{roomTagline || "Set the room vibe message"}</span>
+                  </div>
+                  <input
+                    value={taglineDraft}
+                    onChange={(event) => setTaglineDraft(event.target.value.slice(0, 60))}
+                    onFocus={selectExistingText}
+                    placeholder="80s rock only tonight"
+                    maxLength={60}
+                    disabled={!isAdmin}
+                  />
+                  <button className="mini-action" disabled={!isAdmin} type="submit">
+                    Save
+                  </button>
+                </form>
                 <div className="setting-row">
                   <div>
                     <strong>Cooldown</strong>
@@ -4535,10 +4695,16 @@ function App() {
 
             {roomPanelTab === "analytics" && (
               <div className="room-panel-page analytics-page">
-                <button className="primary-action analytics-share-action" onClick={shareAnalytics} type="button">
-                  <Share2 aria-hidden="true" />
-                  Share Analytics
-                </button>
+                <div className="analytics-actions">
+                  <button className="primary-action analytics-share-action" onClick={sharePartyRecap} type="button">
+                    <Share2 aria-hidden="true" />
+                    Share Party Recap
+                  </button>
+                  <button className="mini-action analytics-share-action" onClick={shareAnalytics} type="button">
+                    <Share2 aria-hidden="true" />
+                    Share Analytics
+                  </button>
+                </div>
                 <div className="analytics-grid">
                   <div>
                     <span>Songs</span>
@@ -4563,6 +4729,14 @@ function App() {
                   <div>
                     <span>Guests</span>
                     <strong>{guestMemberCount}</strong>
+                  </div>
+                  <div>
+                    <span>Hype</span>
+                    <strong>{hypeScore}% {partyMood}</strong>
+                  </div>
+                  <div>
+                    <span>Streak</span>
+                    <strong>{activeReactionStreak?.streak > 1 ? `${activeReactionStreak.name || "Guest"} ${activeReactionStreak.streak}` : "----"}</strong>
                   </div>
                 </div>
 
