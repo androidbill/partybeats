@@ -162,7 +162,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.08";
+const APP_VERSION = "2026.06.12.09";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3556,6 +3556,11 @@ function App() {
                 {mobilePlayerCollapsed ? "Expand" : "Collapse"}
               </button>
             )}
+            {playbackTimeLabel && (
+              <span className="playback-time-label" aria-label="Playback time">
+                {playbackTimeLabel}
+              </span>
+            )}
           </div>
         )}
         <div className="now-playing-copy">
@@ -3580,11 +3585,6 @@ function App() {
                 ? "Fetching the song that is already playing in this room."
               : "The Active DJ starts playback from the phone connected to the speaker."}
           </p>
-          {playbackTimeLabel && (
-            <p className="playback-time-label" aria-label="Playback time">
-              {playbackTimeLabel}
-            </p>
-          )}
         </div>
         {isAdmin && (
           <div className="mobile-compact-player-controls" aria-label="Collapsed player controls">

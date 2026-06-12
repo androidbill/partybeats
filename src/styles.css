@@ -4272,6 +4272,7 @@ input:focus {
 
 .now-playing-card .playback-time-label {
   display: inline-flex;
+  justify-content: center;
   width: fit-content;
   margin-top: 2px;
   padding: 4px 8px;
@@ -4282,6 +4283,9 @@ input:focus {
   font-size: 0.92rem;
   font-weight: 850;
   letter-spacing: 0;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .player-frame,
