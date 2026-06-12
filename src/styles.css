@@ -899,12 +899,321 @@ input:focus {
 }
 
 .room-app {
+  position: relative;
+  isolation: isolate;
   min-height: 100dvh;
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
   padding: max(10px, env(safe-area-inset-top)) 10px max(18px, env(safe-area-inset-bottom));
   background: #f8f6ef;
+}
+
+.room-app > *:not(.party-motion-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+.party-motion-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--pb-accent-2) 18%, transparent), transparent 32%),
+    radial-gradient(circle at 86% 78%, color-mix(in srgb, var(--pb-accent) 16%, transparent), transparent 30%),
+    transparent;
+  opacity: 0.86;
+  transform: translateZ(0);
+  --motion-speed: var(--party-motion-speed, 1);
+  --motion-energy: 1;
+}
+
+.party-motion-bg.is-awake {
+  --motion-energy: 1.22;
+}
+
+.party-motion-bg.is-hype {
+  --motion-energy: 1.55;
+  opacity: 0.98;
+}
+
+.motion-layer,
+.motion-layer span,
+.motion-layer i {
+  position: absolute;
+  pointer-events: none;
+}
+
+.pulse-waves {
+  inset: -16%;
+  filter: blur(1px);
+}
+
+.pulse-waves span {
+  width: 42vmax;
+  height: 42vmax;
+  border: 2px solid color-mix(in srgb, var(--pb-accent) 24%, transparent);
+  border-radius: 43% 57% 46% 54%;
+  animation: pulseWave 12s ease-in-out infinite;
+}
+
+.pulse-waves span:nth-child(1) {
+  top: 8%;
+  left: -12%;
+}
+
+.pulse-waves span:nth-child(2) {
+  right: -10%;
+  bottom: 8%;
+  border-color: color-mix(in srgb, var(--pb-accent-2) 26%, transparent);
+  animation-delay: -4s;
+}
+
+.pulse-waves span:nth-child(3) {
+  top: 34%;
+  left: 38%;
+  width: 34vmax;
+  height: 34vmax;
+  border-color: color-mix(in srgb, var(--pb-highlight) 20%, transparent);
+  animation-delay: -7s;
+}
+
+.chasing-lights {
+  inset: 0;
+}
+
+.chasing-lights span {
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--pb-highlight), var(--pb-accent), transparent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--pb-highlight) 40%, transparent);
+  opacity: 0.62;
+}
+
+.chasing-lights span:nth-child(1),
+.chasing-lights span:nth-child(3) {
+  width: 36vw;
+  height: 2px;
+  animation: chaseHorizontal 7.2s linear infinite;
+}
+
+.chasing-lights span:nth-child(1) {
+  top: 0;
+  left: -38vw;
+}
+
+.chasing-lights span:nth-child(3) {
+  right: -38vw;
+  bottom: 0;
+  animation-direction: reverse;
+  animation-delay: -3s;
+}
+
+.chasing-lights span:nth-child(2),
+.chasing-lights span:nth-child(4) {
+  width: 2px;
+  height: 34vh;
+  background: linear-gradient(180deg, transparent, var(--pb-accent-2), var(--pb-accent), transparent);
+  animation: chaseVertical 8.4s linear infinite;
+}
+
+.chasing-lights span:nth-child(2) {
+  top: -36vh;
+  right: 0;
+  animation-delay: -1.6s;
+}
+
+.chasing-lights span:nth-child(4) {
+  bottom: -36vh;
+  left: 0;
+  animation-direction: reverse;
+  animation-delay: -5s;
+}
+
+.bass-glow {
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.bass-glow span {
+  width: min(80vw, 760px);
+  height: min(80vw, 760px);
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pb-accent-2) 22%, transparent), transparent 62%);
+  animation: bassGlow 1.9s ease-in-out infinite;
+}
+
+.bass-glow span:nth-child(2) {
+  width: min(62vw, 560px);
+  height: min(62vw, 560px);
+  background: radial-gradient(circle, color-mix(in srgb, var(--pb-accent) 20%, transparent), transparent 66%);
+  animation-delay: -0.95s;
+}
+
+.orbit-sparks {
+  inset: 0;
+}
+
+.orbit-sparks i {
+  --spark-drift: 24px;
+  left: 50%;
+  bottom: -32px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pb-highlight) 78%, #ffffff);
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--pb-highlight) 54%, transparent),
+    0 0 22px color-mix(in srgb, var(--pb-accent) 26%, transparent);
+  opacity: 0;
+  animation: orbitSpark 7.2s linear infinite;
+  animation-delay: -0.5s;
+}
+
+.orbit-sparks i:nth-child(1) { left: 8%; --spark-drift: 34px; animation-delay: -0.2s; }
+.orbit-sparks i:nth-child(2) { left: 18%; --spark-drift: -28px; animation-delay: -0.8s; }
+.orbit-sparks i:nth-child(3) { left: 29%; --spark-drift: 42px; width: 5px; height: 5px; animation-delay: -1.4s; }
+.orbit-sparks i:nth-child(4) { left: 39%; --spark-drift: -36px; animation-delay: -2s; }
+.orbit-sparks i:nth-child(5) { left: 52%; --spark-drift: 26px; width: 7px; height: 7px; animation-delay: -2.6s; }
+.orbit-sparks i:nth-child(6) { left: 66%; --spark-drift: -44px; animation-delay: -3.2s; }
+.orbit-sparks i:nth-child(7) { left: 78%; --spark-drift: 30px; width: 5px; height: 5px; animation-delay: -3.8s; }
+.orbit-sparks i:nth-child(8) { left: 90%; --spark-drift: -32px; animation-delay: -4.4s; }
+.orbit-sparks i:nth-child(9) { left: 13%; --spark-drift: -40px; animation-delay: -5s; }
+.orbit-sparks i:nth-child(10) { left: 24%; --spark-drift: 36px; width: 8px; height: 8px; animation-delay: -5.6s; }
+.orbit-sparks i:nth-child(11) { left: 35%; --spark-drift: -26px; animation-delay: -6.2s; }
+.orbit-sparks i:nth-child(12) { left: 47%; --spark-drift: 46px; animation-delay: -6.8s; }
+.orbit-sparks i:nth-child(13) { left: 59%; --spark-drift: -34px; width: 5px; height: 5px; animation-delay: -1s; }
+.orbit-sparks i:nth-child(14) { left: 71%; --spark-drift: 38px; animation-delay: -1.8s; }
+.orbit-sparks i:nth-child(15) { left: 83%; --spark-drift: -42px; width: 7px; height: 7px; animation-delay: -2.8s; }
+.orbit-sparks i:nth-child(16) { left: 95%; --spark-drift: 24px; animation-delay: -3.6s; }
+.orbit-sparks i:nth-child(17) { left: 4%; --spark-drift: -24px; animation-delay: -4.8s; }
+.orbit-sparks i:nth-child(18) { left: 56%; --spark-drift: 44px; width: 8px; height: 8px; animation-delay: -6s; }
+
+.orbit-sparks i:nth-child(3n) {
+  background: var(--pb-accent);
+}
+
+.orbit-sparks i:nth-child(4n) {
+  background: var(--pb-accent-2);
+}
+
+.laser-sweep {
+  inset: -22%;
+  transform: rotate(-12deg);
+}
+
+.laser-sweep span {
+  left: -40%;
+  width: 42%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--pb-accent-2), var(--pb-highlight), transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--pb-accent-2) 48%, transparent);
+  opacity: 0.38;
+  animation: laserSweep 9.5s linear infinite;
+}
+
+.laser-sweep span:nth-child(1) {
+  top: 22%;
+}
+
+.laser-sweep span:nth-child(2) {
+  top: 52%;
+  animation-delay: -3.2s;
+  background: linear-gradient(90deg, transparent, var(--pb-accent), var(--pb-highlight), transparent);
+}
+
+.laser-sweep span:nth-child(3) {
+  top: 76%;
+  animation-delay: -6.4s;
+}
+
+.party-motion-bg.is-hype .pulse-waves span,
+.party-motion-bg.is-hype .bass-glow span {
+  animation-duration: 1.45s;
+}
+
+.party-motion-bg.is-awake .chasing-lights span {
+  animation-duration: 5.8s;
+}
+
+.party-motion-bg.is-awake .orbit-sparks i {
+  animation-duration: 5.9s;
+}
+
+.party-motion-bg.is-awake .laser-sweep span {
+  animation-duration: 7.4s;
+}
+
+.party-motion-bg.is-hype .chasing-lights span {
+  animation-duration: 3.9s;
+}
+
+.party-motion-bg.is-hype .orbit-sparks i {
+  animation-duration: 4.3s;
+}
+
+.party-motion-bg.is-hype .laser-sweep span {
+  animation-duration: 5.2s;
+}
+
+@keyframes pulseWave {
+  0%, 100% {
+    opacity: 0.18;
+    transform: scale(0.86) rotate(0deg);
+  }
+  50% {
+    opacity: calc(0.48 * var(--motion-energy));
+    transform: scale(calc(1.05 * var(--motion-energy))) rotate(18deg);
+  }
+}
+
+@keyframes chaseHorizontal {
+  to {
+    transform: translateX(176vw);
+  }
+}
+
+@keyframes chaseVertical {
+  to {
+    transform: translateY(172vh);
+  }
+}
+
+@keyframes bassGlow {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.82);
+  }
+  45% {
+    opacity: calc(0.42 * var(--motion-energy));
+    transform: scale(calc(1.02 * var(--motion-energy)));
+  }
+}
+
+@keyframes orbitSpark {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  12% {
+    opacity: calc(0.72 * var(--motion-energy));
+  }
+  78% {
+    opacity: calc(0.5 * var(--motion-energy));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--spark-drift), -112vh, 0) rotate(240deg);
+  }
+}
+
+@keyframes laserSweep {
+  to {
+    transform: translateX(240vw);
+  }
 }
 
 .room-app.dark-mode {
@@ -6221,6 +6530,7 @@ input,
 @media (prefers-reduced-motion: reduce) {
   .app-shell::before,
   .room-app::before,
+  .party-motion-bg,
   .landing-shell::before,
   .landing-notes span,
   .now-playing-card::before,
@@ -6237,6 +6547,7 @@ input,
 
   .emoji-burst-layer,
   .confetti-layer,
+  .party-motion-bg,
   .landing-notes {
     display: none;
   }

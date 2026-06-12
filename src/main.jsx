@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.22";
+const APP_VERSION = "2026.06.12.23";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1059,6 +1059,7 @@ function App() {
   const floatingReactionsEnabled = room?.floatingReactionsEnabled !== false;
   const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
+  const partyMotionEnabled = room?.partyMotionEnabled === true;
 
   useEffect(() => {
     if (!internalSearchAvailable && searchMode === "internal") {
@@ -1672,6 +1673,7 @@ function App() {
             internalSearchEnabled: false,
             floatingReactionsEnabled: true,
             visualizerEnabled: false,
+            partyMotionEnabled: false,
             tagline: "",
             roomVolume: 80,
             nowPlayingId: null
@@ -2980,6 +2982,11 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { floatingReactionsEnabled: enabled, ...roomActivityUpdate() });
   }
 
+  async function updatePartyMotionEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { partyMotionEnabled: enabled, ...roomActivityUpdate() });
+  }
+
   async function saveRoomTagline(event) {
     event?.preventDefault();
     if (!isAdmin || !activeRoomId) return;
@@ -3523,8 +3530,44 @@ function App() {
     <main
       ref={roomAppRef}
       className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"}`}
-      style={{ "--desktop-player-split": `${desktopPlayerSplit}%`, "--hype-score": `${hypeScore}%` }}
+      style={{ "--desktop-player-split": `${desktopPlayerSplit}%`, "--hype-score": `${hypeScore}%`, "--party-motion-speed": `${Math.max(0.62, 1.45 - (hypeScore / 130))}` }}
     >
+      {partyMotionEnabled && (
+        <div
+          className={[
+            "party-motion-bg",
+            hypeScore >= 75 ? "is-hype" : "",
+            hypeScore >= 40 ? "is-awake" : ""
+          ].filter(Boolean).join(" ")}
+          aria-hidden="true"
+        >
+          <div className="motion-layer pulse-waves">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="motion-layer chasing-lights">
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="motion-layer bass-glow">
+            <span />
+            <span />
+          </div>
+          <div className="motion-layer orbit-sparks">
+            {Array.from({ length: 18 }, (_, index) => (
+              <i key={index} style={{ "--spark-index": index }} />
+            ))}
+          </div>
+          <div className="motion-layer laser-sweep">
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
+      )}
       <header className="app-topbar">
         <div className="topbar-brand">
           <div className="brand-dot">
@@ -4687,6 +4730,20 @@ function App() {
                     type="button"
                   >
                     {floatingReactionsEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Party Motion</strong>
+                    <span>{partyMotionEnabled ? "Animated room background is live" : "Animated room background is off"}</span>
+                  </div>
+                  <button
+                    className={partyMotionEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updatePartyMotionEnabled(!partyMotionEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {partyMotionEnabled ? "On" : "Off"}
                   </button>
                 </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
