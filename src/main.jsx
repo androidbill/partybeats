@@ -9,6 +9,7 @@ import {
   Download,
   DoorOpen,
   ExternalLink,
+  History,
   Info,
   LogOut,
   MessageCircle,
@@ -162,7 +163,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.12";
+const APP_VERSION = "2026.06.12.14";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3636,19 +3637,13 @@ function App() {
                 Restart
               </button>
               <button className="mini-action" onClick={replayLastSong} disabled={!replaySong} type="button">
-                <RotateCcw aria-hidden="true" />
+                <History aria-hidden="true" />
                 Replay Last
               </button>
               <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
                 <SkipForward aria-hidden="true" />
                 Next
               </button>
-              {nowPlayingSong?.link && (
-                <a className="mini-link" href={nowPlayingSong.link} target="_blank" rel="noreferrer">
-                  <ExternalLink aria-hidden="true" />
-                  YouTube
-                </a>
-              )}
               {renderVisualizerControl()}
               {renderVolumeControl()}
             </div>
@@ -3664,7 +3659,7 @@ function App() {
               Restart
             </button>
             <button className="mini-action" onClick={replayLastSong} disabled={!replaySong} type="button">
-              <RotateCcw aria-hidden="true" />
+              <History aria-hidden="true" />
               Replay Last
             </button>
             <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">

@@ -4870,22 +4870,34 @@ input:focus {
   }
 
   .dj-control-deck {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
     gap: 6px;
     padding: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .dj-control-deck::-webkit-scrollbar {
+    display: none;
   }
 
   .dj-control-deck .mini-action,
   .dj-control-deck .mini-link {
-    min-height: 34px;
-    padding: 0 8px;
-    font-size: 0.74rem;
+    flex: 0 0 auto;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    padding: 0;
+    overflow: hidden;
+    font-size: 0;
   }
 
   .dj-control-deck svg {
-    width: 15px;
-    height: 15px;
+    width: 18px;
+    height: 18px;
   }
 
   .queue-header {
