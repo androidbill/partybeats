@@ -5372,6 +5372,27 @@ body {
   color: rgba(255, 255, 255, 0.62);
 }
 
+.existing-room-modal {
+  display: grid;
+  gap: 16px;
+  width: min(440px, calc(100vw - 28px));
+}
+
+.existing-room-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.existing-room-actions .primary-action,
+.existing-room-actions .subtle-action {
+  width: 100%;
+  min-height: 48px;
+}
+
+.existing-room-actions .danger-action {
+  background: #c52b4a;
+}
+
 /* --- Typography polish --- */
 .landing-copy h1,
 .now-playing-card h1,

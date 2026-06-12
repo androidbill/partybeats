@@ -49,6 +49,7 @@ import {
   deleteField,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -161,7 +162,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.24";
+const APP_VERSION = "2026.06.11.25";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -652,6 +653,7 @@ function App() {
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
   const [deviceId] = useState(savedDeviceId);
   const [playerChoicePrompt, setPlayerChoicePrompt] = useState(null);
+  const [existingRoomPrompt, setExistingRoomPrompt] = useState(null);
   const [dismissedPlayerPromptKey, setDismissedPlayerPromptKey] = useState("");
   const [volumeControlOpen, setVolumeControlOpen] = useState(false);
   const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
@@ -1448,9 +1450,65 @@ function App() {
     }
   }
 
+  async function rememberUserRoom(roomUser, nextRoomId) {
+    if (!roomUser || roomUser.isAnonymous || !nextRoomId) return;
+    await setDoc(
+      doc(db, "users", roomUser.uid),
+      {
+        uid: roomUser.uid,
+        activeRoomId: nextRoomId,
+        activeRoomUpdatedAt: serverTimestamp()
+      },
+      { merge: true }
+    ).catch(() => undefined);
+  }
+
+  async function clearRememberedUserRoom(roomUser, leavingRoomId) {
+    if (!roomUser || roomUser.isAnonymous) return;
+    const userRoomRef = doc(db, "users", roomUser.uid);
+    try {
+      const snap = await getDoc(userRoomRef);
+      if (!snap.exists() || snap.data().activeRoomId !== leavingRoomId) return;
+      await updateDoc(userRoomRef, {
+        activeRoomId: deleteField(),
+        activeRoomUpdatedAt: serverTimestamp()
+      });
+    } catch {
+      // This pointer is a convenience. Room membership is the source of truth.
+    }
+  }
+
+  async function findExistingGoogleRoom(roomUser) {
+    if (!roomUser || roomUser.isAnonymous) return null;
+    try {
+      const userRoomSnap = await getDoc(doc(db, "users", roomUser.uid));
+      const rememberedRoomId = normalizeRoomId(userRoomSnap.exists() ? userRoomSnap.data().activeRoomId || "" : "");
+      if (!rememberedRoomId) return null;
+
+      const rememberedRoomSnap = await getDoc(doc(db, "rooms", rememberedRoomId));
+      if (!rememberedRoomSnap.exists() || rememberedRoomSnap.data().closed) {
+        await clearRememberedUserRoom(roomUser, rememberedRoomId);
+        return null;
+      }
+
+      return {
+        roomId: rememberedRoomId,
+        room: rememberedRoomSnap.data(),
+        user: roomUser
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async function signInAndCreateRoom() {
     const googleUser = user && !user.isAnonymous ? user : await signInGoogle();
     if (!googleUser || googleUser.isAnonymous) return;
+    const existingRoom = await findExistingGoogleRoom(googleUser);
+    if (existingRoom) {
+      setExistingRoomPrompt(existingRoom);
+      return;
+    }
     await createRoom(googleUser);
   }
 
@@ -1601,6 +1659,7 @@ function App() {
         },
         { merge: true }
       );
+      await rememberUserRoom(joiningUser, nextRoomId);
       const roomData = roomSnap.data();
       const latestAppVersion = newerAppVersion(roomData.latestAppVersion || roomData.appVersion || APP_VERSION, APP_VERSION);
       await updateDoc(doc(db, "rooms", nextRoomId), {
@@ -2261,6 +2320,7 @@ function App() {
       ...roomActivityUpdate()
     });
     setPlayerChoicePrompt(null);
+    setExistingRoomPrompt(null);
     setDismissedPlayerPromptKey("");
     setToast("This device is now the party player.");
   }
@@ -2855,6 +2915,58 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { internalSearchEnabled: enabled, ...roomActivityUpdate() });
   }
 
+  async function leaveSpecificRoom(leavingRoomId, leavingUser) {
+    if (!leavingRoomId || !leavingUser) return;
+    const normalizedRoomId = normalizeRoomId(leavingRoomId);
+    const roomRef = doc(db, "rooms", normalizedRoomId);
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists()) {
+      await clearRememberedUserRoom(leavingUser, normalizedRoomId);
+      return;
+    }
+
+    const roomData = roomSnap.data();
+    const adminUids = adminMapFor(roomData);
+    const userIsAdmin = adminUids[leavingUser.uid] === true;
+    const batch = writeBatch(db);
+
+    if (userIsAdmin) {
+      const membersSnap = await getDocs(query(collection(db, "rooms", normalizedRoomId, "members"), orderBy("joinedAt", "asc")));
+      const roomMembers = membersSnap.docs.map((memberDoc) => ({ id: memberDoc.id, ...memberDoc.data() }));
+      const remainingAdmins = roomMembers.filter((member) => member.id !== leavingUser.uid && adminUids[member.id] === true);
+      if (remainingAdmins.length === 0) {
+        batch.update(roomRef, {
+          closed: true,
+          closedAt: serverTimestamp(),
+          closedByUid: leavingUser.uid,
+          nowPlayingId: null,
+          playbackSongId: null,
+          playbackSeconds: 0,
+          playbackState: "stopped",
+          [`adminUids.${leavingUser.uid}`]: deleteField()
+        });
+      } else {
+        batch.update(roomRef, {
+          [`adminUids.${leavingUser.uid}`]: deleteField(),
+          adminUid: remainingAdmins[0].id,
+          adminName: remainingAdmins[0].name || "Google user",
+          ...(roomData.activeDjUid === leavingUser.uid
+            ? {
+                activeDjUid: remainingAdmins[0].id,
+                activeDjName: remainingAdmins[0].name || "Google user",
+                activePlayerDeviceId: ""
+              }
+            : {}),
+          ...roomActivityUpdate()
+        });
+      }
+    }
+
+    batch.delete(doc(db, "rooms", normalizedRoomId, "members", leavingUser.uid));
+    await batch.commit();
+    await clearRememberedUserRoom(leavingUser, normalizedRoomId);
+  }
+
   async function leaveRoom() {
     const leavingRoomId = activeRoomId;
     const leavingUser = user;
@@ -2896,9 +3008,32 @@ function App() {
         }
         batch.delete(doc(db, "rooms", leavingRoomId, "members", leavingUser.uid));
         await batch.commit();
+        await clearRememberedUserRoom(leavingUser, leavingRoomId);
       }
     } finally {
       clearRoomState();
+    }
+  }
+
+  async function joinExistingRoomFromPrompt() {
+    const prompt = existingRoomPrompt;
+    if (!prompt?.roomId || !prompt?.user) return;
+    setExistingRoomPrompt(null);
+    await joinRoomById(prompt.roomId, { userOverride: prompt.user, nicknameOverride: nicknameFor(prompt.user, "Host") });
+  }
+
+  async function createNewRoomFromPrompt() {
+    const prompt = existingRoomPrompt;
+    if (!prompt?.roomId || !prompt?.user) return;
+    setExistingRoomPrompt(null);
+    setCreatingRoom(true);
+    try {
+      await leaveSpecificRoom(prompt.roomId, prompt.user);
+      await createRoom(prompt.user);
+    } catch (error) {
+      setToast(roomCreateErrorMessage(error));
+    } finally {
+      setCreatingRoom(false);
     }
   }
 
@@ -3223,6 +3358,31 @@ function App() {
 
         {themePickerModal}
         {confettiLayer}
+        {existingRoomPrompt && (
+          <div className="modal-backdrop existing-room-backdrop" role="dialog" aria-modal="true" onClick={() => setExistingRoomPrompt(null)}>
+            <section className="about-modal existing-room-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <h2>Room already running</h2>
+                  <p className="muted">You are already signed in to room {existingRoomPrompt.roomId}.</p>
+                </div>
+                <button className="icon-button" onClick={() => setExistingRoomPrompt(null)} title="Close" type="button">
+                  <X aria-hidden="true" />
+                </button>
+              </div>
+              <div className="existing-room-actions">
+                <button className="primary-action" onClick={joinExistingRoomFromPrompt} type="button">
+                  <DoorOpen aria-hidden="true" />
+                  Join {existingRoomPrompt.roomId}
+                </button>
+                <button className="subtle-action danger-action" onClick={createNewRoomFromPrompt} disabled={creatingRoom} type="button">
+                  <LogOut aria-hidden="true" />
+                  {creatingRoom ? "Creating..." : "Leave it and create new"}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {toast && (
           <button className="toast" onClick={() => setToast("")} type="button">
