@@ -13,8 +13,6 @@ import {
   Info,
   LogOut,
   MessageCircle,
-  Maximize2,
-  Minimize2,
   MoreVertical,
   Music2,
   Palette,
@@ -27,7 +25,6 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
-  Square,
   Volume2,
   SkipForward,
   Trash2,
@@ -163,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.14";
+const APP_VERSION = "2026.06.12.15";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -665,7 +662,6 @@ function App() {
   const [dismissedPlayerPromptKey, setDismissedPlayerPromptKey] = useState("");
   const [volumeControlOpen, setVolumeControlOpen] = useState(false);
   const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
-  const [mobilePlayerCollapsed, setMobilePlayerCollapsed] = useState(false);
   const [cooldownNow, setCooldownNow] = useState(Date.now());
   const [playbackClock, setPlaybackClock] = useState(Date.now());
   const roomAppRef = useRef(null);
@@ -2580,42 +2576,6 @@ function App() {
     }
   }
 
-  async function stopPlayback() {
-    if (!isAdmin || !activeRoomId) {
-      setToast("Only admins can control playback.");
-      return;
-    }
-    if (!isActiveDj) {
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: null,
-        playbackSongId: null,
-        playbackSeconds: 0,
-        playbackState: "stopped",
-        playbackCommand: "stop",
-        playbackCommandId: `${deviceId}-${Date.now()}`,
-        playbackCommandAt: serverTimestamp(),
-        playbackUpdatedAt: serverTimestamp(),
-        playbackUpdatedBy: user.uid,
-        ...roomActivityUpdate()
-      });
-      setToast("Playback stopped.");
-      return;
-    }
-    if (room?.nowPlayingId) {
-      lastPlayedSongId.current = room.nowPlayingId;
-    }
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      nowPlayingId: null,
-      playbackSongId: null,
-      playbackSeconds: 0,
-      playbackState: "stopped",
-      playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid,
-      ...roomActivityUpdate()
-    });
-    setToast("Playback stopped.");
-  }
-
   async function restartTrack() {
     if (!isAdmin || !activeRoomId || !room?.nowPlayingId) {
       setToast("Choose a track to restart.");
@@ -2897,7 +2857,6 @@ function App() {
     setMessageDraft("");
     setFloatingReactions([]);
     setReactionPickerOpen(false);
-    setMobilePlayerCollapsed(false);
     setRenameMemberId("");
     setRenameDraft("");
     setSelfRenameOpen(false);
@@ -3535,8 +3494,7 @@ function App() {
         ref={playerCardRef}
         className={[
           playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card",
-          nowPlayingSong ? "has-track" : "is-idle",
-          mobilePlayerCollapsed ? "is-mobile-collapsed" : ""
+          nowPlayingSong ? "has-track" : "is-idle"
         ].join(" ")}
       >
         {(nowPlayingSong || isAdmin) && (
@@ -3554,16 +3512,6 @@ function App() {
                 </a>
               ) : null}
             </div>
-            {isAdmin && (
-              <button
-                className="mobile-player-collapse-toggle"
-                onClick={() => setMobilePlayerCollapsed((collapsed) => !collapsed)}
-                type="button"
-              >
-                {mobilePlayerCollapsed ? <Maximize2 aria-hidden="true" /> : <Minimize2 aria-hidden="true" />}
-                {mobilePlayerCollapsed ? "Expand" : "Collapse"}
-              </button>
-            )}
           </div>
         )}
         <div className="now-playing-copy">
@@ -3589,18 +3537,6 @@ function App() {
               : "The Active DJ starts playback from the phone connected to the speaker."}
           </p>
         </div>
-        {isAdmin && (
-          <div className="mobile-compact-player-controls" aria-label="Collapsed player controls">
-            <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
-              {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-              {playbackState.state === "playing" ? "Pause" : "Play"}
-            </button>
-            <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
-              <SkipForward aria-hidden="true" />
-              Next
-            </button>
-          </div>
-        )}
         {isActiveDj ? (
           <>
             <YouTubePlayer
@@ -3628,9 +3564,9 @@ function App() {
                 {playerFullscreen ? <X aria-hidden="true" /> : <ExternalLink aria-hidden="true" />}
                 {playerFullscreen ? "Exit Fullscreen" : "Fullscreen"}
               </button>
-              <button className="mini-action stop-action" onClick={stopPlayback} disabled={!nowPlayingSong} type="button">
-                <Square aria-hidden="true" />
-                Stop
+              <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
+                {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+                {playbackState.state === "playing" ? "Pause" : "Play"}
               </button>
               <button className="mini-action" onClick={restartTrack} disabled={!nowPlayingSong} type="button">
                 <RotateCcw aria-hidden="true" />
@@ -3650,9 +3586,9 @@ function App() {
           </>
         ) : isAdmin ? (
           <div className="player-actions dj-control-deck">
-            <button className="mini-action stop-action" onClick={stopPlayback} disabled={!nowPlayingSong} type="button">
-              <Square aria-hidden="true" />
-              Stop
+            <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
+              {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+              {playbackState.state === "playing" ? "Pause" : "Play"}
             </button>
             <button className="mini-action" onClick={restartTrack} disabled={!nowPlayingSong} type="button">
               <RotateCcw aria-hidden="true" />
