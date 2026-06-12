@@ -5284,6 +5284,60 @@ body {
   }
 }
 
+@media (max-width: 520px) and (max-height: 700px) {
+  .landing-hero {
+    gap: 6px;
+    padding:
+      max(5px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(5px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+
+  .brand-mark {
+    padding: 5px 10px 5px 5px;
+    font-size: 0.82rem;
+  }
+
+  .brand-mark .app-icon {
+    width: 27px;
+    height: 27px;
+  }
+
+  .landing-copy h1 {
+    margin: 2px 0 0;
+    font-size: clamp(1.9rem, 10.4vw, 2.75rem);
+  }
+
+  .landing-copy p,
+  .landing-action-card p {
+    display: none;
+  }
+
+  .landing-action-card {
+    gap: 7px;
+    padding: 9px;
+  }
+
+  .landing-action-card h2 {
+    margin: 0;
+    font-size: 1.02rem;
+  }
+
+  .create-google-action {
+    min-height: 38px;
+  }
+
+  .landing-join-form button {
+    min-height: 75px;
+  }
+
+  .landing-version {
+    margin-top: 0;
+    font-size: 0.68rem;
+  }
+}
+
 .landing-theme-button {
   position: fixed;
   top: max(14px, env(safe-area-inset-top));
