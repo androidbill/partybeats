@@ -162,7 +162,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.30";
+const APP_VERSION = "2026.06.12.02";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -580,6 +580,11 @@ function placeCursorAtTextEnd(event) {
   }, 0);
 }
 
+function isFirefoxAndroid() {
+  if (typeof navigator === "undefined") return false;
+  return /Android/i.test(navigator.userAgent || "") && /Firefox/i.test(navigator.userAgent || "");
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -692,6 +697,7 @@ function App() {
   const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
   const baseTheme = selectedColorTheme.base || "dark";
   const isDarkTheme = baseTheme === "dark";
+  const showFirefoxAndroidAuthNote = isFirefoxAndroid();
 
   function clearExternalClipboardCheckTimer() {
     if (!externalClipboardCheckTimerRef.current) return;
@@ -3326,6 +3332,11 @@ function App() {
                 <span className="google-mark" aria-hidden="true">G</span>
                 {creatingRoom ? "Creating Room..." : user && !user.isAnonymous ? "Create Room" : "Continue with Google"}
               </button>
+              {showFirefoxAndroidAuthNote && !user && (
+                <p className="firefox-auth-note">
+                  Firefox Android may leave a blank Firebase tab after Google sign-in. If that happens, close that tab to return to PartyBeats.
+                </p>
+              )}
               {user && !user.isAnonymous && (
                 <div className="landing-signed-in-row">
                   <span className="landing-signed-in">

@@ -5125,6 +5125,18 @@ body {
   min-height: 48px;
 }
 
+.firefox-auth-note {
+  margin: -4px 0 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 12px;
+  color: #1e3a8a;
+  background: rgba(37, 99, 235, 0.08);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.28;
+}
+
 .landing-signed-in {
   display: inline-flex;
   gap: 5px;
@@ -5330,6 +5342,12 @@ body {
 
   .create-google-action {
     min-height: 38px;
+  }
+
+  .firefox-auth-note {
+    padding: 7px 8px;
+    font-size: 0.68rem;
+    line-height: 1.18;
   }
 
   .landing-join-form button {
@@ -5617,49 +5635,78 @@ input,
 }
 
 /* --- Playlist status rows: animated theme borders --- */
+.song-row::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  padding: 2px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(120deg, transparent, transparent);
+  background-size: 260% 260%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.song-row > * {
+  position: relative;
+  z-index: 1;
+}
+
 .song-row.is-playing,
 .room-app.dark-mode .song-row.is-playing {
   border-color: var(--pb-accent);
-  background:
-    linear-gradient(var(--song-row-bg, #ffffff), var(--song-row-bg, #ffffff)) padding-box,
-    linear-gradient(120deg, var(--pb-accent), var(--pb-link), var(--pb-accent)) border-box;
-  background-size: auto, 220% 100%;
   box-shadow:
     inset 4px 0 0 var(--pb-accent),
     0 14px 36px color-mix(in srgb, var(--pb-accent) 24%, transparent),
     0 0 0 3px color-mix(in srgb, var(--pb-accent) 12%, transparent);
-  animation:
-    songRowIn 220ms ease both,
-    playlistBorderFlow 2.8s linear infinite;
+}
+
+.song-row.is-playing::before,
+.room-app.dark-mode .song-row.is-playing::before {
+  opacity: 1;
+  background: conic-gradient(
+    from 0deg,
+    var(--pb-accent),
+    var(--pb-link),
+    var(--pb-accent-2),
+    var(--pb-accent)
+  );
+  animation: playlistBorderSpin 2.2s linear infinite;
 }
 
 .song-row.is-up-next:not(.is-playing),
 .room-app.dark-mode .song-row.is-up-next:not(.is-playing) {
   border-color: var(--pb-highlight);
-  background:
-    linear-gradient(var(--song-row-bg, #ffffff), var(--song-row-bg, #ffffff)) padding-box,
-    linear-gradient(120deg, var(--pb-highlight), var(--pb-accent-2), var(--pb-highlight)) border-box;
-  background-size: auto, 220% 100%;
   box-shadow:
     inset 4px 0 0 var(--pb-highlight),
     0 12px 30px color-mix(in srgb, var(--pb-highlight) 22%, transparent);
-  animation:
-    songRowIn 220ms ease both,
-    playlistBorderFlow 3.4s linear infinite;
 }
 
-.room-app.dark-mode .song-row.is-playing,
-.room-app.dark-mode .song-row.is-up-next:not(.is-playing) {
-  --song-row-bg: #171b25;
+.song-row.is-up-next:not(.is-playing)::before,
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing)::before {
+  opacity: 1;
+  background: conic-gradient(
+    from 0deg,
+    var(--pb-highlight),
+    var(--pb-accent-2),
+    var(--pb-link),
+    var(--pb-highlight)
+  );
+  animation: playlistBorderSpin 3s linear infinite reverse;
 }
 
-@keyframes playlistBorderFlow {
-  0% {
-    background-position: 0 0, 0% 50%;
-  }
-
-  100% {
-    background-position: 0 0, 220% 50%;
+@keyframes playlistBorderSpin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
