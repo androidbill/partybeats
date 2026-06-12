@@ -4657,6 +4657,80 @@ input:focus {
   animation: playingSheen 6.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
 }
 
+.room-app.has-party-motion .app-topbar {
+  background: color-mix(in srgb, var(--pb-panel-dark) 52%, transparent);
+  backdrop-filter: blur(20px) saturate(1.25);
+  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+}
+
+.room-app.has-party-motion .now-playing-card {
+  border-color: color-mix(in srgb, var(--pb-accent) 34%, rgba(255, 255, 255, 0.12));
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--pb-accent-2) 24%, transparent), transparent 52%),
+    radial-gradient(110% 84% at 100% 100%, color-mix(in srgb, var(--pb-accent) 18%, transparent), transparent 56%),
+    color-mix(in srgb, var(--pb-panel-dark) 62%, transparent);
+  box-shadow:
+    0 26px 70px color-mix(in srgb, var(--pb-panel-dark) 42%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+}
+
+.room-app.has-party-motion .queue-panel,
+.room-app.has-party-motion .add-panel,
+.room-app.has-party-motion .people-panel {
+  border-color: color-mix(in srgb, var(--pb-accent) 24%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--pb-panel-dark) 48%, transparent);
+  box-shadow:
+    0 18px 52px color-mix(in srgb, var(--pb-panel-dark) 34%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.room-app.has-party-motion .song-row {
+  border-color: color-mix(in srgb, var(--pb-accent) 24%, rgba(255, 255, 255, 0.1));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-panel-dark) 54%, transparent), color-mix(in srgb, var(--pb-panel-dark) 34%, transparent));
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--pb-panel-dark) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px) saturate(1.18);
+  -webkit-backdrop-filter: blur(14px) saturate(1.18);
+}
+
+.room-app.has-party-motion .song-row.is-playing,
+.room-app.has-party-motion.dark-mode .song-row.is-playing {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 18%, transparent), color-mix(in srgb, var(--pb-panel-dark) 48%, transparent));
+}
+
+.room-app.has-party-motion .search-result,
+.room-app.has-party-motion .empty-state,
+.room-app.has-party-motion .external-search-panel,
+.room-app.has-party-motion .song-fun-options,
+.room-app.has-party-motion .cooldown-countdown {
+  border-color: color-mix(in srgb, var(--pb-accent) 20%, rgba(255, 255, 255, 0.1));
+  background: color-mix(in srgb, var(--pb-panel-dark) 42%, transparent);
+  backdrop-filter: blur(14px) saturate(1.16);
+  -webkit-backdrop-filter: blur(14px) saturate(1.16);
+}
+
+.room-app.has-party-motion .track-line b,
+.room-app.has-party-motion .track-line strong,
+.room-app.has-party-motion .queue-header h2,
+.room-app.has-party-motion .search-result strong,
+.room-app.has-party-motion .empty-state strong {
+  color: #ffffff;
+}
+
+.room-app.has-party-motion .uploaded-by,
+.room-app.has-party-motion .muted,
+.room-app.has-party-motion .search-result span,
+.room-app.has-party-motion .empty-state span {
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .now-playing-copy {
   display: grid;
   gap: 4px;
@@ -4774,6 +4848,37 @@ input:focus {
     radial-gradient(circle at 50% 82%, color-mix(in srgb, var(--pb-visualizer-c) 42%, transparent), transparent 36%),
     linear-gradient(135deg, var(--pb-visualizer-base), color-mix(in srgb, var(--pb-visualizer-base) 68%, #020308));
   isolation: isolate;
+}
+
+.room-app.has-party-motion .music-visualizer {
+  background:
+    radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--pb-visualizer-a) 34%, transparent), transparent 32%),
+    radial-gradient(circle at 78% 24%, color-mix(in srgb, var(--pb-visualizer-b) 30%, transparent), transparent 34%),
+    radial-gradient(circle at 50% 82%, color-mix(in srgb, var(--pb-visualizer-c) 24%, transparent), transparent 38%),
+    color-mix(in srgb, var(--pb-visualizer-base) 32%, transparent);
+  backdrop-filter: blur(16px) saturate(1.22);
+  -webkit-backdrop-filter: blur(16px) saturate(1.22);
+}
+
+.room-app.has-party-motion .visualizer-center {
+  background: color-mix(in srgb, var(--pb-panel-dark) 44%, transparent);
+  border-color: color-mix(in srgb, var(--pb-accent) 24%, rgba(255, 255, 255, 0.16));
+  box-shadow:
+    0 18px 42px color-mix(in srgb, var(--pb-panel-dark) 28%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.room-app.has-party-motion .visualizer-glow {
+  opacity: 0.44;
+}
+
+.room-app.has-party-motion .visualizer-ring {
+  border-color: color-mix(in srgb, var(--pb-highlight) 26%, rgba(255, 255, 255, 0.16));
+  box-shadow: inset 0 0 44px color-mix(in srgb, var(--pb-accent) 10%, transparent);
+}
+
+.room-app.has-party-motion .visualizer-bars {
+  opacity: 0.66;
 }
 
 .visualizer-glow,
