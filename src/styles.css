@@ -549,6 +549,22 @@ input:focus {
   accent-color: #f7c948;
 }
 
+.volume-tap-away {
+  z-index: 74;
+}
+
+.volume-overlay-popover {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(70px, calc(env(safe-area-inset-bottom) + 64px));
+  left: max(14px, env(safe-area-inset-left));
+  z-index: 75;
+  width: auto;
+  max-width: min(420px, calc(100vw - 28px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  margin-left: auto;
+  pointer-events: auto;
+}
+
 .mini-link {
   display: inline-flex;
   gap: 8px;

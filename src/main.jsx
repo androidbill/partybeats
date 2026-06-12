@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.17";
+const APP_VERSION = "2026.06.12.18";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -2659,30 +2659,34 @@ function App() {
         >
           <Volume2 aria-hidden="true" />
         </button>
-        {volumeControlOpen && (
-          <>
-            <button
-              className="tap-away-layer volume-tap-away"
-              aria-label="Close volume menu"
-              onClick={() => setVolumeControlOpen(false)}
-              type="button"
-            />
-            <label className="volume-popover">
-              <span>
-                Volume
-                <strong>{roomVolume}%</strong>
-              </span>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={roomVolume}
-                onChange={(event) => updateRoomVolume(event.target.value)}
-              />
-            </label>
-          </>
-        )}
       </div>
+    );
+  }
+
+  function renderVolumeOverlay() {
+    if (!volumeControlOpen) return null;
+    return (
+      <>
+        <button
+          className="tap-away-layer volume-tap-away"
+          aria-label="Close volume menu"
+          onClick={() => setVolumeControlOpen(false)}
+          type="button"
+        />
+        <label className="volume-popover volume-overlay-popover">
+          <span>
+            Volume
+            <strong>{roomVolume}%</strong>
+          </span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={roomVolume}
+            onChange={(event) => updateRoomVolume(event.target.value)}
+          />
+        </label>
+      </>
     );
   }
 
@@ -3862,6 +3866,8 @@ function App() {
         </button>
       </div>
       )}
+
+      {renderVolumeOverlay()}
 
       {emojiSongId && (
         <button
