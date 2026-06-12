@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.14";
+const APP_VERSION = "2026.06.11.15";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -662,7 +662,6 @@ function App() {
   const floatingReactionLongPressRef = useRef(false);
   const songReactionPressTimerRef = useRef(0);
   const songReactionLongPressRef = useRef(false);
-  const lastPopoverActionRef = useRef({ key: "", at: 0 });
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
   const noticeRoomId = useRef("");
@@ -2728,40 +2727,12 @@ function App() {
     }
   }
 
-  function runPopoverAction(key, action) {
-    const now = Date.now();
-    if (lastPopoverActionRef.current.key === key && now - lastPopoverActionRef.current.at < 700) return;
-    lastPopoverActionRef.current = { key, at: now };
-    action();
-  }
-
   function closeEmojiPopoverSoon() {
     window.setTimeout(() => {
       setEmojiSongId("");
       setMessageSongId("");
       setEmojiPickerMode("react");
     }, 140);
-  }
-
-  function popoverPressProps(key, action) {
-    const handleStart = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    };
-    const handleEnd = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      runPopoverAction(key, action);
-    };
-    return {
-      onTouchStart: handleStart,
-      onTouchEnd: handleEnd,
-      onPointerDown: handleStart,
-      onPointerUp: handleEnd,
-      onMouseDown: handleStart,
-      onMouseUp: handleEnd,
-      onClick: handleEnd
-    };
   }
 
   function clearRoomState() {
@@ -3719,19 +3690,12 @@ function App() {
           role="dialog"
           aria-label="React to song"
           onClick={(event) => event.stopPropagation()}
-          onClickCapture={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
-          onPointerDownCapture={(event) => event.stopPropagation()}
           onPointerUp={(event) => event.stopPropagation()}
-          onPointerUpCapture={(event) => event.stopPropagation()}
           onTouchStart={(event) => event.stopPropagation()}
-          onTouchStartCapture={(event) => event.stopPropagation()}
           onTouchEnd={(event) => event.stopPropagation()}
-          onTouchEndCapture={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
-          onMouseDownCapture={(event) => event.stopPropagation()}
           onMouseUp={(event) => event.stopPropagation()}
-          onMouseUpCapture={(event) => event.stopPropagation()}
         >
           {EMOJIS.map((emoji) => (
             <button
@@ -3741,13 +3705,15 @@ function App() {
                   : ""
               }
               key={emoji}
-              {...popoverPressProps(`${reactionSong.id}:emoji:${emoji}`, () => {
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
                 setSongReactionEmoji(emoji);
                 if (emojiPickerMode !== "choose") {
                   reactToSong(reactionSong, emoji);
                 }
                 closeEmojiPopoverSoon();
-              })}
+              }}
               type="button"
             >
               {emoji}
@@ -3755,7 +3721,12 @@ function App() {
           ))}
           <button
             className={messageSongId === reactionSong.id ? "selected" : ""}
-            {...popoverPressProps(`${reactionSong.id}:message`, () => setMessageSongId(reactionSong.id))}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setEmojiPickerMode("react");
+              setMessageSongId(reactionSong.id);
+            }}
             type="button"
             title="Send message"
           >
