@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.27";
+const APP_VERSION = "2026.06.12.28";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -485,14 +485,20 @@ function savedColorTheme() {
   try {
     const saved = localStorage.getItem("partybeats-color-theme");
     const migratedDefault = localStorage.getItem("partybeats-color-theme-default-migrated");
-    if (!saved) return "neon";
+    const migratedMidnightDefault = localStorage.getItem("partybeats-color-theme-midnight-default-migrated");
+    if (!saved) return "midnight";
     if (saved === "sunset" && !migratedDefault) {
       localStorage.setItem("partybeats-color-theme-default-migrated", "true");
-      return "neon";
+      localStorage.setItem("partybeats-color-theme-midnight-default-migrated", "true");
+      return "midnight";
     }
-    return COLOR_THEMES.some((option) => option.id === saved) ? saved : "neon";
+    if (saved === "neon" && !migratedMidnightDefault) {
+      localStorage.setItem("partybeats-color-theme-midnight-default-migrated", "true");
+      return "midnight";
+    }
+    return COLOR_THEMES.some((option) => option.id === saved) ? saved : "midnight";
   } catch {
-    return "neon";
+    return "midnight";
   }
 }
 
@@ -1059,7 +1065,7 @@ function App() {
   const floatingReactionsEnabled = room?.floatingReactionsEnabled !== false;
   const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
-  const partyMotionEnabled = room?.partyMotionEnabled === true;
+  const partyMotionEnabled = room?.partyMotionEnabled !== false;
 
   useEffect(() => {
     if (!internalSearchAvailable && searchMode === "internal") {
@@ -1673,7 +1679,7 @@ function App() {
             internalSearchEnabled: false,
             floatingReactionsEnabled: true,
             visualizerEnabled: false,
-            partyMotionEnabled: false,
+            partyMotionEnabled: true,
             tagline: "",
             roomVolume: 80,
             nowPlayingId: null
