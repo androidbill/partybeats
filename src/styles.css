@@ -2419,7 +2419,7 @@ input:focus {
 
 .people-panel .member-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) max-content;
+  grid-template-columns: minmax(0, 1fr) max-content;
   gap: 10px;
   align-items: center;
   min-height: 46px;
@@ -2427,7 +2427,7 @@ input:focus {
   border-top: 1px solid rgba(23, 24, 31, 0.08);
 }
 
-.people-panel .member-row div {
+.member-name-cell {
   display: grid;
   min-width: 0;
 }
@@ -2467,16 +2467,17 @@ input:focus {
 }
 
 .people-panel .member-row.manageable {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) max-content;
 }
 
 .people-panel .member-row.manageable .member-actions {
-  grid-column: 1 / -1;
-  justify-content: flex-start;
-  padding-left: 36px;
+  grid-column: auto;
+  justify-content: flex-end;
+  padding-left: 0;
 }
 
 .rename-member-form {
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 6px;
@@ -2497,6 +2498,12 @@ input:focus {
 
 .rename-member-form .icon-button {
   width: 34px;
+}
+
+.member-admin-badge {
+  width: 20px;
+  height: 20px;
+  color: #f7c948;
 }
 
 .nickname-edit-form {
