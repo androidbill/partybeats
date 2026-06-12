@@ -5403,6 +5403,49 @@ body {
   background: #c52b4a;
 }
 
+.install-help-modal {
+  display: grid;
+  gap: 16px;
+  width: min(460px, calc(100vw - 28px));
+}
+
+.install-help-steps {
+  display: grid;
+  gap: 10px;
+}
+
+.install-help-steps div {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid rgba(23, 24, 31, 0.1);
+  border-radius: 12px;
+  background: rgba(23, 24, 31, 0.04);
+}
+
+.install-help-steps strong {
+  color: #17181f;
+}
+
+.install-help-steps span {
+  color: #5e6370;
+  font-size: 0.88rem;
+  line-height: 1.32;
+}
+
+:root[data-theme="dark"] .install-help-steps div {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="dark"] .install-help-steps strong {
+  color: #f6f7fb;
+}
+
+:root[data-theme="dark"] .install-help-steps span {
+  color: #a7adbb;
+}
+
 /* --- Typography polish --- */
 .landing-copy h1,
 .now-playing-card h1,
@@ -5571,6 +5614,53 @@ input,
   width: 13px;
   height: 9px;
   margin-right: 0;
+}
+
+/* --- Playlist status rows: animated theme borders --- */
+.song-row.is-playing,
+.room-app.dark-mode .song-row.is-playing {
+  border-color: var(--pb-accent);
+  background:
+    linear-gradient(var(--song-row-bg, #ffffff), var(--song-row-bg, #ffffff)) padding-box,
+    linear-gradient(120deg, var(--pb-accent), var(--pb-link), var(--pb-accent)) border-box;
+  background-size: auto, 220% 100%;
+  box-shadow:
+    inset 4px 0 0 var(--pb-accent),
+    0 14px 36px color-mix(in srgb, var(--pb-accent) 24%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--pb-accent) 12%, transparent);
+  animation:
+    songRowIn 220ms ease both,
+    playlistBorderFlow 2.8s linear infinite;
+}
+
+.song-row.is-up-next:not(.is-playing),
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing) {
+  border-color: var(--pb-highlight);
+  background:
+    linear-gradient(var(--song-row-bg, #ffffff), var(--song-row-bg, #ffffff)) padding-box,
+    linear-gradient(120deg, var(--pb-highlight), var(--pb-accent-2), var(--pb-highlight)) border-box;
+  background-size: auto, 220% 100%;
+  box-shadow:
+    inset 4px 0 0 var(--pb-highlight),
+    0 12px 30px color-mix(in srgb, var(--pb-highlight) 22%, transparent);
+  animation:
+    songRowIn 220ms ease both,
+    playlistBorderFlow 3.4s linear infinite;
+}
+
+.room-app.dark-mode .song-row.is-playing,
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing) {
+  --song-row-bg: #171b25;
+}
+
+@keyframes playlistBorderFlow {
+  0% {
+    background-position: 0 0, 0% 50%;
+  }
+
+  100% {
+    background-position: 0 0, 220% 50%;
+  }
 }
 
 /* --- Equalizer --- */
