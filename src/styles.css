@@ -6756,3 +6756,40 @@ input,
   -webkit-backdrop-filter: blur(14px) saturate(1.16);
 }
 
+/* iPhone/Safari fallback: simple alpha surfaces render more reliably than layered gradients. */
+@supports (-webkit-touch-callout: none) {
+  .room-app.has-party-motion .now-playing-card,
+  .room-app.has-party-motion.dark-mode .now-playing-card {
+    background-image: none !important;
+    background-color: rgba(12, 14, 22, 0.34) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.25) !important;
+    backdrop-filter: blur(22px) saturate(1.25) !important;
+  }
+
+  .room-app.has-party-motion .queue-panel,
+  .room-app.has-party-motion .add-panel,
+  .room-app.has-party-motion .people-panel,
+  .room-app.has-party-motion.dark-mode .queue-panel,
+  .room-app.has-party-motion.dark-mode .add-panel,
+  .room-app.has-party-motion.dark-mode .people-panel {
+    background-image: none !important;
+    background-color: rgba(12, 14, 22, 0.28) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
+    backdrop-filter: blur(18px) saturate(1.2) !important;
+  }
+
+  .room-app.has-party-motion .song-row,
+  .room-app.has-party-motion.dark-mode .song-row {
+    background-image: none !important;
+    background-color: rgba(18, 20, 31, 0.26) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(1.18) !important;
+    backdrop-filter: blur(14px) saturate(1.18) !important;
+  }
+
+  .room-app.has-party-motion .song-row.is-playing,
+  .room-app.has-party-motion.dark-mode .song-row.is-playing {
+    background-image: none !important;
+    background-color: rgba(0, 245, 212, 0.18) !important;
+  }
+}
+
