@@ -162,7 +162,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.02";
+const APP_VERSION = "2026.06.12.05";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -666,6 +666,7 @@ function App() {
   const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
   const [mobilePlayerCollapsed, setMobilePlayerCollapsed] = useState(false);
   const [cooldownNow, setCooldownNow] = useState(Date.now());
+  const [playbackClock, setPlaybackClock] = useState(Date.now());
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
@@ -1080,6 +1081,14 @@ function App() {
   const cooldownRemaining = Math.max(0, cooldownUntil - cooldownNow);
   const cooldownCountdown = formatCountdown(cooldownRemaining);
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
+
+  useEffect(() => {
+    if (!activeRoomId || !nowPlayingSong) return undefined;
+    setPlaybackClock(Date.now());
+    const timer = window.setInterval(() => setPlaybackClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeRoomId, nowPlayingSong?.id]);
+
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
   const roomSyncing = roomLoading || songsLoading || membersLoading;
@@ -1103,8 +1112,15 @@ function App() {
   };
   const roomVolume = Math.min(100, Math.max(0, Number(room?.roomVolume ?? 80)));
   const livePlaybackSeconds = playbackState.state === "playing" && playbackState.updatedAt
-    ? playbackState.seconds + Math.max(0, (Date.now() - playbackState.updatedAt) / 1000)
+    ? playbackState.seconds + Math.max(0, (playbackClock - playbackState.updatedAt) / 1000)
     : playbackState.seconds;
+  const nowPlayingDurationSeconds = Math.max(0, Number(nowPlayingSong?.durationSeconds) || 0);
+  const displayPlaybackSeconds = nowPlayingDurationSeconds > 0
+    ? Math.min(livePlaybackSeconds, nowPlayingDurationSeconds)
+    : livePlaybackSeconds;
+  const playbackTimeLabel = nowPlayingSong
+    ? `${formatDuration(displayPlaybackSeconds) || "0:00"} / ${formatDuration(nowPlayingDurationSeconds) || "--:--"}`
+    : "";
   const activeNickname = (memberRecord?.name || nickname).trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
   const activeDjStatus = isActiveDj
@@ -3564,6 +3580,11 @@ function App() {
                 ? "Fetching the song that is already playing in this room."
               : "The Active DJ starts playback from the phone connected to the speaker."}
           </p>
+          {playbackTimeLabel && (
+            <p className="playback-time-label" aria-label="Playback time">
+              {playbackTimeLabel}
+            </p>
+          )}
           <p className="dj-note">
             Playing from {activeDjName}
             {isAdmin && !isActiveDj ? " · You can move the player to this device." : ""}
