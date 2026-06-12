@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.31";
+const APP_VERSION = "2026.06.12.32";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1072,7 +1072,7 @@ function App() {
   const floatingReactionsEnabled = room?.floatingReactionsEnabled !== false;
   const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
-  const partyMotionEnabled = room?.partyMotionEnabled !== false;
+  const partyMotionEnabled = room?.partyMotionEnabled === true;
 
   useEffect(() => {
     if (!internalSearchAvailable && searchMode === "internal") {
@@ -1686,7 +1686,7 @@ function App() {
             internalSearchEnabled: false,
             floatingReactionsEnabled: true,
             visualizerEnabled: false,
-            partyMotionEnabled: true,
+            partyMotionEnabled: false,
             tagline: "",
             roomVolume: 80,
             nowPlayingId: null
@@ -2996,7 +2996,7 @@ function App() {
   }
 
   async function updatePartyMotionEnabled(enabled) {
-    if (!isAdmin || !activeRoomId) return;
+    if (!user || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { partyMotionEnabled: enabled, ...roomActivityUpdate() });
   }
 
@@ -4753,7 +4753,6 @@ function App() {
                   <button
                     className={partyMotionEnabled ? "toggle-button is-on" : "toggle-button"}
                     onClick={() => updatePartyMotionEnabled(!partyMotionEnabled)}
-                    disabled={!isAdmin}
                     type="button"
                   >
                     {partyMotionEnabled ? "On" : "Off"}
