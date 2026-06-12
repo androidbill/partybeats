@@ -162,7 +162,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.27";
+const APP_VERSION = "2026.06.11.29";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -594,6 +594,7 @@ function App() {
   const [songsLoading, setSongsLoading] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
   const [creatingRoom, setCreatingRoom] = useState(false);
+  const [joiningRoom, setJoiningRoom] = useState(false);
   const [toast, setToast] = useState("");
   const [searchMode, setSearchMode] = useState("external");
   const [searchQuery, setSearchQuery] = useState("");
@@ -612,6 +613,7 @@ function App() {
   const [roomPanelOpen, setRoomPanelOpen] = useState(false);
   const [roomPanelTab, setRoomPanelTab] = useState("room");
   const [shareChoiceOpen, setShareChoiceOpen] = useState(false);
+  const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState("");
@@ -675,6 +677,7 @@ function App() {
   const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
+  const joiningRoomRef = useRef(false);
   const floatingReactionPressTimerRef = useRef(0);
   const floatingReactionLongPressRef = useRef(false);
   const songReactionPressTimerRef = useRef(0);
@@ -1620,17 +1623,20 @@ function App() {
   }
 
   async function joinRoomById(rawId = roomId, options = {}) {
+    if (joiningRoomRef.current) return;
     const nextRoomId = normalizeRoomId(rawId);
     if (!/^[A-Z]{4}\d{3}$/.test(nextRoomId)) {
       if (!options.silent) setToast("Room IDs look like VIBE123.");
       return;
     }
-    const joiningUser = options.userOverride || user || await ensureUserForJoin();
-    if (!joiningUser) {
-      return;
-    }
 
+    joiningRoomRef.current = true;
+    setJoiningRoom(true);
     try {
+      const joiningUser = options.userOverride || user || await ensureUserForJoin();
+      if (!joiningUser) {
+        return;
+      }
       const roomSnap = await getDoc(doc(db, "rooms", nextRoomId));
       if (!roomSnap.exists()) {
         if (!options.silent) setToast("That room does not exist yet.");
@@ -1686,6 +1692,9 @@ function App() {
       if (!options.silent) setConfettiKey(Date.now());
     } catch (error) {
       if (!options.silent) setToast(roomJoinErrorMessage(error));
+    } finally {
+      joiningRoomRef.current = false;
+      setJoiningRoom(false);
     }
   }
 
@@ -2854,6 +2863,7 @@ function App() {
     setRoomPanelOpen(false);
     setRoomPanelTab("room");
     setShareChoiceOpen(false);
+    setInstallHelpOpen(false);
     setAddSheetOpen(false);
     setAddingSongKey("");
     setRecentlyAddedSongId("");
@@ -3052,7 +3062,7 @@ function App() {
       return;
     }
     if (!installPrompt) {
-      setToast("To install on iPhone, use Share, then Add to Home Screen.");
+      setInstallHelpOpen(true);
       return;
     }
     try {
@@ -3356,9 +3366,9 @@ function App() {
                     />
                   </label>
                 </div>
-                <button onClick={() => joinRoomById()} disabled={authLoading || nickname.trim().length < 2 || !/^[A-Z]{4}\d{3}$/.test(normalizeRoomId(roomId))} type="button">
+                <button onClick={() => joinRoomById()} disabled={joiningRoom || authLoading || nickname.trim().length < 2 || !/^[A-Z]{4}\d{3}$/.test(normalizeRoomId(roomId))} type="button">
                   <DoorOpen aria-hidden="true" />
-                  Join
+                  {joiningRoom ? "Joining Room..." : "Join"}
                 </button>
               </div>
             </section>
@@ -4667,6 +4677,45 @@ function App() {
                 <span>Share the current queue.</span>
               </button>
             </div>
+          </section>
+        </div>
+      )}
+
+      {installHelpOpen && (
+        <div
+          className="modal-backdrop install-help-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="install-help-title"
+          onClick={() => setInstallHelpOpen(false)}
+        >
+          <section className="about-modal install-help-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 id="install-help-title">Install BP PartyBeats</h2>
+                <p className="muted">Your browser does not show the install prompt from inside the app.</p>
+              </div>
+              <button className="icon-button" onClick={() => setInstallHelpOpen(false)} title="Close" type="button">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <div className="install-help-steps">
+              <div>
+                <strong>Firefox on Android</strong>
+                <span>Tap the Firefox menu, then choose Install or Add app to Home screen.</span>
+              </div>
+              <div>
+                <strong>iPhone</strong>
+                <span>Open in Safari, tap Share, then Add to Home Screen.</span>
+              </div>
+              <div>
+                <strong>Chrome or Edge</strong>
+                <span>Use the browser menu if the install prompt does not appear.</span>
+              </div>
+            </div>
+            <button className="primary-action" onClick={() => setInstallHelpOpen(false)} type="button">
+              OK
+            </button>
           </section>
         </div>
       )}
