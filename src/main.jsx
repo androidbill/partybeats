@@ -162,7 +162,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.11";
+const APP_VERSION = "2026.06.12.12";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3540,17 +3540,19 @@ function App() {
       >
         {(nowPlayingSong || isAdmin) && (
           <div className="now-playing-corner-actions">
-            {playbackTimeLabel && (
-              <span className="playback-time-label" aria-label="Playback time">
-                {playbackTimeLabel}
-              </span>
-            )}
-            {nowPlayingSong && !isActiveDjPhone ? (
-              <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
-                <Search aria-hidden="true" />
-                Lyrics
-              </a>
-            ) : null}
+            <div className="now-playing-corner-row">
+              {playbackTimeLabel && (
+                <span className="playback-time-label" aria-label="Playback time">
+                  {playbackTimeLabel}
+                </span>
+              )}
+              {nowPlayingSong && !isActiveDjPhone ? (
+                <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+                  <Search aria-hidden="true" />
+                  Lyrics
+                </a>
+              ) : null}
+            </div>
             {isAdmin && (
               <button
                 className="mobile-player-collapse-toggle"
