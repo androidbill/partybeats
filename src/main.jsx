@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.20";
+const APP_VERSION = "2026.06.12.21";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -616,6 +616,7 @@ function App() {
   const [roomPanelOpen, setRoomPanelOpen] = useState(false);
   const [roomPanelTab, setRoomPanelTab] = useState("room");
   const [shareChoiceOpen, setShareChoiceOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
@@ -3461,6 +3462,10 @@ function App() {
                     <Share2 aria-hidden="true" />
                     Share
                   </button>
+                  <button onClick={() => { setAboutOpen(true); setMenuOpen(false); }} type="button">
+                    <Info aria-hidden="true" />
+                    About
+                  </button>
                   <button onClick={installApp} type="button">
                     <Download aria-hidden="true" />
                     Install App
@@ -4645,6 +4650,26 @@ function App() {
                 <span>Share the current queue.</span>
               </button>
             </div>
+          </section>
+        </div>
+      )}
+
+      {aboutOpen && (
+        <div
+          className="modal-backdrop about-app-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="about-app-title"
+          onClick={() => setAboutOpen(false)}
+        >
+          <section className="about-modal about-app-modal" onClick={(event) => event.stopPropagation()}>
+            <button className="icon-button about-app-close" onClick={() => setAboutOpen(false)} title="Close" type="button">
+              <X aria-hidden="true" />
+            </button>
+            <AppIcon />
+            <h2 id="about-app-title">BP PartyBeats</h2>
+            <strong>{APP_VERSION}</strong>
+            <span>Created by: Bill Parsons</span>
           </section>
         </div>
       )}
