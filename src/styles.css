@@ -4831,6 +4831,24 @@ input:focus {
     height: 18px;
   }
 
+  .dj-control-deck .room-volume-control.is-open {
+    position: static;
+  }
+
+  .dj-control-deck .volume-tap-away {
+    z-index: 74;
+  }
+
+  .dj-control-deck .volume-popover {
+    position: fixed;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(68px, calc(env(safe-area-inset-bottom) + 62px));
+    left: max(14px, env(safe-area-inset-left));
+    z-index: 75;
+    width: auto;
+    max-width: none;
+  }
+
   .queue-header {
     position: static;
     padding-bottom: 6px;
