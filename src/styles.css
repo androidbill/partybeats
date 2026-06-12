@@ -909,15 +909,10 @@ input:focus {
   background: #f8f6ef;
 }
 
-.room-app > *:not(.party-motion-bg) {
-  position: relative;
-  z-index: 1;
-}
-
 .party-motion-bg {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   overflow: hidden;
   pointer-events: none;
   background:
@@ -928,6 +923,10 @@ input:focus {
   transform: translateZ(0);
   --motion-speed: var(--party-motion-speed, 1);
   --motion-energy: 1;
+}
+
+.app-shell.room-app.has-party-motion {
+  background: transparent !important;
 }
 
 .party-motion-bg.is-awake {

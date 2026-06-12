@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.23";
+const APP_VERSION = "2026.06.12.24";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3529,7 +3529,7 @@ function App() {
   return (
     <main
       ref={roomAppRef}
-      className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"}`}
+      className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"} ${partyMotionEnabled ? "has-party-motion" : ""}`}
       style={{ "--desktop-player-split": `${desktopPlayerSplit}%`, "--hype-score": `${hypeScore}%`, "--party-motion-speed": `${Math.max(0.62, 1.45 - (hypeScore / 130))}` }}
     >
       {partyMotionEnabled && (
