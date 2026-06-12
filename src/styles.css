@@ -1569,8 +1569,12 @@ input:focus {
   position: relative;
   z-index: 25;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 6px;
-  max-width: min(calc(100vw - 24px), 340px);
+  max-width: min(calc(100vw - 24px), 360px);
+  max-height: min(50dvh, 280px);
+  overflow-y: auto;
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
@@ -2070,9 +2074,42 @@ input:focus {
   animation: rowControlsIn 140ms ease both;
 }
 
+.song-reaction-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 5px;
+  align-items: center;
+  animation: rowControlsIn 140ms ease both;
+}
+
 .admin-actions .icon-button {
   width: 32px;
   height: 32px;
+}
+
+.song-reaction-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: #17181f;
+  background: rgba(247, 201, 72, 0.9);
+  box-shadow: 0 10px 22px rgba(18, 19, 26, 0.12);
+  font-size: 1.1rem;
+  line-height: 1;
+  touch-action: manipulation;
+}
+
+.song-reaction-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.room-app.dark-mode .song-reaction-button {
+  color: #ffffff;
+  background: rgba(57, 198, 163, 0.22);
 }
 
 @keyframes rowControlsIn {
@@ -2126,7 +2163,7 @@ input:focus {
   bottom: calc(100% + 8px);
   z-index: 60;
   display: grid;
-  grid-template-columns: repeat(7, minmax(34px, 38px));
+  grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
   gap: 6px;
   justify-content: center;
   width: min(calc(100vw - 24px), 340px);
@@ -2139,6 +2176,7 @@ input:focus {
   transform-origin: 50% 100%;
   pointer-events: auto;
   touch-action: manipulation;
+  overflow-y: auto;
   animation: emojiPopoverIn 150ms ease both;
 }
 

@@ -113,7 +113,32 @@ const ROOM_WORDS = [
   "wire"
 ].filter((word) => word.length === 4);
 
-const EMOJIS = ["🔥", "💃", "🕺", "❤️", "😮", "🚀"];
+const EMOJIS = [
+  "🔥",
+  "❤️",
+  "😍",
+  "😮",
+  "😂",
+  "🙌",
+  "👏",
+  "💃",
+  "🕺",
+  "🤘",
+  "🎸",
+  "🥁",
+  "🎤",
+  "🎶",
+  "🚀",
+  "⚡",
+  "💯",
+  "⭐",
+  "👑",
+  "🍻",
+  "🥳",
+  "😎",
+  "🤯",
+  "😭"
+];
 const COLOR_THEMES = [
   { id: "neon", name: "Neon Rave", note: "Mint, magenta + ultraviolet", base: "dark" },
   { id: "sunset", name: "Sunset Funk", note: "Coral, gold + tropic teal", base: "light" },
@@ -136,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.12";
+const APP_VERSION = "2026.06.11.13";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -606,6 +631,7 @@ function App() {
   const [emojiBursts, setEmojiBursts] = useState([]);
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [floatingReactionEmoji, setFloatingReactionEmoji] = useState(EMOJIS[0]);
+  const [songReactionEmoji, setSongReactionEmoji] = useState(EMOJIS[0]);
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
@@ -633,6 +659,8 @@ function App() {
   const creatingRoomRef = useRef(false);
   const floatingReactionPressTimerRef = useRef(0);
   const floatingReactionLongPressRef = useRef(false);
+  const songReactionPressTimerRef = useRef(0);
+  const songReactionLongPressRef = useRef(false);
   const lastPopoverActionRef = useRef({ key: "", at: 0 });
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
@@ -2623,6 +2651,34 @@ function App() {
     sendFloatingReaction();
   }
 
+  function openSongEmojiPicker(song) {
+    setMessageSongId("");
+    setEmojiSongId(song.id);
+  }
+
+  function startSongReactionPress(event, song) {
+    event.preventDefault();
+    event.stopPropagation();
+    songReactionLongPressRef.current = false;
+    window.clearTimeout(songReactionPressTimerRef.current);
+    songReactionPressTimerRef.current = window.setTimeout(() => {
+      songReactionLongPressRef.current = true;
+      openSongEmojiPicker(song);
+    }, 520);
+  }
+
+  function finishSongReactionPress(event, song) {
+    event.preventDefault();
+    event.stopPropagation();
+    window.clearTimeout(songReactionPressTimerRef.current);
+    if (songReactionLongPressRef.current) return;
+    reactToSong(song, songReactionEmoji);
+  }
+
+  function cancelSongReactionPress() {
+    window.clearTimeout(songReactionPressTimerRef.current);
+  }
+
   async function reactToSong(song, emoji) {
     if (!user || !activeRoomId) return;
     const songRef = doc(db, "rooms", activeRoomId, "songs", song.id);
@@ -3460,13 +3516,16 @@ function App() {
                   onClick={() => setSelectedSongId((current) => current === song.id ? "" : song.id)}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    setMessageSongId("");
-                    setEmojiSongId(song.id);
+                    if (isAdmin) {
+                      openSongEmojiPicker(song);
+                    } else {
+                      setSelectedSongId(song.id);
+                    }
                   }}
                   onPointerDown={(event) => {
+                    if (!isAdmin) return;
                     const timer = window.setTimeout(() => {
-                      setMessageSongId("");
-                      setEmojiSongId(song.id);
+                      openSongEmojiPicker(song);
                     }, 520);
                     event.currentTarget.dataset.pressTimer = String(timer);
                   }}
@@ -3522,6 +3581,42 @@ function App() {
                       )}
                       <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song" type="button">
                         <Trash2 aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+
+                  {!isAdmin && isSelectedSong && (
+                    <div className="song-reaction-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+                      <button
+                        className="song-reaction-button"
+                        type="button"
+                        aria-label={`Send ${songReactionEmoji} reaction`}
+                        title="Tap to react. Hold to change emoji."
+                        onPointerDown={(event) => startSongReactionPress(event, song)}
+                        onPointerUp={(event) => finishSongReactionPress(event, song)}
+                        onPointerCancel={cancelSongReactionPress}
+                        onPointerLeave={cancelSongReactionPress}
+                        onClick={(event) => event.preventDefault()}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          openSongEmojiPicker(song);
+                        }}
+                      >
+                        {songReactionEmoji}
+                      </button>
+                      <button
+                        className="song-reaction-button"
+                        type="button"
+                        aria-label="Send message"
+                        title="Send message"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setEmojiSongId(song.id);
+                          setMessageSongId(song.id);
+                        }}
+                      >
+                        <MessageCircle aria-hidden="true" />
                       </button>
                     </div>
                   )}
@@ -3636,6 +3731,7 @@ function App() {
               className={reactionSong.emojiByUser?.[user.uid] === emoji ? "selected" : ""}
               key={emoji}
               {...popoverPressProps(`${reactionSong.id}:emoji:${emoji}`, () => {
+                setSongReactionEmoji(emoji);
                 reactToSong(reactionSong, emoji);
                 closeEmojiPopoverSoon();
               })}
