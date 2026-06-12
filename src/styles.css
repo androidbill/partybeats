@@ -3224,6 +3224,11 @@ input:focus {
     overflow-x: hidden;
   }
 
+  .landing-shell {
+    min-height: 100svh;
+    overflow-y: visible;
+  }
+
   .room-app {
     display: flex;
     flex-direction: column;
@@ -3238,10 +3243,14 @@ input:focus {
   }
 
   .landing-hero {
-    align-content: center;
-    gap: 8px;
+    align-content: start;
+    gap: 7px;
     min-height: 100svh;
-    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+    padding:
+      max(6px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(6px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
   }
 
   .brand-mark {
@@ -3258,14 +3267,18 @@ input:focus {
   }
 
   .landing-copy h1 {
-    margin: 6px 0 4px;
-    font-size: clamp(2.7rem, 15vw, 4.2rem);
+    margin: 4px 0 2px;
+    font-size: clamp(2.05rem, 11.5vw, 3.3rem);
     line-height: 0.9;
   }
 
   .landing-copy p {
-    font-size: 0.9rem;
-    line-height: 1.32;
+    font-size: 0.82rem;
+    line-height: 1.22;
+  }
+
+  .landing-chips {
+    display: none;
   }
 
   .auth-panel,
@@ -5062,6 +5075,212 @@ body {
   100% {
     opacity: 0;
     transform: translateY(-108vh) rotate(14deg);
+  }
+}
+
+.landing-actions-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.landing-action-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  color: #17181f;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.landing-action-card h2 {
+  margin: 2px 0 6px;
+  color: #17181f;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.landing-action-card p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.landing-card-kicker {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: #0f4f42;
+  background: rgba(57, 198, 163, 0.16);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.create-google-action {
+  min-height: 48px;
+}
+
+.landing-signed-in {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  color: #696c78;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.landing-signed-in-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.landing-signed-in-row .icon-button {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  color: #17181f;
+  background: rgba(23, 24, 31, 0.08);
+}
+
+.landing-join-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 10px;
+  align-items: end;
+}
+
+.landing-join-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.landing-join-fields label {
+  display: grid;
+  gap: 5px;
+}
+
+.landing-join-fields label span {
+  color: #424550;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.landing-join-form button {
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+  justify-content: center;
+  min-height: 104px;
+  padding: 0 16px;
+  border-radius: 12px;
+  color: #12131a;
+  background: #f7c948;
+  font-weight: 900;
+  font-size: 1.02rem;
+}
+
+@media (min-width: 820px) {
+  .landing-actions-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .landing-action-card {
+    align-content: space-between;
+  }
+}
+
+@media (max-width: 340px) {
+  .landing-join-form {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-join-form button {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 520px) {
+  .landing-actions-grid {
+    gap: 8px;
+  }
+
+  .landing-action-card {
+    gap: 8px;
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .landing-action-card h2 {
+    margin: 1px 0 3px;
+    font-size: 1.12rem;
+  }
+
+  .landing-action-card p {
+    font-size: 0.78rem;
+    line-height: 1.2;
+  }
+
+  .landing-card-kicker {
+    padding: 3px 7px;
+    font-size: 0.58rem;
+  }
+
+  .create-google-action {
+    min-height: 40px;
+    font-size: 0.9rem;
+  }
+
+  .landing-signed-in-row .icon-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .landing-signed-in {
+    font-size: 0.7rem;
+  }
+
+  .landing-join-form {
+    grid-template-columns: minmax(0, 1fr) 86px;
+    gap: 8px;
+  }
+
+  .landing-join-fields {
+    gap: 7px;
+  }
+
+  .landing-join-fields label {
+    gap: 3px;
+  }
+
+  .landing-join-fields label span {
+    font-size: 0.66rem;
+  }
+
+  .landing-join-form input {
+    min-height: 34px;
+    font-size: 0.86rem;
+  }
+
+  .landing-join-form button {
+    min-height: 83px;
+    padding: 0 8px;
+    font-size: 0.88rem;
+  }
+
+  .landing-theme-button {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
   }
 }
 

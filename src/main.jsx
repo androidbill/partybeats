@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.22";
+const APP_VERSION = "2026.06.11.23";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3172,9 +3172,14 @@ function App() {
                 {creatingRoom ? "Creating Room..." : user && !user.isAnonymous ? "Create Room" : "Continue with Google"}
               </button>
               {user && !user.isAnonymous && (
-                <span className="landing-signed-in">
-                  Signed in as <GoogleBadge /> {nickname || nicknameFor(user)}
-                </span>
+                <div className="landing-signed-in-row">
+                  <span className="landing-signed-in">
+                    Signed in as <GoogleBadge /> {nickname || nicknameFor(user)}
+                  </span>
+                  <button className="icon-button" onClick={handleSignOut} title="Sign out" type="button">
+                    <LogOut aria-hidden="true" />
+                  </button>
+                </div>
               )}
             </section>
 
@@ -3185,28 +3190,30 @@ function App() {
                 <p className="muted">Enter your nickname and the room code from the host.</p>
               </div>
               <div className="landing-join-form">
-                <label>
-                  <span>Nickname</span>
-                  <input
-                    value={nickname}
-                    onChange={(event) => setNickname(event.target.value)}
-                    onFocus={selectExistingText}
-                    placeholder="Your name"
-                    maxLength={30}
-                  />
-                </label>
-                <label>
-                  <span>Room ID</span>
-                  <input
-                    value={roomId}
-                    onChange={(event) => setRoomId(normalizeRoomId(event.target.value))}
-                    placeholder="VIBE123"
-                    maxLength={7}
-                  />
-                </label>
-                <button onClick={() => joinRoomById()} disabled={authLoading || nickname.trim().length < 2 || normalizeRoomId(roomId).length !== 7} type="button">
+                <div className="landing-join-fields">
+                  <label>
+                    <span>Nickname</span>
+                    <input
+                      value={nickname}
+                      onChange={(event) => setNickname(event.target.value)}
+                      onFocus={selectExistingText}
+                      placeholder="Your name"
+                      maxLength={30}
+                    />
+                  </label>
+                  <label>
+                    <span>Room ID</span>
+                    <input
+                      value={roomId}
+                      onChange={(event) => setRoomId(normalizeRoomId(event.target.value))}
+                      placeholder="VIBE123"
+                      maxLength={7}
+                    />
+                  </label>
+                </div>
+                <button onClick={() => joinRoomById()} disabled={authLoading || nickname.trim().length < 2 || !/^[A-Z]{4}\d{3}$/.test(normalizeRoomId(roomId))} type="button">
                   <DoorOpen aria-hidden="true" />
-                  Join Room
+                  Join
                 </button>
               </div>
             </section>
