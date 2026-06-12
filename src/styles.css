@@ -5662,16 +5662,31 @@ input,
 .song-row::before {
   content: "";
   position: absolute;
-  top: -1px;
-  left: 10%;
+  inset: -1px;
   z-index: 3;
-  width: 34%;
-  height: 3px;
-  border-radius: 999px;
+  padding: 2px;
+  border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  background: linear-gradient(90deg, transparent, var(--playlist-chase-color), transparent);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--playlist-chase-color) 18%, transparent),
+      color-mix(in srgb, var(--playlist-chase-color) 18%, transparent),
+      var(--playlist-chase-color),
+      color-mix(in srgb, var(--playlist-chase-color) 18%, transparent),
+      color-mix(in srgb, var(--playlist-chase-color) 18%, transparent)
+    );
+  background-size: 280% 100%;
   box-shadow: 0 0 14px var(--playlist-chase-glow);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
 }
 
 .song-row > * {
@@ -5694,7 +5709,7 @@ input,
 .song-row.is-playing::before,
 .room-app.dark-mode .song-row.is-playing::before {
   opacity: 1;
-  animation: playlistBorderChase 2.6s linear infinite;
+  animation: playlistBorderFlow 2.4s linear infinite;
 }
 
 .song-row.is-up-next:not(.is-playing),
@@ -5711,71 +5726,16 @@ input,
 .song-row.is-up-next:not(.is-playing)::before,
 .room-app.dark-mode .song-row.is-up-next:not(.is-playing)::before {
   opacity: 1;
-  animation: playlistBorderChase 3.2s linear infinite reverse;
+  animation: playlistBorderFlow 3s linear infinite reverse;
 }
 
-@keyframes playlistBorderChase {
-  0% {
-    top: -1px;
-    left: 8%;
-    width: 34%;
-    height: 3px;
+@keyframes playlistBorderFlow {
+  from {
+    background-position: 0% 50%;
   }
 
-  24% {
-    top: -1px;
-    left: 68%;
-    width: 24%;
-    height: 3px;
-  }
-
-  25% {
-    top: 8%;
-    left: calc(100% - 2px);
-    width: 3px;
-    height: 34%;
-  }
-
-  49% {
-    top: 58%;
-    left: calc(100% - 2px);
-    width: 3px;
-    height: 34%;
-  }
-
-  50% {
-    top: calc(100% - 2px);
-    left: 58%;
-    width: 34%;
-    height: 3px;
-  }
-
-  74% {
-    top: calc(100% - 2px);
-    left: 8%;
-    width: 34%;
-    height: 3px;
-  }
-
-  75% {
-    top: 58%;
-    left: -1px;
-    width: 3px;
-    height: 34%;
-  }
-
-  99% {
-    top: 8%;
-    left: -1px;
-    width: 3px;
-    height: 34%;
-  }
-
-  100% {
-    top: -1px;
-    left: 8%;
-    width: 34%;
-    height: 3px;
+  to {
+    background-position: 280% 50%;
   }
 }
 
