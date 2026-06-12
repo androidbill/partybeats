@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.11.17";
+const APP_VERSION = "2026.06.11.18";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -667,6 +667,7 @@ function App() {
   const noticeRoomId = useRef("");
   const lastPlayedSongId = useRef("");
   const reactionBaselineReadyRef = useRef(false);
+  const reactionSeenIdsRef = useRef(new Set());
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
   const baseTheme = selectedColorTheme.base || "dark";
@@ -936,12 +937,14 @@ function App() {
     const unsubReactions = onSnapshot(reactionsRef, (snap) => {
       if (!active) return;
       if (!reactionBaselineReadyRef.current) {
+        reactionSeenIdsRef.current = new Set(snap.docs.map((item) => item.id));
         reactionBaselineReadyRef.current = true;
         return;
       }
-      snap.docChanges().forEach((change) => {
-        if (change.type !== "added") return;
-        const data = change.doc.data();
+      snap.docs.forEach((item) => {
+        if (reactionSeenIdsRef.current.has(item.id)) return;
+        reactionSeenIdsRef.current.add(item.id);
+        const data = item.data();
         if (!EMOJIS.includes(data.emoji)) return;
         spawnFloatingReaction(data.emoji);
       });
@@ -979,6 +982,7 @@ function App() {
     previousNowPlayingId.current = undefined;
     previousMemberIds.current = undefined;
     reactionBaselineReadyRef.current = false;
+    reactionSeenIdsRef.current = new Set();
     setNowPlayingNotice(null);
     setJoinNotice(null);
     setNoticeBaselineReady(false);
