@@ -7109,6 +7109,65 @@ input,
   animation: fullscreenMotionWash 7s ease-in-out infinite;
 }
 
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer,
+.now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer {
+  background:
+    radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--pb-accent-2) 48%, transparent), transparent 30%),
+    radial-gradient(circle at 82% 22%, color-mix(in srgb, var(--pb-accent) 42%, transparent), transparent 34%),
+    radial-gradient(circle at 50% 86%, color-mix(in srgb, var(--pb-highlight) 34%, transparent), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-visualizer-base) 70%, #020308), #020308) !important;
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer::before,
+.now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer::before,
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer::after,
+.now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer::after {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  grid-area: 1 / 1;
+  pointer-events: none;
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer::before,
+.now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer::before {
+  z-index: 0;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--pb-accent) 26%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--pb-accent-2) 24%, transparent) 1px, transparent 1px),
+    linear-gradient(115deg, transparent, color-mix(in srgb, var(--pb-highlight) 34%, transparent), transparent 42%);
+  background-size: 76px 76px, 76px 76px, 220% 220%;
+  opacity: 0.54;
+  transform: rotate(-9deg);
+  animation: fullscreenVisualizerGrid 6s linear infinite;
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer::after,
+.now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer::after {
+  z-index: 1;
+  background:
+    radial-gradient(circle at 18% 70%, color-mix(in srgb, var(--pb-highlight) 22%, transparent), transparent 26%),
+    linear-gradient(100deg, transparent 0 16%, color-mix(in srgb, #ffffff 42%, var(--pb-accent-2)) 18%, transparent 24% 58%, color-mix(in srgb, var(--pb-accent) 46%, transparent) 62%, transparent 70%);
+  background-size: 140% 140%, 260% 100%;
+  mix-blend-mode: screen;
+  opacity: 0.62;
+  animation: fullscreenVisualizerSweep 3.8s linear infinite;
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-glow,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-glow {
+  opacity: 0.78;
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-center,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-center,
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-bars,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-bars,
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-ring,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-ring {
+  z-index: 2;
+}
+
 @keyframes fullscreenMotionWash {
   0%, 100% {
     background-position: 0% 0%, 100% 100%, 0% 50%, 0 0;
@@ -7116,6 +7175,22 @@ input,
 
   50% {
     background-position: 100% 20%, 0% 80%, 100% 50%, 0 0;
+  }
+}
+
+@keyframes fullscreenVisualizerGrid {
+  to {
+    transform: rotate(-9deg) translate3d(76px, 76px, 0);
+  }
+}
+
+@keyframes fullscreenVisualizerSweep {
+  0% {
+    background-position: 0% 50%, -120% 0;
+  }
+
+  100% {
+    background-position: 100% 50%, 160% 0;
   }
 }
 
