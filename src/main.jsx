@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.16.01";
+const APP_VERSION = "2026.06.16.02";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3617,16 +3617,6 @@ function App() {
         </div>
 
         <div className="topbar-actions">
-          <button
-            className={partyMotionEnabled ? "icon-button party-motion-button is-on" : "icon-button party-motion-button"}
-            onClick={() => updatePartyMotionEnabled(!partyMotionEnabled)}
-            title={isAdmin ? "Toggle Party Motion for everyone" : "Toggle Party Motion on this device"}
-            aria-label={isAdmin ? "Toggle Party Motion for everyone" : "Toggle Party Motion on this device"}
-            aria-pressed={partyMotionEnabled}
-            type="button"
-          >
-            <Activity aria-hidden="true" />
-          </button>
           <button className="topbar-user-button" onClick={openSelfRename} type="button">
             {!user.isAnonymous && <GoogleBadge />}
             <span>{activeNickname}</span>
@@ -3652,6 +3642,18 @@ function App() {
                   <button onClick={() => { setThemePickerOpen(true); setMenuOpen(false); }} type="button">
                     <Palette aria-hidden="true" />
                     Themes
+                  </button>
+                  <button
+                    className={partyMotionEnabled ? "menu-toggle-row is-on" : "menu-toggle-row"}
+                    onClick={() => {
+                      updatePartyMotionEnabled(!partyMotionEnabled);
+                      setMenuOpen(false);
+                    }}
+                    type="button"
+                  >
+                    <Activity aria-hidden="true" />
+                    <span>Party Motion</span>
+                    <small>{partyMotionEnabled ? "On" : "Off"}</small>
                   </button>
                   <button onClick={() => { setShareChoiceOpen(true); setMenuOpen(false); }} type="button">
                     <Share2 aria-hidden="true" />
