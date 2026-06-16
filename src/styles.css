@@ -420,6 +420,20 @@ input:focus {
   height: 100% !important;
 }
 
+.youtube-frame > iframe,
+.youtube-frame > div,
+.youtube-frame > object,
+.youtube-target > iframe,
+.youtube-target > div,
+.youtube-target > object {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
 .player-qr-overlay {
   position: absolute;
   right: clamp(8px, 1.6vw, 16px);

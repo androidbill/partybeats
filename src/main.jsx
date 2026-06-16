@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.16.10";
+const APP_VERSION = "2026.06.16.11";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -5174,6 +5174,20 @@ function YouTubePlayer({
   const [localPlaybackState, setLocalPlaybackState] = useState("paused");
   const [qrOverlayStyle, setQrOverlayStyle] = useState(null);
 
+  function forcePlayerIframeSize() {
+    const iframe = playerRef.current?.getIframe?.() || playerFrameRef.current?.querySelector?.("iframe");
+    if (!iframe) return;
+    iframe.setAttribute("width", "100%");
+    iframe.setAttribute("height", "100%");
+    iframe.style.width = "100%";
+    iframe.style.height = "100%";
+    iframe.style.minWidth = "100%";
+    iframe.style.minHeight = "100%";
+    iframe.style.maxWidth = "none";
+    iframe.style.maxHeight = "none";
+    iframe.style.display = "block";
+  }
+
   useEffect(() => {
     endedRef.current = onEnded;
   }, [onEnded]);
@@ -5251,6 +5265,27 @@ function YouTubePlayer({
       setLocalPlaybackState("paused");
     }
   }, [song?.id, playbackState?.state]);
+
+  useEffect(() => {
+    let frame = 0;
+    const scheduleSizing = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(forcePlayerIframeSize);
+    };
+    scheduleSizing();
+    window.addEventListener("resize", scheduleSizing);
+    document.addEventListener("fullscreenchange", scheduleSizing);
+    const resizeObserver = typeof ResizeObserver === "undefined" || !playerFrameRef.current
+      ? null
+      : new ResizeObserver(scheduleSizing);
+    resizeObserver?.observe(playerFrameRef.current);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", scheduleSizing);
+      document.removeEventListener("fullscreenchange", scheduleSizing);
+      resizeObserver?.disconnect();
+    };
+  }, [song?.videoId, visualizerEnabled]);
 
   useEffect(() => {
     if (!qrDataUrl || !roomId || !song?.videoId || visualizerEnabled) {
@@ -5371,6 +5406,7 @@ function YouTubePlayer({
       if (!videoId || (currentVideoIdRef.current === videoId && currentSongIdRef.current === song?.id)) return;
       pendingVideoIdRef.current = videoId;
       if (!playerReadyRef.current) return;
+      forcePlayerIframeSize();
       currentVideoIdRef.current = videoId;
       currentSongIdRef.current = song?.id || "";
       crossfadeTriggeredRef.current = false;
@@ -5420,6 +5456,8 @@ function YouTubePlayer({
       }
 
       playerRef.current = new window.YT.Player(containerId.current, {
+        width: "100%",
+        height: "100%",
         playerVars: {
           autoplay: 1,
           controls: 1,
@@ -5431,8 +5469,11 @@ function YouTubePlayer({
         events: {
           onReady: (event) => {
             playerReadyRef.current = true;
+            forcePlayerIframeSize();
             event.target.setVolume?.(volumeRef.current);
             loadVideo(event.target, pendingVideoIdRef.current);
+            window.setTimeout(forcePlayerIframeSize, 100);
+            window.setTimeout(forcePlayerIframeSize, 350);
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
