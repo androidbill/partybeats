@@ -1762,6 +1762,7 @@ input:focus {
 
 .now-playing-card.is-fullscreen-player,
 .now-playing-card:fullscreen {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
@@ -1775,6 +1776,25 @@ input:focus {
   background:
     radial-gradient(circle at top left, rgba(247, 201, 72, 0.18), transparent 34%),
     linear-gradient(135deg, #17181f, #10131a);
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.fullscreen-party-motion {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.95;
+  background:
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--pb-accent-2) 22%, transparent), transparent 32%),
+    radial-gradient(circle at 86% 78%, color-mix(in srgb, var(--pb-accent) 20%, transparent), transparent 30%),
+    transparent;
+}
+
+.now-playing-card.is-fullscreen-player > :not(.fullscreen-party-motion),
+.now-playing-card:fullscreen > :not(.fullscreen-party-motion) {
+  position: relative;
+  z-index: 1;
 }
 
 .now-playing-card.is-fullscreen-player .youtube-frame,
