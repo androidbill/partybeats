@@ -5206,6 +5206,44 @@ input:focus {
   opacity: 0.66;
 }
 
+.embedded-party-motion {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 0.94;
+  pointer-events: none;
+  --motion-energy: 1.65;
+}
+
+.embedded-party-motion .pulse-waves {
+  inset: -22%;
+}
+
+.embedded-party-motion .orbit-sparks i {
+  animation-duration: 4.2s;
+}
+
+.embedded-party-motion .chasing-lights span {
+  animation-duration: 3.6s;
+}
+
+.embedded-party-motion .laser-sweep span {
+  animation-duration: 4.5s;
+}
+
+.embedded-party-motion .electric-grid {
+  opacity: 0.48;
+}
+
+.music-visualizer.has-embedded-party-motion {
+  background:
+    radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--pb-accent-2) 36%, transparent), transparent 32%),
+    radial-gradient(circle at 82% 22%, color-mix(in srgb, var(--pb-accent) 32%, transparent), transparent 36%),
+    radial-gradient(circle at 50% 86%, color-mix(in srgb, var(--pb-highlight) 24%, transparent), transparent 40%),
+    #020308 !important;
+}
+
 .visualizer-glow,
 .visualizer-ring,
 .visualizer-center,
@@ -7291,7 +7329,9 @@ input,
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-bars,
 .now-playing-card.has-fullscreen-motion:fullscreen .visualizer-bars,
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-ring,
-.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-ring {
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-ring,
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .embedded-party-motion + .visualizer-glow,
+.now-playing-card.has-fullscreen-motion:fullscreen .embedded-party-motion + .visualizer-glow {
   z-index: 2;
 }
 

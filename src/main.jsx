@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.16.16";
+const APP_VERSION = "2026.06.16.17";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3794,6 +3794,7 @@ function App() {
               roomId={activeRoomId}
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
+              fullscreenMotion={partyMotionEnabled && playerFullscreen}
             />
             <div className="player-actions dj-control-deck" aria-label="Active DJ controls">
               <button
@@ -5143,7 +5144,8 @@ function YouTubePlayer({
   qrDataUrl,
   roomId,
   playbackState,
-  onPlaybackUpdate
+  onPlaybackUpdate,
+  fullscreenMotion
 }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerFrameRef = useRef(null);
@@ -5575,6 +5577,7 @@ function YouTubePlayer({
           displayTrack={displayTrack}
           isPlaying={localPlaybackState === "playing"}
           onTogglePlayback={toggleVisualizerPlayback}
+          fullscreenMotion={fullscreenMotion}
         />
       )}
       {qrDataUrl && roomId && (
@@ -5604,12 +5607,47 @@ function YouTubePlayer({
   );
 }
 
-function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback }) {
+function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback, fullscreenMotion = false }) {
   const title = displayTrack?.title || decodeHtmlEntities(song?.title || "Untitled");
   const artist = displayTrack?.artist || decodeHtmlEntities(song?.artist || "YouTube");
 
   return (
-    <div className={isPlaying ? "music-visualizer" : "music-visualizer is-paused"}>
+    <div className={[isPlaying ? "music-visualizer" : "music-visualizer is-paused", fullscreenMotion ? "has-embedded-party-motion" : ""].filter(Boolean).join(" ")}>
+      {fullscreenMotion && (
+        <div className="embedded-party-motion" aria-hidden="true">
+          <div className="motion-layer pulse-waves">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="motion-layer chasing-lights">
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="motion-layer bass-glow">
+            <span />
+            <span />
+          </div>
+          <div className="motion-layer electric-grid">
+            <span />
+            <span />
+          </div>
+          <div className="motion-layer orbit-sparks">
+            {Array.from({ length: 30 }, (_, index) => (
+              <i key={index} style={{ "--spark-index": index }} />
+            ))}
+          </div>
+          <div className="motion-layer laser-sweep">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
+      )}
       <div className="visualizer-glow visualizer-glow-a" />
       <div className="visualizer-glow visualizer-glow-b" />
       <div className="visualizer-ring visualizer-ring-a" />
