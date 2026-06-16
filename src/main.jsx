@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.16.02";
+const APP_VERSION = "2026.06.16.03";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -692,6 +692,7 @@ function App() {
   const [taglineDraft, setTaglineDraft] = useState("");
   const [cooldownNow, setCooldownNow] = useState(Date.now());
   const [playbackClock, setPlaybackClock] = useState(Date.now());
+  const [playerCollapsed, setPlayerCollapsed] = useState(false);
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
@@ -3707,7 +3708,8 @@ function App() {
         ref={playerCardRef}
         className={[
           playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card",
-          nowPlayingSong ? "has-track" : "is-idle"
+          nowPlayingSong ? "has-track" : "is-idle",
+          playerCollapsed ? "is-player-collapsed" : ""
         ].join(" ")}
       >
         {(nowPlayingSong || isAdmin) && (
@@ -3725,6 +3727,17 @@ function App() {
                 </a>
               ) : null}
             </div>
+            {isMobileViewport && (
+              <button
+                className="collapse-player-button"
+                onClick={() => setPlayerCollapsed((collapsed) => !collapsed)}
+                title={playerCollapsed ? "Expand player" : "Collapse player"}
+                type="button"
+              >
+                {playerCollapsed ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
+                {playerCollapsed ? "Expand" : "Collapse"}
+              </button>
+            )}
           </div>
         )}
         <div className="now-playing-copy">
