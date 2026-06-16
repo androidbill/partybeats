@@ -1948,9 +1948,14 @@ input:focus {
   margin: 0;
   padding: 14px;
   border-radius: 0 0 16px 16px;
+  background: #ffffff;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.room-app.dark-mode .add-sheet {
+  background: #151923;
 }
 
 .cooldown-countdown {
@@ -6982,5 +6987,23 @@ input,
 .room-app.is-ios.has-party-motion .song-main,
 .room-app.is-ios.has-party-motion.dark-mode .song-main {
   background: transparent !important;
+}
+
+.room-app .add-sheet,
+.room-app.has-party-motion .add-sheet,
+.room-app.is-ios.has-party-motion .add-sheet {
+  background: #ffffff !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.room-app.dark-mode .add-sheet,
+.room-app.has-party-motion.dark-mode .add-sheet,
+.room-app.is-ios.has-party-motion.dark-mode .add-sheet {
+  background: #151923 !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
