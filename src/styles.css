@@ -5225,11 +5225,13 @@ input:focus {
 }
 
 .embedded-party-motion .chasing-lights span {
-  animation-duration: 3.6s;
+  animation-duration: 7.2s;
 }
 
 .embedded-party-motion .laser-sweep span {
-  animation-duration: 4.5s;
+  height: 2px;
+  opacity: 0.34;
+  animation-duration: 10.5s;
 }
 
 .embedded-party-motion .electric-grid {
@@ -7278,12 +7280,11 @@ input,
   z-index: 1;
   background:
     radial-gradient(circle at 18% 70%, color-mix(in srgb, var(--pb-highlight) 28%, transparent), transparent 26%),
-    radial-gradient(circle at 76% 72%, color-mix(in srgb, var(--pb-accent) 24%, transparent), transparent 30%),
-    linear-gradient(100deg, transparent 0 13%, color-mix(in srgb, #ffffff 58%, var(--pb-accent-2)) 16%, transparent 22% 50%, color-mix(in srgb, var(--pb-accent) 60%, transparent) 55%, transparent 64% 78%, color-mix(in srgb, var(--pb-highlight) 52%, transparent) 82%, transparent 88%);
-  background-size: 140% 140%, 130% 130%, 280% 100%;
+    radial-gradient(circle at 76% 72%, color-mix(in srgb, var(--pb-accent) 24%, transparent), transparent 30%);
+  background-size: 140% 140%, 130% 130%;
   mix-blend-mode: screen;
-  opacity: 0.78;
-  animation: fullscreenVisualizerSweep 3.2s linear infinite;
+  opacity: 0.36;
+  animation: fullscreenVisualizerSweep 14s ease-in-out infinite;
 }
 
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-glow-a,
@@ -7353,11 +7354,11 @@ input,
 
 @keyframes fullscreenVisualizerSweep {
   0% {
-    background-position: 0% 50%, 100% 50%, -140% 0;
+    background-position: 0% 50%, 100% 50%;
   }
 
   100% {
-    background-position: 100% 50%, 0% 50%, 170% 0;
+    background-position: 100% 50%, 0% 50%;
   }
 }
 
