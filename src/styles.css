@@ -3159,6 +3159,67 @@ input:focus {
   font-weight: 800;
 }
 
+.support-card {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--pb-accent) 28%, transparent);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 14%, transparent), color-mix(in srgb, var(--pb-accent-2) 16%, transparent)),
+    rgba(255, 255, 255, 0.62);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.12);
+}
+
+.support-card p {
+  margin: 0;
+  max-width: 250px;
+  color: #343844;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.paypal-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #0070ba, #003087);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 12px 28px rgba(0, 48, 135, 0.28);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.paypal-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(0, 48, 135, 0.34);
+}
+
+.paypal-button:active {
+  transform: scale(0.97);
+}
+
+.room-app.dark-mode .support-card {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 18%, transparent), color-mix(in srgb, var(--pb-accent-2) 18%, transparent)),
+    rgba(14, 17, 27, 0.82);
+}
+
+.room-app.dark-mode .support-card p {
+  color: #eef2ff;
+}
+
 .about-app-close {
   position: absolute;
   top: 10px;
