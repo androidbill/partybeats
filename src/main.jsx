@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.16.03";
+const APP_VERSION = "2026.06.16.04";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4915,11 +4915,6 @@ function App() {
                 <Share2 aria-hidden="true" />
                 <strong>App</strong>
                 <span>Send the BP PartyBeats link.</span>
-              </button>
-              <button onClick={shareRoom} type="button">
-                <QrCode aria-hidden="true" />
-                <strong>Room ID</strong>
-                <span>Invite people to room {activeRoomId}.</span>
               </button>
               <button onClick={exportPlaylist} type="button">
                 <Music2 aria-hidden="true" />
