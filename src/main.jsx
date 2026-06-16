@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.12.35";
+const APP_VERSION = "2026.06.16.01";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3617,6 +3617,16 @@ function App() {
         </div>
 
         <div className="topbar-actions">
+          <button
+            className={partyMotionEnabled ? "icon-button party-motion-button is-on" : "icon-button party-motion-button"}
+            onClick={() => updatePartyMotionEnabled(!partyMotionEnabled)}
+            title={isAdmin ? "Toggle Party Motion for everyone" : "Toggle Party Motion on this device"}
+            aria-label={isAdmin ? "Toggle Party Motion for everyone" : "Toggle Party Motion on this device"}
+            aria-pressed={partyMotionEnabled}
+            type="button"
+          >
+            <Activity aria-hidden="true" />
+          </button>
           <button className="topbar-user-button" onClick={openSelfRename} type="button">
             {!user.isAnonymous && <GoogleBadge />}
             <span>{activeNickname}</span>
@@ -4765,23 +4775,6 @@ function App() {
                     type="button"
                   >
                     {floatingReactionsEnabled ? "On" : "Off"}
-                  </button>
-                </div>
-                <div className="setting-row">
-                  <div>
-                    <strong>Party Motion</strong>
-                    <span>
-                      {isAdmin
-                        ? roomPartyMotionEnabled ? "Room-wide animated background is live" : "Room-wide animated background is off"
-                        : partyMotionEnabled ? "Animated background is on for this device" : "Animated background is off for this device"}
-                    </span>
-                  </div>
-                  <button
-                    className={partyMotionEnabled ? "toggle-button is-on" : "toggle-button"}
-                    onClick={() => updatePartyMotionEnabled(!partyMotionEnabled)}
-                    type="button"
-                  >
-                    {partyMotionEnabled ? "On" : "Off"}
                   </button>
                 </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
