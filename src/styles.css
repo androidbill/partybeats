@@ -3196,7 +3196,11 @@ input:focus {
   justify-items: center;
   gap: 12px;
   width: min(360px, calc(100vw - 28px));
+  max-height: calc(100dvh - 32px);
   padding: 28px 18px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   text-align: center;
 }
 
@@ -3247,6 +3251,10 @@ input:focus {
   position: absolute;
   top: 10px;
   right: 10px;
+}
+
+.room-qr-support-card {
+  margin-top: 2px;
 }
 
 .room-app.dark-mode .room-qr-popup-code {
@@ -7231,17 +7239,51 @@ input,
 .now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer::after {
   z-index: 1;
   background:
-    radial-gradient(circle at 18% 70%, color-mix(in srgb, var(--pb-highlight) 22%, transparent), transparent 26%),
-    linear-gradient(100deg, transparent 0 16%, color-mix(in srgb, #ffffff 42%, var(--pb-accent-2)) 18%, transparent 24% 58%, color-mix(in srgb, var(--pb-accent) 46%, transparent) 62%, transparent 70%);
-  background-size: 140% 140%, 260% 100%;
+    radial-gradient(circle at 18% 70%, color-mix(in srgb, var(--pb-highlight) 28%, transparent), transparent 26%),
+    radial-gradient(circle at 76% 72%, color-mix(in srgb, var(--pb-accent) 24%, transparent), transparent 30%),
+    linear-gradient(100deg, transparent 0 13%, color-mix(in srgb, #ffffff 58%, var(--pb-accent-2)) 16%, transparent 22% 50%, color-mix(in srgb, var(--pb-accent) 60%, transparent) 55%, transparent 64% 78%, color-mix(in srgb, var(--pb-highlight) 52%, transparent) 82%, transparent 88%);
+  background-size: 140% 140%, 130% 130%, 280% 100%;
   mix-blend-mode: screen;
-  opacity: 0.62;
-  animation: fullscreenVisualizerSweep 3.8s linear infinite;
+  opacity: 0.78;
+  animation: fullscreenVisualizerSweep 3.2s linear infinite;
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-glow-a,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-glow-a {
+  width: min(80vw, 780px);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--pb-accent-2) 62%, transparent), transparent 64%);
+  animation: fullscreenPulseGlow 1.45s ease-in-out infinite;
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-glow-b,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-glow-b {
+  width: min(74vw, 700px);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--pb-accent) 58%, transparent), transparent 66%);
+  animation: fullscreenPulseGlow 1.45s ease-in-out infinite reverse;
 }
 
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-glow,
 .now-playing-card.has-fullscreen-motion:fullscreen .visualizer-glow {
-  opacity: 0.78;
+  opacity: 0.86;
+  filter: blur(38px);
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-ring,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-ring {
+  box-shadow:
+    inset 0 0 54px color-mix(in srgb, var(--pb-accent) 18%, transparent),
+    0 0 30px color-mix(in srgb, var(--pb-highlight) 22%, transparent);
+  animation-duration: 1.9s;
+}
+
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-bars i,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-bars i {
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--pb-highlight) 55%, transparent),
+    0 0 28px color-mix(in srgb, var(--pb-accent-2) 28%, transparent);
+  animation-duration: 0.64s;
 }
 
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-center,
@@ -7271,11 +7313,23 @@ input,
 
 @keyframes fullscreenVisualizerSweep {
   0% {
-    background-position: 0% 50%, -120% 0;
+    background-position: 0% 50%, 100% 50%, -140% 0;
   }
 
   100% {
-    background-position: 100% 50%, 160% 0;
+    background-position: 100% 50%, 0% 50%, 170% 0;
+  }
+}
+
+@keyframes fullscreenPulseGlow {
+  0%, 100% {
+    opacity: 0.54;
+    transform: translate(-20%, -12%) scale(0.9);
+  }
+
+  50% {
+    opacity: 0.96;
+    transform: translate(18%, 14%) scale(1.12);
   }
 }
 

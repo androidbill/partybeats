@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.16.15";
+const APP_VERSION = "2026.06.16.16";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4928,6 +4928,12 @@ function App() {
             ) : (
               <p className="muted">QR code is loading.</p>
             )}
+            <div className="support-card room-qr-support-card">
+              <p>Enjoying the party? Buy me a coffee and help keep BP PartyBeats rocking.</p>
+              <a className="paypal-button" href="https://paypal.me/androidbill" target="_blank" rel="noreferrer">
+                PayPal Me
+              </a>
+            </div>
           </section>
         </div>
       )}
