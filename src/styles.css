@@ -920,6 +920,7 @@ input:focus {
     radial-gradient(circle at 86% 78%, color-mix(in srgb, var(--pb-accent) 16%, transparent), transparent 30%),
     transparent;
   opacity: 0.86;
+  mix-blend-mode: screen;
   transform: translateZ(0);
   --motion-speed: var(--party-motion-speed, 1);
   --motion-energy: 1;
@@ -930,11 +931,11 @@ input:focus {
 }
 
 .party-motion-bg.is-awake {
-  --motion-energy: 1.22;
+  --motion-energy: 1.36;
 }
 
 .party-motion-bg.is-hype {
-  --motion-energy: 1.55;
+  --motion-energy: 1.85;
   opacity: 0.98;
 }
 
@@ -953,9 +954,9 @@ input:focus {
 .pulse-waves span {
   width: 42vmax;
   height: 42vmax;
-  border: 2px solid color-mix(in srgb, var(--pb-accent) 24%, transparent);
+  border: 2px solid color-mix(in srgb, var(--pb-accent) 34%, transparent);
   border-radius: 43% 57% 46% 54%;
-  animation: pulseWave 12s ease-in-out infinite;
+  animation: pulseWave 8.6s ease-in-out infinite;
 }
 
 .pulse-waves span:nth-child(1) {
@@ -985,9 +986,11 @@ input:focus {
 
 .chasing-lights span {
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--pb-highlight), var(--pb-accent), transparent);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--pb-highlight) 40%, transparent);
-  opacity: 0.62;
+  background: linear-gradient(90deg, transparent, #ffffff, var(--pb-highlight), var(--pb-accent), transparent);
+  box-shadow:
+    0 0 22px color-mix(in srgb, var(--pb-highlight) 56%, transparent),
+    0 0 44px color-mix(in srgb, var(--pb-accent) 32%, transparent);
+  opacity: 0.78;
 }
 
 .chasing-lights span:nth-child(1),
@@ -1040,15 +1043,38 @@ input:focus {
   width: min(80vw, 760px);
   height: min(80vw, 760px);
   border-radius: 999px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--pb-accent-2) 22%, transparent), transparent 62%);
-  animation: bassGlow 1.9s ease-in-out infinite;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pb-accent-2) 30%, transparent), transparent 62%);
+  animation: bassGlow 1.32s ease-in-out infinite;
 }
 
 .bass-glow span:nth-child(2) {
   width: min(62vw, 560px);
   height: min(62vw, 560px);
-  background: radial-gradient(circle, color-mix(in srgb, var(--pb-accent) 20%, transparent), transparent 66%);
-  animation-delay: -0.95s;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pb-accent) 28%, transparent), transparent 66%);
+  animation-delay: -0.66s;
+}
+
+.electric-grid {
+  inset: -12%;
+  opacity: calc(0.24 * var(--motion-energy));
+  transform: rotate(-10deg);
+  animation: electricGridDrift 7.5s linear infinite;
+}
+
+.electric-grid span {
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, color-mix(in srgb, var(--pb-accent) 34%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--pb-accent-2) 28%, transparent) 1px, transparent 1px);
+  background-size: 82px 82px;
+  mask-image: radial-gradient(circle at 50% 50%, #000 0 48%, transparent 75%);
+}
+
+.electric-grid span:nth-child(2) {
+  background-size: 36px 36px;
+  opacity: 0.42;
+  transform: rotate(21deg) scale(1.2);
+  animation: electricGridPulse 2.4s ease-in-out infinite;
 }
 
 .orbit-sparks {
@@ -1064,10 +1090,10 @@ input:focus {
   border-radius: 999px;
   background: color-mix(in srgb, var(--pb-highlight) 78%, #ffffff);
   box-shadow:
-    0 0 12px color-mix(in srgb, var(--pb-highlight) 54%, transparent),
-    0 0 22px color-mix(in srgb, var(--pb-accent) 26%, transparent);
+    0 0 14px color-mix(in srgb, var(--pb-highlight) 68%, transparent),
+    0 0 28px color-mix(in srgb, var(--pb-accent) 38%, transparent);
   opacity: 0;
-  animation: orbitSpark 7.2s linear infinite;
+  animation: orbitSpark 5.8s linear infinite;
   animation-delay: -0.5s;
 }
 
@@ -1089,6 +1115,18 @@ input:focus {
 .orbit-sparks i:nth-child(16) { left: 95%; --spark-drift: 24px; animation-delay: -3.6s; }
 .orbit-sparks i:nth-child(17) { left: 4%; --spark-drift: -24px; animation-delay: -4.8s; }
 .orbit-sparks i:nth-child(18) { left: 56%; --spark-drift: 44px; width: 8px; height: 8px; animation-delay: -6s; }
+.orbit-sparks i:nth-child(19) { left: 10%; --spark-drift: 58px; width: 4px; height: 4px; animation-delay: -0.4s; }
+.orbit-sparks i:nth-child(20) { left: 21%; --spark-drift: -54px; animation-delay: -1.1s; }
+.orbit-sparks i:nth-child(21) { left: 31%; --spark-drift: 50px; width: 9px; height: 9px; animation-delay: -1.8s; }
+.orbit-sparks i:nth-child(22) { left: 43%; --spark-drift: -58px; width: 4px; height: 4px; animation-delay: -2.5s; }
+.orbit-sparks i:nth-child(23) { left: 54%; --spark-drift: 62px; animation-delay: -3.2s; }
+.orbit-sparks i:nth-child(24) { left: 64%; --spark-drift: -50px; width: 5px; height: 5px; animation-delay: -3.9s; }
+.orbit-sparks i:nth-child(25) { left: 74%; --spark-drift: 54px; width: 9px; height: 9px; animation-delay: -4.6s; }
+.orbit-sparks i:nth-child(26) { left: 86%; --spark-drift: -62px; animation-delay: -5.3s; }
+.orbit-sparks i:nth-child(27) { left: 97%; --spark-drift: 48px; width: 4px; height: 4px; animation-delay: -6s; }
+.orbit-sparks i:nth-child(28) { left: 2%; --spark-drift: -46px; animation-delay: -6.7s; }
+.orbit-sparks i:nth-child(29) { left: 68%; --spark-drift: 66px; width: 5px; height: 5px; animation-delay: -7.4s; }
+.orbit-sparks i:nth-child(30) { left: 38%; --spark-drift: -64px; animation-delay: -8.1s; }
 
 .orbit-sparks i:nth-child(3n) {
   background: var(--pb-accent);
@@ -1105,13 +1143,15 @@ input:focus {
 
 .laser-sweep span {
   left: -40%;
-  width: 42%;
-  height: 2px;
+  width: 48%;
+  height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--pb-accent-2), var(--pb-highlight), transparent);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--pb-accent-2) 48%, transparent);
-  opacity: 0.38;
-  animation: laserSweep 9.5s linear infinite;
+  background: linear-gradient(90deg, transparent, #ffffff, var(--pb-accent-2), var(--pb-highlight), transparent);
+  box-shadow:
+    0 0 22px color-mix(in srgb, var(--pb-accent-2) 68%, transparent),
+    0 0 52px color-mix(in srgb, var(--pb-highlight) 34%, transparent);
+  opacity: 0.62;
+  animation: laserSweep 6.8s linear infinite;
 }
 
 .laser-sweep span:nth-child(1) {
@@ -1129,33 +1169,52 @@ input:focus {
   animation-delay: -6.4s;
 }
 
+.laser-sweep span:nth-child(4) {
+  top: 36%;
+  animation-delay: -1.6s;
+  transform: rotate(4deg);
+  background: linear-gradient(90deg, transparent, var(--pb-highlight), #ffffff, var(--pb-accent-2), transparent);
+}
+
+.laser-sweep span:nth-child(5) {
+  top: 66%;
+  animation-delay: -4.8s;
+  transform: rotate(-5deg);
+  background: linear-gradient(90deg, transparent, var(--pb-accent), #ffffff, var(--pb-highlight), transparent);
+}
+
 .party-motion-bg.is-hype .pulse-waves span,
 .party-motion-bg.is-hype .bass-glow span {
-  animation-duration: 1.45s;
+  animation-duration: 1.05s;
 }
 
 .party-motion-bg.is-awake .chasing-lights span {
-  animation-duration: 5.8s;
+  animation-duration: 4.5s;
 }
 
 .party-motion-bg.is-awake .orbit-sparks i {
-  animation-duration: 5.9s;
+  animation-duration: 4.6s;
 }
 
 .party-motion-bg.is-awake .laser-sweep span {
-  animation-duration: 7.4s;
+  animation-duration: 5.2s;
 }
 
 .party-motion-bg.is-hype .chasing-lights span {
-  animation-duration: 3.9s;
+  animation-duration: 2.8s;
 }
 
 .party-motion-bg.is-hype .orbit-sparks i {
-  animation-duration: 4.3s;
+  animation-duration: 3.1s;
 }
 
 .party-motion-bg.is-hype .laser-sweep span {
-  animation-duration: 5.2s;
+  animation-duration: 3.4s;
+}
+
+.party-motion-bg.is-hype .electric-grid {
+  opacity: 0.56;
+  animation-duration: 3.8s;
 }
 
 @keyframes pulseWave {
@@ -1212,6 +1271,21 @@ input:focus {
 @keyframes laserSweep {
   to {
     transform: translateX(240vw);
+  }
+}
+
+@keyframes electricGridDrift {
+  to {
+    transform: rotate(-10deg) translate3d(82px, 82px, 0);
+  }
+}
+
+@keyframes electricGridPulse {
+  0%, 100% {
+    opacity: 0.18;
+  }
+  45% {
+    opacity: calc(0.62 * var(--motion-energy));
   }
 }
 

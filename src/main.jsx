@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.16.06";
+const APP_VERSION = "2026.06.16.07";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3592,12 +3592,18 @@ function App() {
             <span />
             <span />
           </div>
+          <div className="motion-layer electric-grid">
+            <span />
+            <span />
+          </div>
           <div className="motion-layer orbit-sparks">
-            {Array.from({ length: 18 }, (_, index) => (
+            {Array.from({ length: 30 }, (_, index) => (
               <i key={index} style={{ "--spark-index": index }} />
             ))}
           </div>
           <div className="motion-layer laser-sweep">
+            <span />
+            <span />
             <span />
             <span />
             <span />
