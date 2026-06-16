@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.16.14";
+const APP_VERSION = "2026.06.16.15";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -643,6 +643,7 @@ function App() {
   const [shareChoiceOpen, setShareChoiceOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
+  const [roomQrOpen, setRoomQrOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState("");
@@ -3611,7 +3612,7 @@ function App() {
         </div>
       )}
       <header className="app-topbar">
-        <div className="topbar-brand">
+        <button className="topbar-brand" onClick={() => setRoomQrOpen(true)} title="Show room QR code" type="button">
           <div className="brand-dot">
             <AppIcon />
           </div>
@@ -3621,7 +3622,7 @@ function App() {
             <span className="topbar-room-meta">{members.length} people · {activeDjStatus}</span>
             <small className="topbar-version">{APP_VERSION}</small>
           </div>
-        </div>
+        </button>
 
         <div className="topbar-actions">
           <button className="topbar-user-button" onClick={openSelfRename} type="button">
@@ -4894,6 +4895,38 @@ function App() {
                   <span>{trackNoticeEnabled ? "Track notices on" : "Track notices off"}</span>
                 </div>
               </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {roomQrOpen && (
+        <div
+          className="modal-backdrop room-qr-popup-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="room-qr-popup-title"
+          onClick={() => setRoomQrOpen(false)}
+        >
+          <section className="about-modal room-qr-popup" onClick={(event) => event.stopPropagation()}>
+            <button className="icon-button room-qr-popup-close" onClick={() => setRoomQrOpen(false)} title="Close" type="button">
+              <X aria-hidden="true" />
+            </button>
+            <AppIcon />
+            <div>
+              <h2 id="room-qr-popup-title">Join Room</h2>
+              <strong>{activeRoomId}</strong>
+            </div>
+            {qrDataUrl ? (
+              <div className="qr-block room-qr-popup-code">
+                <img src={qrDataUrl} alt={`Join ${activeRoomId}`} />
+                <span>
+                  <QrCode aria-hidden="true" />
+                  Scan to join BP PartyBeats
+                </span>
+              </div>
+            ) : (
+              <p className="muted">QR code is loading.</p>
             )}
           </section>
         </div>

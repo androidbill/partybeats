@@ -1344,6 +1344,18 @@ input:focus {
   align-items: center;
   flex: 1 1 auto;
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.topbar-brand:hover .brand-dot {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pb-accent) 34%, transparent);
 }
 
 .brand-dot {
@@ -3172,6 +3184,79 @@ input:focus {
 
 .room-app.dark-mode .room-qr {
   background: rgba(57, 198, 163, 0.12);
+}
+
+.room-qr-popup-backdrop {
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+}
+
+.room-qr-popup {
+  position: relative;
+  justify-items: center;
+  gap: 12px;
+  width: min(360px, calc(100vw - 28px));
+  padding: 28px 18px 20px;
+  text-align: center;
+}
+
+.room-qr-popup .app-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--pb-accent-2) 30%, transparent);
+}
+
+.room-qr-popup h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.room-qr-popup strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--pb-accent);
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+.room-qr-popup-code {
+  justify-items: center;
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 12%, transparent), color-mix(in srgb, var(--pb-accent-2) 14%, transparent)),
+    rgba(255, 255, 255, 0.72);
+}
+
+.room-qr-popup-code img {
+  width: min(230px, 72vw);
+  border: 8px solid #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.18);
+}
+
+.room-qr-popup-code span {
+  justify-content: center;
+  color: #343844;
+  font-weight: 900;
+}
+
+.room-qr-popup-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.room-app.dark-mode .room-qr-popup-code {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 18%, transparent), color-mix(in srgb, var(--pb-accent-2) 18%, transparent)),
+    rgba(255, 255, 255, 0.06);
+}
+
+.room-app.dark-mode .room-qr-popup-code span {
+  color: #eef2ff;
 }
 
 .room-app.dark-mode .about-modal {
