@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.17.02";
+const APP_VERSION = "2026.06.17.03";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4930,16 +4930,8 @@ function App() {
               <p className="muted">QR code is loading.</p>
             )}
             <div className="support-card room-qr-support-card">
-              <p>Enjoying the party? Buy me a coffee and help keep BP PartyBeats rocking.</p>
-              <div className="support-actions">
-                <a className="bmc-button" href="https://www.buymeacoffee.com/billdefiand" target="_blank" rel="noreferrer">
-                  <span className="pay-mark apple-pay-mark" aria-label="Apple Pay">Apple Pay</span>
-                  <span className="pay-mark google-pay-mark" aria-label="Google Pay"><b>G</b> Pay</span>
-                </a>
-                <a className="paypal-button" href="https://paypal.me/androidbill" target="_blank" rel="noreferrer">
-                  PayPal Me
-                </a>
-              </div>
+              <p>Enjoying the party? E-transfer support helps keep BP PartyBeats rocking.</p>
+              <a className="etransfer-email" href="mailto:bill.defiant@gmail.com">bill.defiant@gmail.com</a>
             </div>
           </section>
         </div>
@@ -4996,16 +4988,8 @@ function App() {
             <strong>{APP_VERSION}</strong>
             <span>Created by: Bill Parsons</span>
             <div className="support-card">
-              <p>Enjoying the party? Buy me a coffee and help keep BP PartyBeats rocking.</p>
-              <div className="support-actions">
-                <a className="bmc-button" href="https://www.buymeacoffee.com/billdefiand" target="_blank" rel="noreferrer">
-                  <span className="pay-mark apple-pay-mark" aria-label="Apple Pay">Apple Pay</span>
-                  <span className="pay-mark google-pay-mark" aria-label="Google Pay"><b>G</b> Pay</span>
-                </a>
-                <a className="paypal-button" href="https://paypal.me/androidbill" target="_blank" rel="noreferrer">
-                  PayPal Me
-                </a>
-              </div>
+              <p>Enjoying the party? E-transfer support helps keep BP PartyBeats rocking.</p>
+              <a className="etransfer-email" href="mailto:bill.defiant@gmail.com">bill.defiant@gmail.com</a>
             </div>
           </section>
         </div>
