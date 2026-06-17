@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.17.06";
+const APP_VERSION = "2026.06.17.07";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -718,6 +718,7 @@ function App() {
   const floatingReactionLongPressRef = useRef(false);
   const songReactionPressTimerRef = useRef(0);
   const songReactionLongPressRef = useRef(false);
+  const roomShoutSwipeStartRef = useRef(null);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
   const noticeRoomId = useRef("");
@@ -2855,6 +2856,29 @@ function App() {
     window.setTimeout(() => {
       setRoomShouts((current) => current.filter((item) => item.id !== nextShout.id));
     }, 5000);
+  }
+
+  function dismissRoomShout(shoutId) {
+    setRoomShouts((current) => current.filter((item) => item.id !== shoutId));
+  }
+
+  function startRoomShoutSwipe(event, shoutId) {
+    roomShoutSwipeStartRef.current = {
+      id: shoutId,
+      x: event.clientX,
+      y: event.clientY
+    };
+  }
+
+  function finishRoomShoutSwipe(event, shoutId) {
+    const start = roomShoutSwipeStartRef.current;
+    roomShoutSwipeStartRef.current = null;
+    if (!start || start.id !== shoutId) return;
+    const deltaX = event.clientX - start.x;
+    const deltaY = Math.abs(event.clientY - start.y);
+    if (deltaX > 72 && deltaY < 48) {
+      dismissRoomShout(shoutId);
+    }
   }
 
   async function sendFloatingReaction(emoji = floatingReactionEmoji) {
@@ -5248,9 +5272,26 @@ function App() {
       {roomShouts.length > 0 && (
         <div className="room-shout-layer" aria-live="polite" aria-atomic="false">
           {roomShouts.map((shout) => (
-            <div className="room-shout-bubble" key={shout.id}>
-              <strong>{shout.name}</strong>
-              <p>{shout.text}</p>
+            <div
+              className="room-shout-bubble"
+              key={shout.id}
+              onPointerDown={(event) => startRoomShoutSwipe(event, shout.id)}
+              onPointerUp={(event) => finishRoomShoutSwipe(event, shout.id)}
+              onPointerCancel={() => { roomShoutSwipeStartRef.current = null; }}
+            >
+              <div className="room-shout-copy">
+                <strong>{shout.name}</strong>
+                <p>{shout.text}</p>
+              </div>
+              <button
+                className="room-shout-close"
+                type="button"
+                aria-label="Close shoutout"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => dismissRoomShout(shout.id)}
+              >
+                <X aria-hidden="true" />
+              </button>
             </div>
           ))}
         </div>

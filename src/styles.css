@@ -6933,6 +6933,11 @@ input,
 }
 
 .room-shout-bubble {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 22px;
@@ -6941,10 +6946,17 @@ input,
     linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 82%, rgba(16, 18, 27, 0.9)), color-mix(in srgb, var(--pb-link) 76%, rgba(16, 18, 27, 0.9)));
   box-shadow: 0 20px 58px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(18px);
+  pointer-events: auto;
+  touch-action: pan-y;
+  user-select: none;
   animation: roomShoutIn 220ms ease both, roomShoutOut 360ms ease 4.62s forwards;
 }
 
-.room-shout-bubble strong {
+.room-shout-copy {
+  min-width: 0;
+}
+
+.room-shout-copy strong {
   display: block;
   margin-bottom: 4px;
   font-size: 0.82rem;
@@ -6953,12 +6965,35 @@ input,
   opacity: 0.82;
 }
 
-.room-shout-bubble p {
+.room-shout-copy p {
   margin: 0;
   overflow-wrap: anywhere;
   font-size: clamp(1rem, 3.8vw, 1.2rem);
   font-weight: 900;
   line-height: 1.25;
+}
+
+.room-shout-close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin: -4px -6px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: none;
+}
+
+.room-shout-close svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 3;
+}
+
+.room-shout-close:active {
+  transform: scale(0.94);
 }
 
 @keyframes roomShoutIn {
