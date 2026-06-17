@@ -1973,16 +1973,23 @@ input:focus {
   transform: translateX(var(--fab-offset-x)) translateY(0) scale(1);
 }
 
-.floating-reaction-control {
+.floating-main-controls {
   --reaction-offset-x: 0;
   position: fixed;
   right: 22px;
   bottom: max(82px, calc(env(safe-area-inset-bottom) + 66px));
   z-index: 26;
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  transform: translateX(var(--reaction-offset-x));
+}
+
+.floating-reaction-control {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 8px;
-  transform: translateX(var(--reaction-offset-x));
 }
 
 .floating-reaction-button {
@@ -2006,6 +2013,32 @@ input:focus {
   transform: scale(0.94);
 }
 
+.floating-chat-button {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #111827;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.96), transparent 24%),
+    linear-gradient(135deg, var(--pb-link), var(--pb-accent));
+  box-shadow: 0 16px 38px color-mix(in srgb, var(--pb-link) 28%, transparent);
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.floating-chat-button svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.7;
+}
+
+.floating-chat-button:active {
+  transform: scale(0.94);
+}
+
 .floating-reaction-picker {
   position: relative;
   z-index: 25;
@@ -2023,6 +2056,50 @@ input:focus {
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(16px);
   -webkit-overflow-scrolling: touch;
+}
+
+.room-shout-backdrop {
+  z-index: 760;
+}
+
+.room-shout-composer {
+  width: min(430px, calc(100vw - 28px));
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 22px;
+  color: var(--pb-text);
+  background: color-mix(in srgb, var(--pb-panel) 94%, #111827 6%);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.42);
+}
+
+.room-shout-composer > div:first-child,
+.room-shout-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.room-shout-composer strong {
+  font-size: 1.05rem;
+}
+
+.room-shout-composer span {
+  color: var(--pb-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.room-shout-composer textarea {
+  min-height: 108px;
+  resize: none;
+}
+
+.room-shout-actions .primary {
+  color: #111827;
+  background: var(--pb-highlight);
 }
 
 .floating-reaction-picker button {
@@ -3795,7 +3872,7 @@ input:focus {
     --fab-offset-x: -50%;
   }
 
-  .floating-reaction-control {
+  .floating-main-controls {
     right: auto;
     left: 50%;
     --reaction-offset-x: -50%;
@@ -4203,7 +4280,7 @@ input:focus {
     font-size: 0.95rem;
   }
 
-  .floating-reaction-control {
+  .floating-main-controls {
     right: max(19px, calc(env(safe-area-inset-right) + 17px));
     bottom: max(74px, calc(env(safe-area-inset-bottom) + 64px));
   }
@@ -6840,6 +6917,66 @@ input,
     transform:
       translate(calc(-50% + var(--float-drift, 0px)), -58vh)
       scale(calc(var(--float-scale, 1) * 1.18));
+  }
+}
+
+.room-shout-layer {
+  position: fixed;
+  top: max(76px, calc(env(safe-area-inset-top) + 58px));
+  left: 50%;
+  z-index: 670;
+  width: min(520px, calc(100vw - 28px));
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.room-shout-bubble {
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 22px;
+  color: #fff;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 82%, rgba(16, 18, 27, 0.9)), color-mix(in srgb, var(--pb-link) 76%, rgba(16, 18, 27, 0.9)));
+  box-shadow: 0 20px 58px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px);
+  animation: roomShoutIn 220ms ease both, roomShoutOut 360ms ease 4.62s forwards;
+}
+
+.room-shout-bubble strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.room-shout-bubble p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(1rem, 3.8vw, 1.2rem);
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+@keyframes roomShoutIn {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes roomShoutOut {
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
   }
 }
 

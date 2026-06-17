@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.17.05";
+const APP_VERSION = "2026.06.17.06";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -680,6 +680,9 @@ function App() {
   const [emojiBursts, setEmojiBursts] = useState([]);
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [floatingReactionEmoji, setFloatingReactionEmoji] = useState(EMOJIS[0]);
+  const [roomShouts, setRoomShouts] = useState([]);
+  const [roomShoutOpen, setRoomShoutOpen] = useState(false);
+  const [roomShoutDraft, setRoomShoutDraft] = useState("");
   const [songReactionEmoji, setSongReactionEmoji] = useState(EMOJIS[0]);
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
@@ -721,6 +724,8 @@ function App() {
   const lastPlayedSongId = useRef("");
   const reactionBaselineReadyRef = useRef(false);
   const reactionSeenIdsRef = useRef(new Set());
+  const shoutBaselineReadyRef = useRef(false);
+  const shoutSeenIdsRef = useRef(new Set());
   const previousHypeScoreRef = useRef(0);
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
@@ -953,6 +958,7 @@ function App() {
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
     const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"));
     const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"));
+    const shoutsRef = query(collection(db, "rooms", activeRoomId, "shouts"), orderBy("createdAt", "asc"));
 
     const handleRoomAccessLost = (error) => {
       setToast(error ? roomListenerErrorMessage(error) : "You were removed from this room.");
@@ -1005,6 +1011,26 @@ function App() {
         spawnFloatingReaction(data.emoji);
       });
     }, handleRoomAccessLost);
+    const unsubShouts = onSnapshot(shoutsRef, (snap) => {
+      if (!active) return;
+      if (!shoutBaselineReadyRef.current) {
+        shoutSeenIdsRef.current = new Set(snap.docs.map((item) => item.id));
+        shoutBaselineReadyRef.current = true;
+        return;
+      }
+      snap.docs.forEach((item) => {
+        if (shoutSeenIdsRef.current.has(item.id)) return;
+        shoutSeenIdsRef.current.add(item.id);
+        const data = item.data();
+        if (!data.text || typeof data.text !== "string") return;
+        spawnRoomShout({
+          id: item.id,
+          name: data.name || "Guest",
+          text: data.text,
+          isAnonymous: data.isAnonymous === true
+        });
+      });
+    }, handleRoomAccessLost);
     return () => {
       active = false;
       unsubRoom();
@@ -1012,6 +1038,7 @@ function App() {
       unsubMembers();
       unsubMessages();
       unsubReactions();
+      unsubShouts();
     };
   }, [activeRoomId, user?.uid]);
 
@@ -1039,8 +1066,12 @@ function App() {
     previousMemberIds.current = undefined;
     reactionBaselineReadyRef.current = false;
     reactionSeenIdsRef.current = new Set();
+    shoutBaselineReadyRef.current = false;
+    shoutSeenIdsRef.current = new Set();
     setNowPlayingNotice(null);
     setJoinNotice(null);
+    setRoomShouts([]);
+    setRoomShoutOpen(false);
     setNoticeBaselineReady(false);
   }, [activeRoomId]);
 
@@ -1084,6 +1115,7 @@ function App() {
   const toastEnabled = room?.toastEnabled === true;
   const internalSearchEnabled = room?.internalSearchEnabled === true;
   const floatingReactionsEnabled = room?.floatingReactionsEnabled !== false;
+  const roomShoutsEnabled = room?.roomShoutsEnabled === true;
   const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
   const roomPartyMotionEnabled = room?.partyMotionEnabled === true;
@@ -1700,6 +1732,7 @@ function App() {
             toastEnabled: false,
             internalSearchEnabled: false,
             floatingReactionsEnabled: true,
+            roomShoutsEnabled: false,
             visualizerEnabled: false,
             partyMotionEnabled: false,
             tagline: "",
@@ -2811,6 +2844,19 @@ function App() {
     }, 2600);
   }
 
+  function spawnRoomShout(shout) {
+    const nextShout = {
+      id: shout.id || `shout-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: shout.name || "Guest",
+      text: String(shout.text || "").slice(0, 128),
+      isAnonymous: shout.isAnonymous === true
+    };
+    setRoomShouts((current) => [...current.slice(-2), nextShout]);
+    window.setTimeout(() => {
+      setRoomShouts((current) => current.filter((item) => item.id !== nextShout.id));
+    }, 5000);
+  }
+
   async function sendFloatingReaction(emoji = floatingReactionEmoji) {
     if (!user || !activeRoomId || !EMOJIS.includes(emoji)) {
       spawnFloatingReaction(emoji);
@@ -2825,6 +2871,35 @@ function App() {
       });
     } catch {
       spawnFloatingReaction(emoji);
+    }
+  }
+
+  async function sendRoomShout(event) {
+    event?.preventDefault();
+    const text = roomShoutDraft.trim().slice(0, 128);
+    if (!user || !activeRoomId || !text) return;
+    if (!roomShoutsEnabled) {
+      setToast("Room shoutouts are off.");
+      return;
+    }
+    if (hasProfanity(text)) {
+      setToast("Message blocked for profanity.");
+      return;
+    }
+    try {
+      await setDoc(doc(collection(db, "rooms", activeRoomId, "shouts")), {
+        uid: user.uid,
+        name: activeNickname.slice(0, 30) || "Guest",
+        isAnonymous: user.isAnonymous,
+        text,
+        at: Date.now(),
+        createdAt: serverTimestamp()
+      });
+      await touchRoomActivity();
+      setRoomShoutDraft("");
+      setRoomShoutOpen(false);
+    } catch {
+      setToast("Could not send that message. Try again.");
     }
   }
 
@@ -2954,6 +3029,9 @@ function App() {
     setMessageSongId("");
     setMessageDraft("");
     setFloatingReactions([]);
+    setRoomShouts([]);
+    setRoomShoutOpen(false);
+    setRoomShoutDraft("");
     setReactionPickerOpen(false);
     setRenameMemberId("");
     setRenameDraft("");
@@ -2963,6 +3041,7 @@ function App() {
     setJoinNotice(null);
     previousMemberIds.current = undefined;
     reactionBaselineReadyRef.current = false;
+    shoutBaselineReadyRef.current = false;
     previousNowPlayingId.current = undefined;
     noticeRoomId.current = "";
     setNoticeBaselineReady(false);
@@ -3008,6 +3087,11 @@ function App() {
   async function updateFloatingReactionsEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { floatingReactionsEnabled: enabled, ...roomActivityUpdate() });
+  }
+
+  async function updateRoomShoutsEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { roomShoutsEnabled: enabled, ...roomActivityUpdate() });
   }
 
   async function updatePartyMotionEnabled(enabled) {
@@ -4059,51 +4143,93 @@ function App() {
         Add Song
       </button>
 
-      {floatingReactionsEnabled && (
-      <div className={reactionPickerOpen ? "floating-reaction-control is-picker-open" : "floating-reaction-control"}>
-        {reactionPickerOpen && (
-          <>
-            <button
-              className="tap-away-layer reaction-tap-away"
-              aria-label="Close reaction picker"
-              onClick={() => setReactionPickerOpen(false)}
-              type="button"
-            />
-            <div className="floating-reaction-picker" role="menu" aria-label="Choose reaction emoji">
-              {EMOJIS.map((emoji) => (
-                <button
-                  className={floatingReactionEmoji === emoji ? "is-active" : ""}
-                  key={emoji}
-                  onClick={() => {
-                    setFloatingReactionEmoji(emoji);
-                    setReactionPickerOpen(false);
-                  }}
-                  type="button"
-                >
-                  {emoji}
-                </button>
-              ))}
+      {(floatingReactionsEnabled || roomShoutsEnabled) && (
+        <div className="floating-main-controls">
+          {floatingReactionsEnabled && (
+            <div className={reactionPickerOpen ? "floating-reaction-control is-picker-open" : "floating-reaction-control"}>
+              {reactionPickerOpen && (
+                <>
+                  <button
+                    className="tap-away-layer reaction-tap-away"
+                    aria-label="Close reaction picker"
+                    onClick={() => setReactionPickerOpen(false)}
+                    type="button"
+                  />
+                  <div className="floating-reaction-picker" role="menu" aria-label="Choose reaction emoji">
+                    {EMOJIS.map((emoji) => (
+                      <button
+                        className={floatingReactionEmoji === emoji ? "is-active" : ""}
+                        key={emoji}
+                        onClick={() => {
+                          setFloatingReactionEmoji(emoji);
+                          setReactionPickerOpen(false);
+                        }}
+                        type="button"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <button
+                className="floating-reaction-button"
+                type="button"
+                aria-label={`Send ${floatingReactionEmoji} reaction`}
+                title="Tap to react. Hold to change emoji."
+                onPointerDown={startFloatingReactionPress}
+                onPointerUp={finishFloatingReactionPress}
+                onPointerCancel={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
+                onPointerLeave={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
+                onClick={(event) => event.preventDefault()}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setReactionPickerOpen(true);
+                }}
+              >
+                {floatingReactionEmoji}
+              </button>
             </div>
-          </>
-        )}
-        <button
-          className="floating-reaction-button"
-          type="button"
-          aria-label={`Send ${floatingReactionEmoji} reaction`}
-          title="Tap to react. Hold to change emoji."
-          onPointerDown={startFloatingReactionPress}
-          onPointerUp={finishFloatingReactionPress}
-          onPointerCancel={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
-          onPointerLeave={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
-          onClick={(event) => event.preventDefault()}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setReactionPickerOpen(true);
-          }}
-        >
-          {floatingReactionEmoji}
-        </button>
-      </div>
+          )}
+          {roomShoutsEnabled && (
+            <button
+              className="floating-chat-button"
+              type="button"
+              aria-label="Send a room shoutout"
+              title="Send a room shoutout"
+              onClick={() => setRoomShoutOpen(true)}
+            >
+              <MessageCircle aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {roomShoutOpen && (
+        <div className="modal-backdrop room-shout-backdrop" onClick={() => setRoomShoutOpen(false)}>
+          <form className="room-shout-composer" onClick={(event) => event.stopPropagation()} onSubmit={sendRoomShout}>
+            <div>
+              <strong>Room shoutout</strong>
+              <span>{128 - roomShoutDraft.length} left</span>
+            </div>
+            <textarea
+              autoFocus
+              value={roomShoutDraft}
+              onChange={(event) => setRoomShoutDraft(event.target.value.slice(0, 128))}
+              placeholder="Send a quick message to everyone"
+              maxLength={128}
+              rows={3}
+            />
+            <div className="room-shout-actions">
+              <button className="mini-action ghost" onClick={() => setRoomShoutOpen(false)} type="button">
+                Cancel
+              </button>
+              <button className="mini-action primary" disabled={!roomShoutDraft.trim()} type="submit">
+                Send
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {renderVolumeOverlay()}
@@ -4801,6 +4927,20 @@ function App() {
                     {floatingReactionsEnabled ? "On" : "Off"}
                   </button>
                 </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Shoutout chat</strong>
+                    <span>{roomShoutsEnabled ? "Show the main chat bubble for 5-second room messages" : "Main screen shoutouts are hidden"}</span>
+                  </div>
+                  <button
+                    className={roomShoutsEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateRoomShoutsEnabled(!roomShoutsEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {roomShoutsEnabled ? "On" : "Off"}
+                  </button>
+                </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
               </div>
             )}
@@ -5101,6 +5241,17 @@ function App() {
             >
               {reaction.emoji}
             </span>
+          ))}
+        </div>
+      )}
+
+      {roomShouts.length > 0 && (
+        <div className="room-shout-layer" aria-live="polite" aria-atomic="false">
+          {roomShouts.map((shout) => (
+            <div className="room-shout-bubble" key={shout.id}>
+              <strong>{shout.name}</strong>
+              <p>{shout.text}</p>
+            </div>
           ))}
         </div>
       )}
