@@ -3447,29 +3447,57 @@ input:focus {
   line-height: 1.35;
 }
 
+.support-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.bmc-button,
 .paypal-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 42px;
   padding: 0 20px;
-  border: 0;
   border-radius: 999px;
-  color: #fff;
-  background: linear-gradient(135deg, #0070ba, #003087);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 900;
   text-decoration: none;
-  box-shadow: 0 12px 28px rgba(0, 48, 135, 0.28);
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
+.bmc-button {
+  color: #000000;
+  border: 2px solid #000000;
+  background: #ffdd00;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+.paypal-button {
+  color: #fff;
+  border: 0;
+  background: linear-gradient(135deg, #0070ba, #003087);
+  box-shadow: 0 12px 28px rgba(0, 48, 135, 0.28);
+}
+
+.bmc-button:hover,
 .paypal-button:hover {
   transform: translateY(-1px);
+}
+
+.bmc-button:hover {
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
+}
+
+.paypal-button:hover {
   box-shadow: 0 16px 34px rgba(0, 48, 135, 0.34);
 }
 
+.bmc-button:active,
 .paypal-button:active {
   transform: scale(0.97);
 }
