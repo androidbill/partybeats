@@ -3471,10 +3471,49 @@ input:focus {
 }
 
 .bmc-button {
+  gap: 8px;
+  padding: 0 10px;
   color: #000000;
   border: 2px solid #000000;
   background: #ffdd00;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+.pay-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
+  color: #111111;
+  background: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.apple-pay-mark {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.apple-pay-mark::first-letter {
+  font-size: 0;
+}
+
+.apple-pay-mark::before {
+  content: "\F8FF";
+  margin-right: 3px;
+  font-size: 0.98rem;
+  line-height: 1;
+}
+
+.google-pay-mark b {
+  margin-right: 3px;
+  color: #4285f4;
+  font-weight: 950;
 }
 
 .paypal-button {
