@@ -7748,3 +7748,168 @@ input,
   text-shadow: none;
 }
 
+/* Premium queue buttons */
+.room-app .song-list {
+  gap: 10px;
+}
+
+.room-app .song-row {
+  min-height: 68px;
+  padding: 9px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    rgba(16, 20, 31, 0.74);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.room-app.light-mode .song-row {
+  border-color: rgba(20, 24, 36, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 247, 252, 0.86)),
+    #ffffff;
+  box-shadow:
+    0 12px 28px rgba(20, 24, 36, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.room-app .song-row:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--pb-accent) 34%, rgba(255, 255, 255, 0.14));
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.room-app .song-row:active {
+  transform: translateY(1px) scale(0.995);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.room-app .song-row.is-selected {
+  border-color: color-mix(in srgb, var(--pb-highlight) 72%, rgba(255, 255, 255, 0.2));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--pb-highlight) 22%, transparent),
+    0 16px 38px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.room-app .song-row.is-played:not(.is-playing) {
+  opacity: 0.56;
+}
+
+.room-app .song-main {
+  grid-template-columns: 34px minmax(0, 1fr);
+  column-gap: 11px;
+  row-gap: 4px;
+  min-height: 48px;
+  align-items: center;
+}
+
+.room-app .song-index {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: #f8fafc;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(8, 11, 20, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 18px rgba(0, 0, 0, 0.16);
+  font-size: 0.86rem;
+}
+
+.room-app.light-mode .song-index {
+  color: #ffffff;
+  background: #151923;
+}
+
+.room-app .track-line {
+  gap: 6px 8px;
+  align-items: center;
+}
+
+.room-app .track-line b {
+  flex: 0 1 auto;
+  color: inherit;
+  font-size: clamp(0.92rem, 2.9vw, 1.02rem);
+  font-weight: 950;
+}
+
+.room-app .track-line strong {
+  flex: 1 1 100%;
+  color: inherit;
+  font-size: clamp(0.9rem, 2.8vw, 1rem);
+  font-weight: 850;
+}
+
+.room-app .uploaded-by {
+  grid-column: 2;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.room-app.light-mode .uploaded-by {
+  color: #5e6574;
+}
+
+.room-app .song-row.is-playing,
+.room-app.dark-mode .song-row.is-playing,
+.room-app.has-party-motion .song-row.is-playing,
+.room-app.has-party-motion.dark-mode .song-row.is-playing,
+.room-app.is-ios.has-party-motion .song-row.is-playing,
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-playing {
+  box-shadow:
+    inset 4px 0 0 var(--pb-accent),
+    0 18px 44px color-mix(in srgb, var(--pb-accent) 26%, rgba(0, 0, 0, 0.16)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.room-app .song-row.is-up-next:not(.is-playing),
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing) {
+  box-shadow:
+    inset 4px 0 0 var(--pb-highlight),
+    0 16px 40px color-mix(in srgb, var(--pb-highlight) 22%, rgba(0, 0, 0, 0.15)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.room-app .song-row.is-playing .song-index,
+.room-app .song-row.is-up-next:not(.is-playing) .song-index {
+  color: #10131a !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  text-shadow: none;
+}
+
+@media (max-width: 520px) {
+  .room-app .song-list {
+    gap: 9px;
+  }
+
+  .room-app .song-row {
+    min-height: 72px;
+    padding: 10px;
+    border-radius: 17px;
+  }
+
+  .room-app .song-main {
+    grid-template-columns: 32px minmax(0, 1fr);
+    column-gap: 10px;
+  }
+
+  .room-app .song-index {
+    width: 31px;
+    height: 31px;
+  }
+}
+
