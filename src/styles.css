@@ -4381,8 +4381,8 @@ input:focus {
   --pb-link: #8b3ffc;
   --pb-panel-dark: #17181f;
   --pb-page-bg: #fff0f4;
-  --pb-row-playing-bg: #16463f;
-  --pb-row-upnext-bg: #4b3f16;
+  --pb-row-playing-bg: #b92f50;
+  --pb-row-upnext-bg: #23856e;
   --pb-visualizer-a: var(--pb-accent-2);
   --pb-visualizer-b: var(--pb-accent);
   --pb-visualizer-c: var(--pb-link);
@@ -4396,8 +4396,8 @@ input:focus {
   --pb-link: #0077ff;
   --pb-panel-dark: #0b2545;
   --pb-page-bg: #e6f7ff;
-  --pb-row-playing-bg: #0b5570;
-  --pb-row-upnext-bg: #1b4c6b;
+  --pb-row-playing-bg: #087fa5;
+  --pb-row-upnext-bg: #1458bd;
   --pb-visualizer-a: #21d4fd;
   --pb-visualizer-b: #1f7aff;
   --pb-visualizer-c: #9be7ff;
@@ -4411,8 +4411,8 @@ input:focus {
   --pb-link: #9b5de5;
   --pb-panel-dark: #1a1033;
   --pb-page-bg: #180726;
-  --pb-row-playing-bg: #0b4f51;
-  --pb-row-upnext-bg: #665713;
+  --pb-row-playing-bg: #8d2f74;
+  --pb-row-upnext-bg: #008f80;
   --pb-visualizer-a: #f15bb5;
   --pb-visualizer-b: #00f5d4;
   --pb-visualizer-c: #9b5de5;
@@ -4426,8 +4426,8 @@ input:focus {
   --pb-link: #2e7d32;
   --pb-panel-dark: #14251a;
   --pb-page-bg: #081a10;
-  --pb-row-playing-bg: #173f25;
-  --pb-row-upnext-bg: #46451b;
+  --pb-row-playing-bg: #246d29;
+  --pb-row-upnext-bg: #1b5b22;
   --pb-visualizer-a: #4caf50;
   --pb-visualizer-b: #a3e635;
   --pb-visualizer-c: #2f7d32;
@@ -4441,8 +4441,8 @@ input:focus {
   --pb-link: #d946ef;
   --pb-panel-dark: #2b1738;
   --pb-page-bg: #fff0fa;
-  --pb-row-playing-bg: #5b2443;
-  --pb-row-upnext-bg: #674915;
+  --pb-row-playing-bg: #b82f70;
+  --pb-row-upnext-bg: #6f2bd8;
   --pb-visualizer-a: #ff70a6;
   --pb-visualizer-b: #a855f7;
   --pb-visualizer-c: #ffcf56;
@@ -4456,8 +4456,8 @@ input:focus {
   --pb-link: #e85d04;
   --pb-panel-dark: #26120b;
   --pb-page-bg: #fff0e2;
-  --pb-row-playing-bg: #5c2b0e;
-  --pb-row-upnext-bg: #674d17;
+  --pb-row-playing-bg: #b84410;
+  --pb-row-upnext-bg: #a31d31;
   --pb-visualizer-a: #d7263d;
   --pb-visualizer-b: #ff7a18;
   --pb-visualizer-c: #ffd166;
@@ -4471,8 +4471,8 @@ input:focus {
   --pb-link: #0284c7;
   --pb-panel-dark: #102433;
   --pb-page-bg: #eefaff;
-  --pb-row-playing-bg: #174359;
-  --pb-row-upnext-bg: #335565;
+  --pb-row-playing-bg: #1e6f99;
+  --pb-row-upnext-bg: #157fa8;
   --pb-visualizer-a: #e0f2fe;
   --pb-visualizer-b: #7dd3fc;
   --pb-visualizer-c: #38bdf8;
@@ -4486,8 +4486,8 @@ input:focus {
   --pb-link: #6d28d9;
   --pb-panel-dark: #1e1b4b;
   --pb-page-bg: #151033;
-  --pb-row-playing-bg: #342064;
-  --pb-row-upnext-bg: #5a4818;
+  --pb-row-playing-bg: #4f22b6;
+  --pb-row-upnext-bg: #292273;
   --pb-visualizer-a: #7c3aed;
   --pb-visualizer-b: #312e81;
   --pb-visualizer-c: #facc15;
@@ -6064,6 +6064,8 @@ input:focus {
   --pb-link: #8b5cf6;
   --pb-panel-dark: #0c1f22;
   --pb-page-bg: #071c1f;
+  --pb-row-playing-bg: #1f8f70;
+  --pb-row-upnext-bg: #118aa0;
   --pb-visualizer-a: #34d399;
   --pb-visualizer-b: #22d3ee;
   --pb-visualizer-c: #8b5cf6;
@@ -6077,6 +6079,8 @@ input:focus {
   --pb-link: #3b82f6;
   --pb-panel-dark: #0b1220;
   --pb-page-bg: #071225;
+  --pb-row-playing-bg: #176b96;
+  --pb-row-upnext-bg: #4446bb;
   --pb-visualizer-a: #38bdf8;
   --pb-visualizer-b: #6366f1;
   --pb-visualizer-c: #7dd3fc;
@@ -7714,5 +7718,33 @@ input,
   background-color: var(--pb-row-upnext-bg) !important;
   background-image: none !important;
   border-color: var(--pb-highlight) !important;
+}
+
+.room-app .song-row.is-playing .song-main,
+.room-app .song-row.is-playing .song-index,
+.room-app .song-row.is-playing .track-line,
+.room-app .song-row.is-playing .track-line b,
+.room-app .song-row.is-playing .track-line strong,
+.room-app .song-row.is-playing .uploaded-by,
+.room-app .song-row.is-up-next:not(.is-playing) .song-main,
+.room-app .song-row.is-up-next:not(.is-playing) .song-index,
+.room-app .song-row.is-up-next:not(.is-playing) .track-line,
+.room-app .song-row.is-up-next:not(.is-playing) .track-line b,
+.room-app .song-row.is-up-next:not(.is-playing) .track-line strong,
+.room-app .song-row.is-up-next:not(.is-playing) .uploaded-by {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.34);
+}
+
+.room-app .song-row.is-playing .track-line em,
+.room-app .song-row.is-up-next:not(.is-playing) .track-line em {
+  color: #10131a !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  text-shadow: none;
+}
+
+.room-app .song-row.is-playing .google-badge,
+.room-app .song-row.is-up-next:not(.is-playing) .google-badge {
+  text-shadow: none;
 }
 
