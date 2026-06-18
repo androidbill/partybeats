@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.17.09";
+const APP_VERSION = "2026.06.17.10";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -701,6 +701,8 @@ function App() {
   const queuePanelRef = useRef(null);
   const songListRef = useRef(null);
   const emojiBarRef = useRef(null);
+  const roomShoutBackdropRef = useRef(null);
+  const roomShoutTextareaRef = useRef(null);
   const nicknameBackdropRef = useRef(null);
   const nicknameInputRef = useRef(null);
   const playerCardRef = useRef(null);
@@ -1531,6 +1533,42 @@ function App() {
       window.removeEventListener("resize", scheduleUpdate);
     };
   }, [selfRenameOpen]);
+
+  useEffect(() => {
+    if (!roomShoutOpen || !roomShoutBackdropRef.current) return undefined;
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const updateShoutModal = () => {
+      const backdrop = roomShoutBackdropRef.current;
+      if (!backdrop) return;
+      backdrop.style.setProperty("--shout-viewport-top", `${viewport?.offsetTop || 0}px`);
+      backdrop.style.setProperty("--shout-viewport-height", `${viewport?.height || window.innerHeight}px`);
+    };
+    const keepComposerVisible = () => {
+      updateShoutModal();
+      roomShoutTextareaRef.current?.scrollIntoView?.({ block: "center", behavior: "auto" });
+    };
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(updateShoutModal);
+    };
+
+    updateShoutModal();
+    roomShoutTextareaRef.current?.focus({ preventScroll: true });
+    const shortTimer = window.setTimeout(keepComposerVisible, 120);
+    const longTimer = window.setTimeout(keepComposerVisible, 420);
+    viewport?.addEventListener("resize", scheduleUpdate);
+    viewport?.addEventListener("scroll", scheduleUpdate);
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(shortTimer);
+      window.clearTimeout(longTimer);
+      viewport?.removeEventListener("resize", scheduleUpdate);
+      viewport?.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [roomShoutOpen]);
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -4230,14 +4268,14 @@ function App() {
       )}
 
       {roomShoutOpen && (
-        <div className="modal-backdrop room-shout-backdrop" onClick={() => setRoomShoutOpen(false)}>
+        <div ref={roomShoutBackdropRef} className="modal-backdrop room-shout-backdrop" onClick={() => setRoomShoutOpen(false)}>
           <form className="room-shout-composer" onClick={(event) => event.stopPropagation()} onSubmit={sendRoomShout}>
             <div>
               <strong>Room shoutout</strong>
               <span>{128 - roomShoutDraft.length} left</span>
             </div>
             <textarea
-              autoFocus
+              ref={roomShoutTextareaRef}
               value={roomShoutDraft}
               onChange={(event) => setRoomShoutDraft(event.target.value.slice(0, 128))}
               placeholder="Send a quick message to everyone"
