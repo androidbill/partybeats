@@ -7698,6 +7698,17 @@ input,
 }
 
 /* Final playlist state fills: keep these after mobile/iOS glass overrides. */
+.room-app .song-row::before,
+.room-app.dark-mode .song-row::before,
+.room-app.has-party-motion .song-row::before,
+.room-app.has-party-motion.dark-mode .song-row::before,
+.room-app.is-ios.has-party-motion .song-row::before,
+.room-app.is-ios.has-party-motion.dark-mode .song-row::before {
+  display: none !important;
+  content: none !important;
+  animation: none !important;
+}
+
 .room-app .song-row.is-playing,
 .room-app.dark-mode .song-row.is-playing,
 .room-app.has-party-motion .song-row.is-playing,
@@ -7750,19 +7761,19 @@ input,
 
 /* Premium queue buttons */
 .room-app .song-list {
-  gap: 7px;
+  gap: 5px;
 }
 
 .room-app .song-row {
-  min-height: 56px;
-  padding: 7px;
-  border-radius: 15px;
+  min-height: 48px;
+  padding: 5px 6px;
+  border-radius: 13px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
     rgba(16, 20, 31, 0.74);
   box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.16),
+    0 8px 20px rgba(0, 0, 0, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -7772,7 +7783,7 @@ input,
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 247, 252, 0.86)),
     #ffffff;
   box-shadow:
-    0 12px 28px rgba(20, 24, 36, 0.1),
+    0 8px 20px rgba(20, 24, 36, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
@@ -7804,16 +7815,16 @@ input,
 }
 
 .room-app .song-main {
-  grid-template-columns: 28px minmax(0, 1fr);
-  column-gap: 9px;
-  row-gap: 2px;
-  min-height: 40px;
+  grid-template-columns: 25px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 1px;
+  min-height: 34px;
   align-items: center;
 }
 
 .room-app .song-index {
-  width: 27px;
-  height: 27px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   color: #f8fafc;
   background:
@@ -7822,7 +7833,7 @@ input,
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     0 8px 18px rgba(0, 0, 0, 0.16);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .room-app.light-mode .song-index {
@@ -7831,28 +7842,28 @@ input,
 }
 
 .room-app .track-line {
-  gap: 4px 7px;
+  gap: 3px 6px;
   align-items: center;
 }
 
 .room-app .track-line b {
   flex: 0 1 auto;
   color: inherit;
-  font-size: clamp(0.82rem, 2.5vw, 0.92rem);
+  font-size: clamp(0.76rem, 2.35vw, 0.86rem);
   font-weight: 950;
 }
 
 .room-app .track-line strong {
   flex: 1 1 100%;
   color: inherit;
-  font-size: clamp(0.82rem, 2.5vw, 0.92rem);
+  font-size: clamp(0.76rem, 2.35vw, 0.86rem);
   font-weight: 850;
 }
 
 .room-app .uploaded-by {
   grid-column: 2;
   color: color-mix(in srgb, currentColor 72%, transparent);
-  font-size: 0.69rem;
+  font-size: 0.63rem;
   font-weight: 760;
 }
 
@@ -7893,23 +7904,23 @@ input,
 
 @media (max-width: 520px) {
   .room-app .song-list {
-    gap: 7px;
+    gap: 5px;
   }
 
   .room-app .song-row {
-    min-height: 58px;
-    padding: 7px;
-    border-radius: 15px;
+    min-height: 50px;
+    padding: 5px 6px;
+    border-radius: 13px;
   }
 
   .room-app .song-main {
-    grid-template-columns: 28px minmax(0, 1fr);
-    column-gap: 8px;
+    grid-template-columns: 25px minmax(0, 1fr);
+    column-gap: 7px;
   }
 
   .room-app .song-index {
-    width: 27px;
-    height: 27px;
+    width: 24px;
+    height: 24px;
   }
 }
 
@@ -7919,7 +7930,7 @@ input,
   grid-row: 3;
   justify-self: start;
   align-self: end;
-  padding-left: 36px;
+  padding-left: 31px;
   margin-top: 1px;
 }
 
@@ -7933,7 +7944,7 @@ input,
 
 @media (max-width: 520px) {
   .room-app .song-row .song-reaction-actions {
-    padding-left: 35px;
+    padding-left: 31px;
   }
 }
 
@@ -7951,6 +7962,12 @@ input,
 .room-app .song-row .song-reaction-button svg {
   width: 16px;
   height: 16px;
+}
+
+.room-app .song-row .track-line em {
+  padding: 1px 5px;
+  font-size: 0.56rem;
+  line-height: 1.25;
 }
 
 @media (max-width: 520px) {
