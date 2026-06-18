@@ -2066,12 +2066,16 @@ input:focus {
   width: min(430px, calc(100vw - 28px));
   display: grid;
   gap: 12px;
-  padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 22px;
-  color: var(--pb-text);
-  background: color-mix(in srgb, var(--pb-panel) 94%, #111827 6%);
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.42);
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--pb-accent) 22%, transparent), transparent 34%),
+    linear-gradient(145deg, #121621 0%, #070a12 100%);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .room-shout-composer > div:first-child,
@@ -2087,7 +2091,7 @@ input:focus {
 }
 
 .room-shout-composer span {
-  color: var(--pb-muted);
+  color: rgba(226, 232, 240, 0.72);
   font-size: 0.85rem;
   font-weight: 800;
 }
@@ -2095,6 +2099,35 @@ input:focus {
 .room-shout-composer textarea {
   min-height: 108px;
   resize: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+    #0b0f19;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.24);
+  font-family: "Inter", "Aptos", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.02rem;
+  font-weight: 750;
+  line-height: 1.45;
+  letter-spacing: 0;
+  caret-color: var(--pb-highlight);
+}
+
+.room-shout-composer textarea::placeholder {
+  color: rgba(226, 232, 240, 0.48);
+  font-weight: 700;
+}
+
+.room-shout-composer textarea:focus {
+  border-color: color-mix(in srgb, var(--pb-link) 70%, white 10%);
+  outline: none;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--pb-link) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 14px 36px rgba(0, 0, 0, 0.28);
 }
 
 .room-shout-actions .primary {
