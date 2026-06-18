@@ -7750,13 +7750,13 @@ input,
 
 /* Premium queue buttons */
 .room-app .song-list {
-  gap: 10px;
+  gap: 7px;
 }
 
 .room-app .song-row {
-  min-height: 68px;
-  padding: 9px;
-  border-radius: 18px;
+  min-height: 56px;
+  padding: 7px;
+  border-radius: 15px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
@@ -7804,16 +7804,16 @@ input,
 }
 
 .room-app .song-main {
-  grid-template-columns: 34px minmax(0, 1fr);
-  column-gap: 11px;
-  row-gap: 4px;
-  min-height: 48px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 9px;
+  row-gap: 2px;
+  min-height: 40px;
   align-items: center;
 }
 
 .room-app .song-index {
-  width: 32px;
-  height: 32px;
+  width: 27px;
+  height: 27px;
   border-radius: 999px;
   color: #f8fafc;
   background:
@@ -7822,7 +7822,7 @@ input,
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     0 8px 18px rgba(0, 0, 0, 0.16);
-  font-size: 0.86rem;
+  font-size: 0.78rem;
 }
 
 .room-app.light-mode .song-index {
@@ -7831,28 +7831,28 @@ input,
 }
 
 .room-app .track-line {
-  gap: 6px 8px;
+  gap: 4px 7px;
   align-items: center;
 }
 
 .room-app .track-line b {
   flex: 0 1 auto;
   color: inherit;
-  font-size: clamp(0.92rem, 2.9vw, 1.02rem);
+  font-size: clamp(0.82rem, 2.5vw, 0.92rem);
   font-weight: 950;
 }
 
 .room-app .track-line strong {
   flex: 1 1 100%;
   color: inherit;
-  font-size: clamp(0.9rem, 2.8vw, 1rem);
+  font-size: clamp(0.82rem, 2.5vw, 0.92rem);
   font-weight: 850;
 }
 
 .room-app .uploaded-by {
   grid-column: 2;
   color: color-mix(in srgb, currentColor 72%, transparent);
-  font-size: 0.76rem;
+  font-size: 0.69rem;
   font-weight: 760;
 }
 
@@ -7893,23 +7893,23 @@ input,
 
 @media (max-width: 520px) {
   .room-app .song-list {
-    gap: 9px;
+    gap: 7px;
   }
 
   .room-app .song-row {
-    min-height: 72px;
-    padding: 10px;
-    border-radius: 17px;
+    min-height: 58px;
+    padding: 7px;
+    border-radius: 15px;
   }
 
   .room-app .song-main {
-    grid-template-columns: 32px minmax(0, 1fr);
-    column-gap: 10px;
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 8px;
   }
 
   .room-app .song-index {
-    width: 31px;
-    height: 31px;
+    width: 27px;
+    height: 27px;
   }
 }
 
@@ -7919,8 +7919,8 @@ input,
   grid-row: 3;
   justify-self: start;
   align-self: end;
-  padding-left: 43px;
-  margin-top: 2px;
+  padding-left: 36px;
+  margin-top: 1px;
 }
 
 .room-app .song-row .admin-actions {
@@ -7928,12 +7928,36 @@ input,
   grid-row: 3;
   justify-self: end;
   align-self: end;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 @media (max-width: 520px) {
   .room-app .song-row .song-reaction-actions {
-    padding-left: 42px;
+    padding-left: 35px;
+  }
+}
+
+.room-app .song-row .admin-actions .icon-button {
+  width: 30px;
+  height: 30px;
+}
+
+.room-app .song-row .song-reaction-button {
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+}
+
+.room-app .song-row .song-reaction-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 520px) {
+  .room-app .song-row .admin-actions .icon-button,
+  .room-app .song-row .song-reaction-button {
+    width: 30px;
+    height: 30px;
   }
 }
 
