@@ -8275,6 +8275,7 @@ input,
   max-height: none;
   padding: 7px 14px;
   overflow: visible;
+  touch-action: pan-y;
 }
 
 .room-app .song-main,

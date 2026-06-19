@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.19";
+const APP_VERSION = "2026.06.19.20";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3017,6 +3017,7 @@ function App() {
 
   function startSongDeleteSwipe(event, song, canDeleteOwnSong) {
     if (!canDeleteOwnSong || event.pointerType === "mouse") return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     songSwipeStartRef.current = {
       songId: song.id,
       x: event.clientX,
@@ -3024,19 +3025,31 @@ function App() {
     };
   }
 
-  function finishSongDeleteSwipe(event, song, canDeleteOwnSong) {
+  function revealSongDeleteFromSwipe(event, song, canDeleteOwnSong) {
     const start = songSwipeStartRef.current;
-    songSwipeStartRef.current = null;
-    if (!canDeleteOwnSong || !start || start.songId !== song.id) return;
+    if (!canDeleteOwnSong || !start || start.songId !== song.id) return false;
     const deltaX = event.clientX - start.x;
     const deltaY = Math.abs(event.clientY - start.y);
-    if (deltaX > 58 && deltaY < 38) {
+    if (deltaX > 44 && deltaY < 42) {
       event.preventDefault();
       event.stopPropagation();
       songSwipeRevealedRef.current = true;
+      songSwipeStartRef.current = null;
       setSelectedSongId("");
       setDeleteRevealSongId(song.id);
+      return true;
     }
+    return false;
+  }
+
+  function moveSongDeleteSwipe(event, song, canDeleteOwnSong) {
+    revealSongDeleteFromSwipe(event, song, canDeleteOwnSong);
+  }
+
+  function finishSongDeleteSwipe(event, song, canDeleteOwnSong) {
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (revealSongDeleteFromSwipe(event, song, canDeleteOwnSong)) return;
+    songSwipeStartRef.current = null;
   }
 
   function cancelSongDeleteSwipe() {
@@ -4138,6 +4151,7 @@ function App() {
                     setSelectedSongId((current) => current === song.id ? "" : song.id);
                   }}
                   onPointerDown={(event) => startSongDeleteSwipe(event, song, canDeleteOwnSong)}
+                  onPointerMove={(event) => moveSongDeleteSwipe(event, song, canDeleteOwnSong)}
                   onPointerUp={(event) => finishSongDeleteSwipe(event, song, canDeleteOwnSong)}
                   onPointerCancel={cancelSongDeleteSwipe}
                   onContextMenu={(event) => {
