@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.10";
+const APP_VERSION = "2026.06.19.11";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4124,13 +4124,6 @@ function App() {
                         </em>
                       )}
                       {isUpNextSong && <em>Up next</em>}
-                      {isPlayedSong && <em>Played</em>}
-                      {isRecentlyAddedSong && <em>Added</em>}
-                      {song.unavailable && <em>Unavailable</em>}
-                      {song.mystery && <em>Mystery</em>}
-                      {song.dedication && <em>For {song.dedication}</em>}
-                      {song.id === crowdFavoriteSongId && <em>Crowd favorite</em>}
-                      {song.id === mostMessagedSongId && <em>Most talked about</em>}
                     </span>
                     {emojiCounts.length > 0 && (
                       <span className="emoji-summary">
