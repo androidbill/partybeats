@@ -8139,3 +8139,92 @@ input,
   }
 }
 
+/* Final queue row safety reset: pill buttons without fill layers. */
+.room-app .song-list {
+  gap: 9px;
+}
+
+.room-app .song-row,
+.room-app.light-mode .song-row,
+.room-app.dark-mode .song-row,
+.room-app.has-party-motion .song-row,
+.room-app.has-party-motion.dark-mode .song-row,
+.room-app.is-ios.has-party-motion .song-row,
+.room-app.is-ios.has-party-motion.dark-mode .song-row,
+.room-app .song-row.is-playing,
+.room-app.dark-mode .song-row.is-playing,
+.room-app.has-party-motion .song-row.is-playing,
+.room-app.has-party-motion.dark-mode .song-row.is-playing,
+.room-app.is-ios.has-party-motion .song-row.is-playing,
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-playing,
+.room-app .song-row.is-up-next:not(.is-playing),
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing) {
+  min-height: 58px;
+  padding: 9px 16px;
+  border: 2px solid color-mix(in srgb, var(--pb-accent-2) 48%, rgba(255, 255, 255, 0.2));
+  border-radius: 999px;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  opacity: 1;
+  overflow: visible;
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--pb-link) 12%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.room-app .song-row::before,
+.room-app .song-row::after,
+.room-app.dark-mode .song-row::before,
+.room-app.dark-mode .song-row::after,
+.room-app.has-party-motion .song-row::before,
+.room-app.has-party-motion .song-row::after,
+.room-app.has-party-motion.dark-mode .song-row::before,
+.room-app.has-party-motion.dark-mode .song-row::after,
+.room-app.is-ios.has-party-motion .song-row::before,
+.room-app.is-ios.has-party-motion .song-row::after,
+.room-app.is-ios.has-party-motion.dark-mode .song-row::before,
+.room-app.is-ios.has-party-motion.dark-mode .song-row::after {
+  display: none !important;
+  content: none !important;
+}
+
+.room-app .song-row.is-playing,
+.room-app.dark-mode .song-row.is-playing {
+  border-color: color-mix(in srgb, var(--pb-highlight) 70%, rgba(255, 255, 255, 0.24));
+}
+
+.room-app .song-row.is-up-next:not(.is-playing),
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing) {
+  border-color: color-mix(in srgb, var(--pb-highlight) 62%, rgba(255, 255, 255, 0.24));
+}
+
+.room-app .song-row.is-played:not(.is-playing) {
+  opacity: 0.82;
+}
+
+.room-app.light-mode .song-row {
+  color: #17181f;
+}
+
+.room-app.dark-mode .song-row {
+  color: #ffffff;
+}
+
+@media (max-width: 520px) {
+  .room-app .song-row,
+  .room-app.light-mode .song-row,
+  .room-app.dark-mode .song-row,
+  .room-app.has-party-motion .song-row,
+  .room-app.has-party-motion.dark-mode .song-row,
+  .room-app.is-ios.has-party-motion .song-row,
+  .room-app.is-ios.has-party-motion.dark-mode .song-row {
+    min-height: 60px;
+    padding: 10px 15px;
+  }
+}
+
