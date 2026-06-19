@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.18";
+const APP_VERSION = "2026.06.19.19";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -647,6 +647,7 @@ function App() {
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState("");
+  const [deleteRevealSongId, setDeleteRevealSongId] = useState("");
   const [emojiSongId, setEmojiSongId] = useState("");
   const [emojiPickerMode, setEmojiPickerMode] = useState("react");
   const [emojiBarPosition, setEmojiBarPosition] = useState(null);
@@ -720,6 +721,8 @@ function App() {
   const floatingReactionLongPressRef = useRef(false);
   const songReactionPressTimerRef = useRef(0);
   const songReactionLongPressRef = useRef(false);
+  const songSwipeStartRef = useRef(null);
+  const songSwipeRevealedRef = useRef(false);
   const roomShoutSwipeStartRef = useRef(null);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
@@ -3012,6 +3015,34 @@ function App() {
     window.clearTimeout(songReactionPressTimerRef.current);
   }
 
+  function startSongDeleteSwipe(event, song, canDeleteOwnSong) {
+    if (!canDeleteOwnSong || event.pointerType === "mouse") return;
+    songSwipeStartRef.current = {
+      songId: song.id,
+      x: event.clientX,
+      y: event.clientY
+    };
+  }
+
+  function finishSongDeleteSwipe(event, song, canDeleteOwnSong) {
+    const start = songSwipeStartRef.current;
+    songSwipeStartRef.current = null;
+    if (!canDeleteOwnSong || !start || start.songId !== song.id) return;
+    const deltaX = event.clientX - start.x;
+    const deltaY = Math.abs(event.clientY - start.y);
+    if (deltaX > 58 && deltaY < 38) {
+      event.preventDefault();
+      event.stopPropagation();
+      songSwipeRevealedRef.current = true;
+      setSelectedSongId("");
+      setDeleteRevealSongId(song.id);
+    }
+  }
+
+  function cancelSongDeleteSwipe() {
+    songSwipeStartRef.current = null;
+  }
+
   async function reactToSong(song, emoji) {
     if (!user || !activeRoomId) return;
     const songRef = doc(db, "rooms", activeRoomId, "songs", song.id);
@@ -4066,6 +4097,8 @@ function App() {
               const isUpNextSong = song.id === nextQueuedSong(songs, room.nowPlayingId)?.id;
               const isRecentlyAddedSong = recentlyAddedSongId === song.id;
               const isSelectedSong = selectedSongId === song.id;
+              const canDeleteOwnSong = Boolean(user && song.addedByUid === user.uid && !isAdmin);
+              const isDeleteRevealed = deleteRevealSongId === song.id;
               const hideMysteryTrack = song.mystery && !isCurrentSong && !isPlayedSong && !isAdmin;
               const visibleTrackDisplay = hideMysteryTrack
                 ? { artist: "Mystery Track", title: `from ${song.addedByName || "Guest"}` }
@@ -4086,13 +4119,27 @@ function App() {
                     isUpNextSong ? "is-up-next" : "",
                     isRecentlyAddedSong ? "is-recently-added" : "",
                     isSelectedSong ? "is-selected" : "",
+                    isDeleteRevealed ? "is-delete-revealed" : "",
                     isAdmin && isSelectedSong ? "is-admin-selected" : "",
                     emojiSongId === song.id ? "is-reacting" : "",
                     song.unavailable ? "is-unavailable" : ""
                   ].filter(Boolean).join(" ")}
                   data-song-id={song.id}
                   key={song.id}
-                  onClick={() => setSelectedSongId((current) => current === song.id ? "" : song.id)}
+                  onClick={() => {
+                    if (songSwipeRevealedRef.current) {
+                      songSwipeRevealedRef.current = false;
+                      return;
+                    }
+                    if (isDeleteRevealed) {
+                      setDeleteRevealSongId("");
+                      return;
+                    }
+                    setSelectedSongId((current) => current === song.id ? "" : song.id);
+                  }}
+                  onPointerDown={(event) => startSongDeleteSwipe(event, song, canDeleteOwnSong)}
+                  onPointerUp={(event) => finishSongDeleteSwipe(event, song, canDeleteOwnSong)}
+                  onPointerCancel={cancelSongDeleteSwipe}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     if (isAdmin) {
@@ -4102,6 +4149,22 @@ function App() {
                     }
                   }}
                 >
+                  {canDeleteOwnSong && isDeleteRevealed && (
+                    <button
+                      className="own-song-delete-action"
+                      type="button"
+                      title="Remove song"
+                      aria-label="Remove song"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setDeleteRevealSongId("");
+                        removeSong(song.id);
+                      }}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </button>
+                  )}
                   <button className="song-main" type="button">
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
