@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.13";
+const APP_VERSION = "2026.06.19.14";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4156,24 +4156,26 @@ function App() {
                     </div>
                   )}
 
-                  <div className="song-reaction-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-                    <button
-                      className="song-reaction-button"
-                      type="button"
-                      aria-label={`Send ${songReactionEmoji} reaction`}
-                      title="Tap to react. Hold to change emoji."
-                      onPointerDown={(event) => startSongReactionPress(event, song)}
-                      onPointerUp={(event) => finishSongReactionPress(event, song)}
-                      onPointerCancel={cancelSongReactionPress}
-                      onClick={(event) => event.preventDefault()}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        openSongEmojiPicker(song, "choose");
-                      }}
-                    >
-                      {songReactionEmoji}
-                    </button>
-                  </div>
+                  {!(isAdmin && isSelectedSong) && (
+                    <div className="song-reaction-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+                      <button
+                        className="song-reaction-button"
+                        type="button"
+                        aria-label={`Send ${songReactionEmoji} reaction`}
+                        title="Tap to react. Hold to change emoji."
+                        onPointerDown={(event) => startSongReactionPress(event, song)}
+                        onPointerUp={(event) => finishSongReactionPress(event, song)}
+                        onPointerCancel={cancelSongReactionPress}
+                        onClick={(event) => event.preventDefault()}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          openSongEmojiPicker(song, "choose");
+                        }}
+                      >
+                        {songReactionEmoji}
+                      </button>
+                    </div>
+                  )}
                 </article>
               );
             })
