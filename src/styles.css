@@ -7978,3 +7978,159 @@ input,
   }
 }
 
+/* Playlist tracks as tactile gradient buttons. */
+.room-app .song-row,
+.room-app.light-mode .song-row,
+.room-app.dark-mode .song-row,
+.room-app.has-party-motion .song-row,
+.room-app.has-party-motion.dark-mode .song-row,
+.room-app.is-ios.has-party-motion .song-row,
+.room-app.is-ios.has-party-motion.dark-mode .song-row {
+  min-height: 58px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--pb-accent-2) 36%, rgba(255, 255, 255, 0.18));
+  border-radius: 18px;
+  color: #ffffff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03)),
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-link) 92%, #12131a), color-mix(in srgb, var(--pb-accent-2) 86%, #12131a));
+  box-shadow:
+    0 14px 34px color-mix(in srgb, var(--pb-link) 24%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+.room-app .song-row:hover {
+  border-color: color-mix(in srgb, var(--pb-highlight) 46%, rgba(255, 255, 255, 0.22));
+  box-shadow:
+    0 18px 44px color-mix(in srgb, var(--pb-accent-2) 34%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+.room-app .song-row:active {
+  transform: translateY(1px) scale(0.992);
+}
+
+.room-app .song-main,
+.room-app.is-ios.has-party-motion .song-main,
+.room-app.is-ios.has-party-motion.dark-mode .song-main {
+  grid-template-columns: 30px minmax(0, 1fr);
+  column-gap: 11px;
+  row-gap: 3px;
+  min-height: 42px;
+  padding: 0;
+  color: #ffffff;
+}
+
+.room-app .song-index,
+.room-app.light-mode .song-index,
+.room-app.dark-mode .song-index {
+  width: 28px;
+  height: 28px;
+  color: #12131a;
+  background:
+    linear-gradient(135deg, var(--pb-highlight), color-mix(in srgb, var(--pb-highlight) 60%, #ffffff));
+  box-shadow:
+    0 8px 18px color-mix(in srgb, var(--pb-highlight) 28%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  font-weight: 950;
+}
+
+.room-app .track-line {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 7px;
+  align-items: center;
+  min-width: 0;
+  padding-right: 4px;
+  color: #ffffff;
+}
+
+.room-app .track-line b,
+.room-app .track-line strong,
+.room-app.has-party-motion .track-line b,
+.room-app.has-party-motion .track-line strong,
+.room-app .song-row.is-playing .track-line b,
+.room-app .song-row.is-playing .track-line strong,
+.room-app .song-row.is-up-next:not(.is-playing) .track-line b,
+.room-app .song-row.is-up-next:not(.is-playing) .track-line strong {
+  color: #ffffff;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+.room-app .track-line b {
+  flex: 0 1 auto;
+  font-size: clamp(0.78rem, 2.4vw, 0.9rem);
+}
+
+.room-app .track-line strong {
+  flex: 1 1 100%;
+  min-width: 0;
+  font-size: clamp(0.8rem, 2.5vw, 0.94rem);
+  line-height: 1.22;
+}
+
+.room-app .uploaded-by,
+.room-app.light-mode .uploaded-by,
+.room-app.has-party-motion .uploaded-by,
+.room-app .song-row.is-playing .uploaded-by,
+.room-app .song-row.is-up-next:not(.is-playing) .uploaded-by {
+  grid-column: 2;
+  padding-right: 4px;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.room-app .song-row.is-playing,
+.room-app.dark-mode .song-row.is-playing,
+.room-app.has-party-motion .song-row.is-playing,
+.room-app.has-party-motion.dark-mode .song-row.is-playing,
+.room-app.is-ios.has-party-motion .song-row.is-playing,
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-playing {
+  border-color: color-mix(in srgb, var(--pb-highlight) 68%, rgba(255, 255, 255, 0.24));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)),
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 82%, #12131a), color-mix(in srgb, var(--pb-link) 84%, #12131a));
+  box-shadow:
+    inset 5px 0 0 var(--pb-highlight),
+    0 18px 46px color-mix(in srgb, var(--pb-accent) 34%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+
+.room-app .song-row.is-up-next:not(.is-playing),
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing) {
+  border-color: color-mix(in srgb, var(--pb-highlight) 62%, rgba(255, 255, 255, 0.24));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04)),
+    linear-gradient(135deg, color-mix(in srgb, var(--pb-highlight) 66%, #8b3ffc), color-mix(in srgb, var(--pb-accent-2) 82%, #12131a));
+}
+
+@media (max-width: 520px) {
+  .room-app .song-row {
+    min-height: 60px;
+    padding: 10px 11px;
+    border-radius: 17px;
+  }
+
+  .room-app .song-main {
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 10px;
+  }
+
+  .room-app .song-index {
+    width: 26px;
+    height: 26px;
+  }
+}
+
