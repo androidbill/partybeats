@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.8";
+const APP_VERSION = "2026.06.19.10";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4103,6 +4103,20 @@ function App() {
                   <button className="song-main" type="button">
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
+                      <strong>{visibleTrackDisplay.title}</strong>
+                      {visibleTrackDisplay.artist && <b>{visibleTrackDisplay.artist}</b>}
+                    </span>
+                    <span className="uploaded-by">
+                      Uploaded by {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                      {song.dedication ? ` · dedicated to ${song.dedication}` : ""}
+                    </span>
+                  </button>
+
+                  <div className="reaction-strip">
+                    <span className="row-uploader">
+                      {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                    </span>
+                    <span className="track-badges">
                       {isCurrentSong && (
                         <em className="now-tag">
                           <Equalizer paused={playbackState.state !== "playing"} />
@@ -4117,18 +4131,6 @@ function App() {
                       {song.dedication && <em>For {song.dedication}</em>}
                       {song.id === crowdFavoriteSongId && <em>Crowd favorite</em>}
                       {song.id === mostMessagedSongId && <em>Most talked about</em>}
-                      {visibleTrackDisplay.artist && <b>{visibleTrackDisplay.artist}</b>}
-                      <strong>{visibleTrackDisplay.title}</strong>
-                    </span>
-                    <span className="uploaded-by">
-                      Uploaded by {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
-                      {song.dedication ? ` · dedicated to ${song.dedication}` : ""}
-                    </span>
-                  </button>
-
-                  <div className="reaction-strip">
-                    <span className="row-uploader">
-                      {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
                     </span>
                     {emojiCounts.length > 0 && (
                       <span className="emoji-summary">
@@ -4178,21 +4180,6 @@ function App() {
                         }}
                       >
                         {songReactionEmoji}
-                      </button>
-                      <button
-                        className="song-reaction-button"
-                        type="button"
-                        aria-label="Send message"
-                        title="Send message"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setEmojiPickerMode("react");
-                          setEmojiSongId(song.id);
-                          setMessageSongId(song.id);
-                        }}
-                      >
-                        <MessageCircle aria-hidden="true" />
                       </button>
                     </div>
                   )}

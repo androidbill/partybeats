@@ -8270,10 +8270,10 @@ input,
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   align-items: center;
-  min-height: 86px;
+  min-height: 82px;
   height: auto;
   max-height: none;
-  padding: 8px 14px;
+  padding: 7px 14px;
   overflow: visible;
 }
 
@@ -8288,7 +8288,7 @@ input,
   column-gap: 10px;
   row-gap: 0;
   align-items: center;
-  min-height: 44px;
+  min-height: 38px;
   height: auto;
   overflow: visible;
 }
@@ -8301,41 +8301,55 @@ input,
 .room-app .track-line {
   grid-column: 2;
   grid-row: 1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 5px;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  align-items: center;
   min-width: 0;
   max-height: none;
   overflow: visible;
 }
 
-.room-app .track-line em {
+.room-app .reaction-strip em {
+  display: inline-flex;
   flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
   padding: 1px 5px;
+  border-radius: 999px;
+  color: #07382f;
+  background: rgba(57, 198, 163, 0.26);
   font-size: 0.52rem;
+  font-style: normal;
+  font-weight: 950;
   line-height: 1.18;
+  text-transform: uppercase;
 }
 
 .room-app .track-line b,
 .room-app .track-line strong,
 .room-app.has-party-motion .track-line b,
 .room-app.has-party-motion .track-line strong {
-  flex: 0 1 auto;
   min-width: 0;
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
   overflow-wrap: anywhere;
   line-height: 1.12;
-  font-size: 0.78rem;
 }
 
 .room-app .track-line strong {
   display: block;
-  flex: 1 1 100%;
   max-height: none;
-  font-size: 0.8rem;
+  font-size: 0.86rem;
+  font-weight: 950;
+}
+
+.room-app .track-line b {
+  display: block;
+  color: color-mix(in srgb, currentColor 82%, transparent);
+  font-size: 0.72rem;
+  font-weight: 850;
 }
 
 .room-app .uploaded-by,
@@ -8355,10 +8369,10 @@ input,
   grid-row: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 3px 5px;
   align-items: center;
   min-width: 0;
-  min-height: 24px;
+  min-height: 22px;
   height: auto;
   padding-left: 38px;
   overflow: visible;
@@ -8369,9 +8383,9 @@ input,
   flex: 0 1 auto;
   align-items: center;
   gap: 4px;
-  max-width: 34%;
+  max-width: 42%;
   min-width: 0;
-  min-height: 20px;
+  min-height: 18px;
   padding: 2px 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.09);
@@ -8384,6 +8398,14 @@ input,
   white-space: nowrap;
 }
 
+.room-app .track-badges {
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-width: 0;
+}
+
 .room-app .row-uploader .google-badge {
   flex: 0 0 auto;
 }
@@ -8392,14 +8414,14 @@ input,
 .room-app .song-message {
   flex: 0 1 auto;
   max-width: 100%;
-  min-height: 20px;
+  min-height: 18px;
   padding: 2px 6px;
   overflow: visible;
   white-space: normal;
   text-overflow: clip;
   overflow-wrap: anywhere;
   line-height: 1.18;
-  font-size: 0.66rem;
+  font-size: 0.64rem;
 }
 
 .room-app .song-message b {
@@ -8421,16 +8443,16 @@ input,
   .room-app.has-party-motion.dark-mode .song-row,
   .room-app.is-ios.has-party-motion .song-row,
   .room-app.is-ios.has-party-motion.dark-mode .song-row {
-    min-height: 84px;
+    min-height: 80px;
     height: auto;
     max-height: none;
     grid-template-rows: auto auto;
-    padding: 8px 13px;
+    padding: 7px 13px;
   }
 
   .room-app .song-main {
     grid-template-columns: 26px minmax(0, 1fr);
-    min-height: 42px;
+    min-height: 38px;
     height: auto;
   }
 
@@ -8439,7 +8461,7 @@ input,
   }
 
   .room-app .reaction-strip {
-    min-height: 24px;
+    min-height: 22px;
     height: auto;
     padding-left: 36px;
   }
@@ -8450,7 +8472,7 @@ input,
   }
 
   .room-app .row-uploader {
-    max-width: 32%;
+    max-width: 42%;
   }
 }
 
