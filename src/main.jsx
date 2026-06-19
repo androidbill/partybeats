@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.16";
+const APP_VERSION = "2026.06.19.17";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -683,7 +683,7 @@ function App() {
   const [roomShouts, setRoomShouts] = useState([]);
   const [roomShoutOpen, setRoomShoutOpen] = useState(false);
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
-  const [songReactionEmoji, setSongReactionEmoji] = useState(EMOJIS[0]);
+  const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
@@ -3005,7 +3005,7 @@ function App() {
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     window.clearTimeout(songReactionPressTimerRef.current);
     if (songReactionLongPressRef.current) return;
-    reactToSong(song, songReactionEmoji);
+    reactToSong(song, song.emojiByUser?.[user?.uid] || songReactionEmojiBySong[song.id] || EMOJIS[0]);
   }
 
   function cancelSongReactionPress() {
@@ -4076,6 +4076,7 @@ function App() {
                 emoji,
                 count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
               })).filter((item) => item.count > 0);
+              const rowReactionEmoji = song.emojiByUser?.[user?.uid] || songReactionEmojiBySong[song.id] || EMOJIS[0];
               return (
                 <article
                   className={[
@@ -4160,7 +4161,7 @@ function App() {
                       <button
                         className="song-reaction-button"
                         type="button"
-                        aria-label={`Send ${songReactionEmoji} reaction`}
+                        aria-label={`Send ${rowReactionEmoji} reaction`}
                         title="Tap to react. Hold to change emoji."
                         onPointerDown={(event) => startSongReactionPress(event, song)}
                         onPointerUp={(event) => finishSongReactionPress(event, song)}
@@ -4171,7 +4172,7 @@ function App() {
                           openSongEmojiPicker(song, "choose");
                         }}
                       >
-                        {songReactionEmoji}
+                        {rowReactionEmoji}
                       </button>
                     </div>
                   )}
@@ -4324,7 +4325,9 @@ function App() {
           {EMOJIS.map((emoji) => (
             <button
               className={
-                (emojiPickerMode === "choose" ? songReactionEmoji === emoji : reactionSong.emojiByUser?.[user.uid] === emoji)
+                (emojiPickerMode === "choose"
+                  ? (songReactionEmojiBySong[reactionSong.id] || reactionSong.emojiByUser?.[user.uid] || EMOJIS[0]) === emoji
+                  : reactionSong.emojiByUser?.[user.uid] === emoji)
                   ? "selected"
                   : ""
               }
@@ -4332,7 +4335,7 @@ function App() {
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                setSongReactionEmoji(emoji);
+                setSongReactionEmojiBySong((current) => ({ ...current, [reactionSong.id]: emoji }));
                 reactToSong(reactionSong, emoji);
                 closeEmojiPopoverSoon();
               }}
