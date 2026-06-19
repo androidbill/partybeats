@@ -8203,6 +8203,28 @@ input,
   border-color: color-mix(in srgb, var(--pb-highlight) 62%, rgba(255, 255, 255, 0.24));
 }
 
+.room-app .song-row.is-playing,
+.room-app.dark-mode .song-row.is-playing,
+.room-app.has-party-motion .song-row.is-playing,
+.room-app.has-party-motion.dark-mode .song-row.is-playing,
+.room-app.is-ios.has-party-motion .song-row.is-playing,
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-playing {
+  background-color: var(--pb-row-playing-bg) !important;
+  background-image: none !important;
+  border-color: var(--pb-accent) !important;
+}
+
+.room-app .song-row.is-up-next:not(.is-playing),
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing) {
+  background-color: var(--pb-row-upnext-bg) !important;
+  background-image: none !important;
+  border-color: var(--pb-highlight) !important;
+}
+
 .room-app .song-row.is-played:not(.is-playing) {
   opacity: 0.82;
 }
