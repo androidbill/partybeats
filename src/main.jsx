@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.15";
+const APP_VERSION = "2026.06.19.16";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4085,6 +4085,7 @@ function App() {
                     isUpNextSong ? "is-up-next" : "",
                     isRecentlyAddedSong ? "is-recently-added" : "",
                     isSelectedSong ? "is-selected" : "",
+                    isAdmin && isSelectedSong ? "is-admin-selected" : "",
                     emojiSongId === song.id ? "is-reacting" : "",
                     song.unavailable ? "is-unavailable" : ""
                   ].filter(Boolean).join(" ")}
@@ -4145,11 +4146,9 @@ function App() {
                       <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={queueIndex < 0 || queueIndex === songs.length - 1} type="button">
                         <ArrowDown aria-hidden="true" />
                       </button>
-                      {isActiveDj && (
-                        <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play" type="button">
-                          <Play aria-hidden="true" />
-                        </button>
-                      )}
+                      <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play" type="button">
+                        <Play aria-hidden="true" />
+                      </button>
                       <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song" type="button">
                         <Trash2 aria-hidden="true" />
                       </button>

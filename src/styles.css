@@ -8534,6 +8534,11 @@ input,
   height: 28px;
 }
 
+.room-app .song-row.is-admin-selected .emoji-summary,
+.room-app .song-row.is-admin-selected .song-message {
+  display: none;
+}
+
 @media (max-width: 520px) {
   .room-app .song-row.is-selected {
     grid-template-rows: auto auto;
@@ -8549,6 +8554,15 @@ input,
   .room-app .song-row.is-selected .admin-actions {
     gap: 3px;
     transform: none;
+  }
+
+  .room-app .song-row.is-admin-selected .reaction-strip {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .room-app .song-row.is-admin-selected .row-uploader {
+    max-width: 100%;
   }
 
   .room-app .song-row.is-selected .admin-actions .icon-button {
