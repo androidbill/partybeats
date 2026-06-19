@@ -7987,25 +7987,31 @@ input,
 .room-app.is-ios.has-party-motion .song-row,
 .room-app.is-ios.has-party-motion.dark-mode .song-row {
   min-height: 58px;
-  padding: 9px 12px;
-  border: 1px solid color-mix(in srgb, var(--pb-accent-2) 36%, rgba(255, 255, 255, 0.18));
-  border-radius: 18px;
-  color: #ffffff;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03)),
-    linear-gradient(135deg, color-mix(in srgb, var(--pb-link) 92%, #12131a), color-mix(in srgb, var(--pb-accent-2) 86%, #12131a));
+  padding: 9px 16px;
+  border: 2px solid color-mix(in srgb, var(--pb-accent-2) 48%, rgba(255, 255, 255, 0.2));
+  border-radius: 999px;
+  color: inherit;
+  background: transparent;
   box-shadow:
-    0 14px 34px color-mix(in srgb, var(--pb-link) 24%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+    0 10px 24px color-mix(in srgb, var(--pb-link) 14%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.room-app.light-mode .song-row {
+  color: #17181f;
+  border-color: color-mix(in srgb, var(--pb-link) 30%, rgba(23, 24, 31, 0.16));
+}
+
+.room-app.dark-mode .song-row {
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--pb-accent-2) 44%, rgba(255, 255, 255, 0.18));
 }
 
 .room-app .song-row:hover {
-  border-color: color-mix(in srgb, var(--pb-highlight) 46%, rgba(255, 255, 255, 0.22));
+  border-color: color-mix(in srgb, var(--pb-highlight) 72%, rgba(255, 255, 255, 0.24));
   box-shadow:
-    0 18px 44px color-mix(in srgb, var(--pb-accent-2) 34%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+    0 14px 34px color-mix(in srgb, var(--pb-highlight) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .room-app .song-row:active {
@@ -8020,7 +8026,7 @@ input,
   row-gap: 3px;
   min-height: 42px;
   padding: 0;
-  color: #ffffff;
+  color: inherit;
 }
 
 .room-app .song-index,
@@ -8045,7 +8051,7 @@ input,
   align-items: center;
   min-width: 0;
   padding-right: 4px;
-  color: #ffffff;
+  color: inherit;
 }
 
 .room-app .track-line b,
@@ -8056,11 +8062,11 @@ input,
 .room-app .song-row.is-playing .track-line strong,
 .room-app .song-row.is-up-next:not(.is-playing) .track-line b,
 .room-app .song-row.is-up-next:not(.is-playing) .track-line strong {
-  color: #ffffff;
+  color: inherit;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: normal;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+  text-shadow: none;
 }
 
 .room-app .track-line b {
@@ -8082,10 +8088,10 @@ input,
 .room-app .song-row.is-up-next:not(.is-playing) .uploaded-by {
   grid-column: 2;
   padding-right: 4px;
-  color: rgba(255, 255, 255, 0.78);
+  color: color-mix(in srgb, currentColor 70%, transparent);
   white-space: normal;
   overflow-wrap: anywhere;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  text-shadow: none;
 }
 
 .room-app .song-row.is-playing,
@@ -8095,13 +8101,11 @@ input,
 .room-app.is-ios.has-party-motion .song-row.is-playing,
 .room-app.is-ios.has-party-motion.dark-mode .song-row.is-playing {
   border-color: color-mix(in srgb, var(--pb-highlight) 68%, rgba(255, 255, 255, 0.24));
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)),
-    linear-gradient(135deg, color-mix(in srgb, var(--pb-accent) 82%, #12131a), color-mix(in srgb, var(--pb-link) 84%, #12131a));
+  background: transparent;
   box-shadow:
-    inset 5px 0 0 var(--pb-highlight),
-    0 18px 46px color-mix(in srgb, var(--pb-accent) 34%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    0 0 0 2px color-mix(in srgb, var(--pb-highlight) 20%, transparent),
+    0 16px 38px color-mix(in srgb, var(--pb-accent) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
 }
 
 .room-app .song-row.is-up-next:not(.is-playing),
@@ -8111,16 +8115,17 @@ input,
 .room-app.is-ios.has-party-motion .song-row.is-up-next:not(.is-playing),
 .room-app.is-ios.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing) {
   border-color: color-mix(in srgb, var(--pb-highlight) 62%, rgba(255, 255, 255, 0.24));
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04)),
-    linear-gradient(135deg, color-mix(in srgb, var(--pb-highlight) 66%, #8b3ffc), color-mix(in srgb, var(--pb-accent-2) 82%, #12131a));
+  background: transparent;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--pb-highlight) 16%, transparent),
+    0 14px 32px color-mix(in srgb, var(--pb-highlight) 18%, transparent);
 }
 
 @media (max-width: 520px) {
   .room-app .song-row {
     min-height: 60px;
-    padding: 10px 11px;
-    border-radius: 17px;
+    padding: 10px 15px;
+    border-radius: 999px;
   }
 
   .room-app .song-main {
