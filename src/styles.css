@@ -8409,3 +8409,50 @@ input,
   }
 }
 
+/* Selected rows get a dedicated action strip; normal rows stay uniform. */
+.room-app .song-row.is-selected {
+  grid-template-rows: 38px 20px 34px;
+  height: 108px;
+  min-height: 108px;
+  max-height: 108px;
+  overflow: hidden;
+}
+
+.room-app .song-row.is-selected .reaction-strip {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding-right: 0;
+}
+
+.room-app .song-row.is-selected .song-reaction-actions {
+  grid-column: 1;
+  grid-row: 3;
+  justify-self: start;
+  align-self: center;
+  padding-left: 38px;
+  margin-top: 0;
+  z-index: 2;
+}
+
+.room-app .song-row.is-selected .admin-actions {
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: end;
+  align-self: center;
+  margin-top: 0;
+  z-index: 2;
+}
+
+@media (max-width: 520px) {
+  .room-app .song-row.is-selected {
+    grid-template-rows: 37px 19px 32px;
+    height: 102px;
+    min-height: 102px;
+    max-height: 102px;
+  }
+
+  .room-app .song-row.is-selected .song-reaction-actions {
+    padding-left: 36px;
+  }
+}
+
