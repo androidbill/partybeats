@@ -2778,9 +2778,24 @@ input:focus {
   touch-action: manipulation;
 }
 
+.song-smiley-button,
+.room-app.dark-mode .song-smiley-button {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    0 10px 22px rgba(18, 19, 26, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.song-smiley-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 .song-reaction-button svg {
   width: 18px;
   height: 18px;
+  stroke-width: 2.4;
 }
 
 .room-app.dark-mode .song-reaction-button {

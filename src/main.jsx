@@ -25,6 +25,7 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
+  Smile,
   Volume2,
   SkipForward,
   Trash2,
@@ -160,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.02";
+const APP_VERSION = "2026.06.29.03";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -859,8 +860,6 @@ function App() {
   const joiningRoomRef = useRef(false);
   const floatingReactionPressTimerRef = useRef(0);
   const floatingReactionLongPressRef = useRef(false);
-  const songReactionPressTimerRef = useRef(0);
-  const songReactionLongPressRef = useRef(false);
   const songSwipeStartRef = useRef(null);
   const songSwipeRevealedRef = useRef(false);
   const roomShoutSwipeStartRef = useRef(null);
@@ -3257,31 +3256,6 @@ function App() {
     setEmojiSongId(song.id);
   }
 
-  function startSongReactionPress(event, song) {
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    songReactionLongPressRef.current = false;
-    window.clearTimeout(songReactionPressTimerRef.current);
-    songReactionPressTimerRef.current = window.setTimeout(() => {
-      songReactionLongPressRef.current = true;
-      openSongEmojiPicker(song, "choose");
-    }, 520);
-  }
-
-  function finishSongReactionPress(event, song) {
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    window.clearTimeout(songReactionPressTimerRef.current);
-    if (songReactionLongPressRef.current) return;
-    reactToSong(song, song.emojiByUser?.[user?.uid] || songReactionEmojiBySong[song.id] || EMOJIS[0]);
-  }
-
-  function cancelSongReactionPress() {
-    window.clearTimeout(songReactionPressTimerRef.current);
-  }
-
   function startSongDeleteSwipe(event, song, canDeleteOwnSong) {
     if (!canDeleteOwnSong || event.pointerType === "mouse") return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -4350,7 +4324,6 @@ function App() {
                 emoji,
                 count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
               })).filter((item) => item.count > 0);
-              const rowReactionEmoji = song.emojiByUser?.[user?.uid] || songReactionEmojiBySong[song.id] || EMOJIS[0];
               return (
                 <article
                   className={[
@@ -4468,20 +4441,17 @@ function App() {
                   {!isAdmin && isSelectedSong && (
                     <div className={isVoteMenuOpen ? "song-reaction-actions is-vote-open" : "song-reaction-actions"} onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                       <button
-                        className="song-reaction-button"
+                        className="song-reaction-button song-smiley-button"
                         type="button"
-                        aria-label={`Send ${rowReactionEmoji} reaction`}
-                        title="Tap to react. Hold to change emoji."
-                        onPointerDown={(event) => startSongReactionPress(event, song)}
-                        onPointerUp={(event) => finishSongReactionPress(event, song)}
-                        onPointerCancel={cancelSongReactionPress}
-                        onClick={(event) => event.preventDefault()}
-                        onContextMenu={(event) => {
+                        aria-label="Choose reaction emoji"
+                        title="Choose reaction emoji"
+                        onClick={(event) => {
                           event.preventDefault();
+                          event.stopPropagation();
                           openSongEmojiPicker(song, "choose");
                         }}
                       >
-                        {rowReactionEmoji}
+                        <Smile aria-hidden="true" />
                       </button>
                       <button
                         className="song-reaction-button vote-track-button"
