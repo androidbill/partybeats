@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.03";
+const APP_VERSION = "2026.06.29.04";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -821,6 +821,7 @@ function App() {
   const [emojiBursts, setEmojiBursts] = useState([]);
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [floatingReactionEmoji, setFloatingReactionEmoji] = useState(EMOJIS[0]);
+  const [floatingReactionChosen, setFloatingReactionChosen] = useState(false);
   const [roomShouts, setRoomShouts] = useState([]);
   const [roomShoutOpen, setRoomShoutOpen] = useState(false);
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
@@ -3235,6 +3236,7 @@ function App() {
   }
 
   function startFloatingReactionPress() {
+    if (!floatingReactionChosen) return;
     floatingReactionLongPressRef.current = false;
     window.clearTimeout(floatingReactionPressTimerRef.current);
     floatingReactionPressTimerRef.current = window.setTimeout(() => {
@@ -3245,6 +3247,10 @@ function App() {
 
   function finishFloatingReactionPress() {
     window.clearTimeout(floatingReactionPressTimerRef.current);
+    if (!floatingReactionChosen) {
+      setReactionPickerOpen(true);
+      return;
+    }
     if (floatingReactionLongPressRef.current) return;
     setReactionPickerOpen(false);
     sendFloatingReaction();
@@ -4525,6 +4531,7 @@ function App() {
                         key={emoji}
                         onClick={() => {
                           setFloatingReactionEmoji(emoji);
+                          setFloatingReactionChosen(true);
                           setReactionPickerOpen(false);
                         }}
                         type="button"
@@ -4536,10 +4543,10 @@ function App() {
                 </>
               )}
               <button
-                className="floating-reaction-button"
+                className={floatingReactionChosen ? "floating-reaction-button" : "floating-reaction-button is-unset"}
                 type="button"
-                aria-label={`Send ${floatingReactionEmoji} reaction`}
-                title="Tap to react. Hold to change emoji."
+                aria-label={floatingReactionChosen ? `Send ${floatingReactionEmoji} reaction` : "Choose reaction emoji"}
+                title={floatingReactionChosen ? "Tap to react. Hold to change emoji." : "Choose reaction emoji"}
                 onPointerDown={startFloatingReactionPress}
                 onPointerUp={finishFloatingReactionPress}
                 onPointerCancel={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
@@ -4550,7 +4557,7 @@ function App() {
                   setReactionPickerOpen(true);
                 }}
               >
-                {floatingReactionEmoji}
+                {floatingReactionChosen ? floatingReactionEmoji : <Smile aria-hidden="true" />}
               </button>
             </div>
           )}
