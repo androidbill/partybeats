@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.21";
+const APP_VERSION = "2026.06.29.01";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -604,6 +604,144 @@ function isIosDevice() {
   if (typeof navigator === "undefined") return false;
   return /iPad|iPhone|iPod/i.test(navigator.userAgent || "")
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function PartyMotionCanvas({ className = "", hypeScore = 0, embedded = false }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || typeof window === "undefined") return undefined;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) return undefined;
+
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    let frame = 0;
+    let width = 1;
+    let height = 1;
+    let dpr = 1;
+    const particles = Array.from({ length: embedded ? 48 : 72 }, (_, index) => ({
+      seed: index * 91.7,
+      x: Math.random(),
+      y: Math.random(),
+      radius: 1.6 + Math.random() * (embedded ? 3.2 : 4.6),
+      speed: 0.16 + Math.random() * 0.64,
+      drift: -0.48 + Math.random() * 0.96
+    }));
+
+    const themeColor = (name, fallback) => {
+      const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+    };
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      width = Math.max(1, Math.floor(rect.width));
+      height = Math.max(1, Math.floor(rect.height));
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const glow = (x, y, radius, color, alpha) => {
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, `${color}${alpha}`);
+      gradient.addColorStop(0.58, `${color}24`);
+      gradient.addColorStop(1, `${color}00`);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    const render = (timestamp = 0) => {
+      const t = timestamp / 1000;
+      const energy = Math.max(0.7, Math.min(2, 0.86 + hypeScore / 85));
+      const accent = themeColor("--pb-accent", "#38bdf8");
+      const accent2 = themeColor("--pb-accent-2", "#6366f1");
+      const highlight = themeColor("--pb-highlight", "#7dd3fc");
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.globalCompositeOperation = "source-over";
+      const wash = ctx.createLinearGradient(0, 0, width, height);
+      wash.addColorStop(0, `${accent2}${embedded ? "30" : "24"}`);
+      wash.addColorStop(0.5, "rgba(0,0,0,0)");
+      wash.addColorStop(1, `${accent}${embedded ? "34" : "22"}`);
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.globalCompositeOperation = "screen";
+      glow(width * (0.24 + Math.sin(t * 0.16) * 0.08), height * 0.28, Math.min(width, height) * (0.78 + energy * 0.12), accent2, "68");
+      glow(width * (0.78 + Math.cos(t * 0.14) * 0.08), height * 0.74, Math.min(width, height) * (0.66 + energy * 0.1), accent, "5c");
+      glow(width * 0.5, height * (0.56 + Math.sin(t * 0.18) * 0.08), Math.min(width, height) * 0.56, highlight, "38");
+
+      ctx.globalAlpha = embedded ? 0.34 : 0.24;
+      ctx.lineWidth = 1;
+      const grid = embedded ? 56 : 78;
+      const gridOffset = reducedMotion ? 0 : (t * 18 * energy) % grid;
+      ctx.strokeStyle = accent;
+      for (let x = -grid + gridOffset; x < width + grid; x += grid) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + height * 0.25, height);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = accent2;
+      for (let y = -grid + gridOffset; y < height + grid; y += grid) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y - width * 0.18);
+        ctx.stroke();
+      }
+
+      ctx.globalAlpha = 1;
+      particles.forEach((particle, index) => {
+        const speed = reducedMotion ? 0.035 : particle.speed * energy;
+        const y = height - (((t * speed * 90 + particle.seed) % (height + 80)) - 40);
+        const x = width * particle.x + Math.sin(t * 0.82 + particle.seed) * 28 * particle.drift;
+        const color = index % 3 === 0 ? highlight : index % 2 === 0 ? accent : accent2;
+        ctx.fillStyle = `${color}${embedded ? "ba" : "9c"}`;
+        ctx.beginPath();
+        ctx.arc(x, y, particle.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      if (!reducedMotion) {
+        const sweepCount = hypeScore > 72 ? 5 : 3;
+        for (let index = 0; index < sweepCount; index += 1) {
+          const progress = (t * (0.075 + index * 0.014) * energy + index * 0.29) % 1;
+          const y = height * (0.16 + index * 0.18);
+          const x = -width * 0.34 + progress * width * 1.62;
+          const laser = ctx.createLinearGradient(x, y, x + width * 0.34, y + height * 0.08);
+          laser.addColorStop(0, "rgba(255,255,255,0)");
+          laser.addColorStop(0.5, index % 2 ? `${accent2}96` : `${highlight}a8`);
+          laser.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.strokeStyle = laser;
+          ctx.lineWidth = embedded ? 2 : 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + width * 0.38, y + height * 0.08);
+          ctx.stroke();
+        }
+      }
+
+      frame = window.requestAnimationFrame(render);
+    };
+
+    resize();
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
+    resizeObserver?.observe(canvas);
+    window.addEventListener("resize", resize);
+    frame = window.requestAnimationFrame(render);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", resize);
+    };
+  }, [embedded, hypeScore]);
+
+  return <canvas ref={canvasRef} className={["party-motion-canvas", className].filter(Boolean).join(" ")} aria-hidden="true" />;
 }
 
 function App() {
@@ -3771,46 +3909,14 @@ function App() {
       style={{ "--desktop-player-split": `${desktopPlayerSplit}%`, "--hype-score": `${hypeScore}%`, "--party-motion-speed": `${Math.max(0.62, 1.45 - (hypeScore / 130))}` }}
     >
       {partyMotionEnabled && (
-        <div
+        <PartyMotionCanvas
           className={[
             "party-motion-bg",
             hypeScore >= 75 ? "is-hype" : "",
             hypeScore >= 40 ? "is-awake" : ""
           ].filter(Boolean).join(" ")}
-          aria-hidden="true"
-        >
-          <div className="motion-layer pulse-waves">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer chasing-lights">
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer bass-glow">
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer electric-grid">
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer orbit-sparks">
-            {Array.from({ length: 30 }, (_, index) => (
-              <i key={index} style={{ "--spark-index": index }} />
-            ))}
-          </div>
-          <div className="motion-layer laser-sweep">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
+          hypeScore={hypeScore}
+        />
       )}
       <header className="app-topbar">
         <button className="topbar-brand" onClick={() => setRoomQrOpen(true)} title="Show room QR code" type="button">
@@ -3996,6 +4102,7 @@ function App() {
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
               fullscreenMotion={partyMotionEnabled && playerFullscreen}
+              hypeScore={hypeScore}
             />
             <div className="player-actions dj-control-deck" aria-label="Active DJ controls">
               <button
@@ -5450,7 +5557,8 @@ function YouTubePlayer({
   roomId,
   playbackState,
   onPlaybackUpdate,
-  fullscreenMotion
+  fullscreenMotion,
+  hypeScore = 0
 }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerFrameRef = useRef(null);
@@ -5883,6 +5991,7 @@ function YouTubePlayer({
           isPlaying={localPlaybackState === "playing"}
           onTogglePlayback={toggleVisualizerPlayback}
           fullscreenMotion={fullscreenMotion}
+          hypeScore={hypeScore}
         />
       )}
       {qrDataUrl && roomId && (
@@ -5912,47 +6021,13 @@ function YouTubePlayer({
   );
 }
 
-function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback, fullscreenMotion = false }) {
+function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback, fullscreenMotion = false, hypeScore = 0 }) {
   const title = displayTrack?.title || decodeHtmlEntities(song?.title || "Untitled");
   const artist = displayTrack?.artist || decodeHtmlEntities(song?.artist || "YouTube");
 
   return (
     <div className={[isPlaying ? "music-visualizer" : "music-visualizer is-paused", fullscreenMotion ? "has-embedded-party-motion" : ""].filter(Boolean).join(" ")}>
-      {fullscreenMotion && (
-        <div className="embedded-party-motion" aria-hidden="true">
-          <div className="motion-layer pulse-waves">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer chasing-lights">
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer bass-glow">
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer electric-grid">
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer orbit-sparks">
-            {Array.from({ length: 30 }, (_, index) => (
-              <i key={index} style={{ "--spark-index": index }} />
-            ))}
-          </div>
-          <div className="motion-layer laser-sweep">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-      )}
+      {fullscreenMotion && <PartyMotionCanvas className="embedded-party-motion" hypeScore={hypeScore} embedded />}
       <div className="visualizer-glow visualizer-glow-a" />
       <div className="visualizer-glow visualizer-glow-b" />
       <div className="visualizer-ring visualizer-ring-a" />

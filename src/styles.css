@@ -940,6 +940,12 @@ input:focus {
   --motion-energy: 1;
 }
 
+.party-motion-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .app-shell.room-app.has-party-motion {
   background: transparent !important;
 }
