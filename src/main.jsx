@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.19.21";
+const APP_VERSION = "2026.06.29.01";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -606,6 +606,151 @@ function isIosDevice() {
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
+function PartyMotionCanvas({ className = "", hypeScore = 0, embedded = false }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || typeof window === "undefined") return undefined;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) return undefined;
+
+    let frame = 0;
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    const particleCount = embedded ? 48 : 70;
+    const particles = Array.from({ length: particleCount }, (_, index) => ({
+      seed: index * 97.13,
+      x: Math.random(),
+      y: Math.random(),
+      size: 1.5 + Math.random() * (embedded ? 3.5 : 4.5),
+      speed: 0.18 + Math.random() * 0.62,
+      drift: -0.35 + Math.random() * 0.7
+    }));
+
+    const cssColor = (name, fallback) => {
+      const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return value || fallback;
+    };
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      width = Math.max(1, Math.floor(rect.width));
+      height = Math.max(1, Math.floor(rect.height));
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const drawGlow = (x, y, radius, color, alpha) => {
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, `${color}${alpha}`);
+      gradient.addColorStop(0.58, `${color}2a`);
+      gradient.addColorStop(1, `${color}00`);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    const hexWithAlpha = (color) => {
+      if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+      return "#ffffff";
+    };
+
+    const render = (time = 0) => {
+      const t = time / 1000;
+      const energy = Math.max(0.65, Math.min(2, 0.85 + hypeScore / 88));
+      const accent = hexWithAlpha(cssColor("--pb-accent", "#38bdf8"));
+      const accent2 = hexWithAlpha(cssColor("--pb-accent-2", "#6366f1"));
+      const highlight = hexWithAlpha(cssColor("--pb-highlight", "#7dd3fc"));
+      ctx.clearRect(0, 0, width, height);
+      ctx.globalCompositeOperation = "source-over";
+
+      const wash = ctx.createLinearGradient(0, 0, width, height);
+      wash.addColorStop(0, `${accent2}${embedded ? "2d" : "24"}`);
+      wash.addColorStop(0.52, "rgba(0,0,0,0)");
+      wash.addColorStop(1, `${accent}${embedded ? "30" : "22"}`);
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.globalCompositeOperation = "screen";
+      const pulse = reduceMotion ? 0.8 : 0.78 + Math.sin(t * 2.2) * 0.18 * energy;
+      drawGlow(width * (0.22 + Math.sin(t * 0.16) * 0.08), height * 0.28, Math.min(width, height) * pulse, accent2, "66");
+      drawGlow(width * (0.78 + Math.cos(t * 0.14) * 0.08), height * 0.74, Math.min(width, height) * (0.72 + energy * 0.1), accent, "58");
+      drawGlow(width * 0.5, height * (0.56 + Math.sin(t * 0.18) * 0.08), Math.min(width, height) * 0.56, highlight, "38");
+
+      ctx.globalAlpha = embedded ? 0.34 : 0.26;
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 1;
+      const grid = embedded ? 58 : 76;
+      const offset = reduceMotion ? 0 : (t * 18 * energy) % grid;
+      for (let x = -grid + offset; x < width + grid; x += grid) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + height * 0.24, height);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = accent2;
+      for (let y = -grid + offset; y < height + grid; y += grid) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y - width * 0.18);
+        ctx.stroke();
+      }
+
+      ctx.globalAlpha = 1;
+      particles.forEach((particle, index) => {
+        const speed = reduceMotion ? 0.04 : particle.speed * energy;
+        const y = height - (((t * speed * 90 + particle.seed) % (height + 80)) - 40);
+        const x = width * particle.x + Math.sin(t * 0.8 + particle.seed) * 26 * particle.drift;
+        const color = index % 3 === 0 ? highlight : index % 2 === 0 ? accent : accent2;
+        ctx.fillStyle = `${color}${embedded ? "b8" : "9c"}`;
+        ctx.beginPath();
+        ctx.arc(x, y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      if (!reduceMotion) {
+        const sweepCount = hypeScore > 72 ? 5 : 3;
+        for (let i = 0; i < sweepCount; i += 1) {
+          const progress = (t * (0.08 + i * 0.015) * energy + i * 0.28) % 1;
+          const y = height * (0.16 + i * 0.18);
+          const x = -width * 0.3 + progress * width * 1.6;
+          const laser = ctx.createLinearGradient(x, y, x + width * 0.34, y + height * 0.08);
+          laser.addColorStop(0, "rgba(255,255,255,0)");
+          laser.addColorStop(0.5, i % 2 ? `${accent2}9a` : `${highlight}a8`);
+          laser.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.strokeStyle = laser;
+          ctx.lineWidth = embedded ? 2 : 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + width * 0.38, y + height * 0.08);
+          ctx.stroke();
+        }
+      }
+
+      frame = window.requestAnimationFrame(render);
+    };
+
+    resize();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
+    observer?.observe(canvas);
+    window.addEventListener("resize", resize);
+    frame = window.requestAnimationFrame(render);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", resize);
+    };
+  }, [hypeScore, embedded]);
+
+  return <canvas ref={canvasRef} className={["party-motion-canvas", className].filter(Boolean).join(" ")} aria-hidden="true" />;
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -647,7 +792,6 @@ function App() {
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [externalTutorialOpen, setExternalTutorialOpen] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState("");
-  const [deleteRevealSongId, setDeleteRevealSongId] = useState("");
   const [emojiSongId, setEmojiSongId] = useState("");
   const [emojiPickerMode, setEmojiPickerMode] = useState("react");
   const [emojiBarPosition, setEmojiBarPosition] = useState(null);
@@ -684,7 +828,7 @@ function App() {
   const [roomShouts, setRoomShouts] = useState([]);
   const [roomShoutOpen, setRoomShoutOpen] = useState(false);
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
-  const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
+  const [songReactionEmoji, setSongReactionEmoji] = useState(EMOJIS[0]);
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
@@ -721,8 +865,6 @@ function App() {
   const floatingReactionLongPressRef = useRef(false);
   const songReactionPressTimerRef = useRef(0);
   const songReactionLongPressRef = useRef(false);
-  const songSwipeStartRef = useRef(null);
-  const songSwipeRevealedRef = useRef(false);
   const roomShoutSwipeStartRef = useRef(null);
   const previousNowPlayingId = useRef(undefined);
   const previousMemberIds = useRef(undefined);
@@ -2429,17 +2571,6 @@ function App() {
     await touchRoomActivity();
   }
 
-  async function removeOwnSong(song) {
-    if (!user || !activeRoomId || !song?.id || song.addedByUid !== user.uid) return;
-    try {
-      await deleteDoc(doc(db, "rooms", activeRoomId, "songs", song.id));
-      await touchRoomActivity();
-      setToast("Removed your song.");
-    } catch {
-      setToast("Could not remove that song. Check room permissions.");
-    }
-  }
-
   async function clearPlaylist() {
     if (!isAdmin || !activeRoomId || !songs.length) return;
     const confirmed = window.confirm("Clear the entire playlist for this room?");
@@ -3019,52 +3150,11 @@ function App() {
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     window.clearTimeout(songReactionPressTimerRef.current);
     if (songReactionLongPressRef.current) return;
-    reactToSong(song, song.emojiByUser?.[user?.uid] || songReactionEmojiBySong[song.id] || EMOJIS[0]);
+    reactToSong(song, songReactionEmoji);
   }
 
   function cancelSongReactionPress() {
     window.clearTimeout(songReactionPressTimerRef.current);
-  }
-
-  function startSongDeleteSwipe(event, song, canDeleteOwnSong) {
-    if (!canDeleteOwnSong || event.pointerType === "mouse") return;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    songSwipeStartRef.current = {
-      songId: song.id,
-      x: event.clientX,
-      y: event.clientY
-    };
-  }
-
-  function revealSongDeleteFromSwipe(event, song, canDeleteOwnSong) {
-    const start = songSwipeStartRef.current;
-    if (!canDeleteOwnSong || !start || start.songId !== song.id) return false;
-    const deltaX = event.clientX - start.x;
-    const deltaY = Math.abs(event.clientY - start.y);
-    if (deltaX > 44 && deltaY < 42) {
-      event.preventDefault();
-      event.stopPropagation();
-      songSwipeRevealedRef.current = true;
-      songSwipeStartRef.current = null;
-      setSelectedSongId("");
-      setDeleteRevealSongId(song.id);
-      return true;
-    }
-    return false;
-  }
-
-  function moveSongDeleteSwipe(event, song, canDeleteOwnSong) {
-    revealSongDeleteFromSwipe(event, song, canDeleteOwnSong);
-  }
-
-  function finishSongDeleteSwipe(event, song, canDeleteOwnSong) {
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    if (revealSongDeleteFromSwipe(event, song, canDeleteOwnSong)) return;
-    songSwipeStartRef.current = null;
-  }
-
-  function cancelSongDeleteSwipe() {
-    songSwipeStartRef.current = null;
   }
 
   async function reactToSong(song, emoji) {
@@ -3771,46 +3861,14 @@ function App() {
       style={{ "--desktop-player-split": `${desktopPlayerSplit}%`, "--hype-score": `${hypeScore}%`, "--party-motion-speed": `${Math.max(0.62, 1.45 - (hypeScore / 130))}` }}
     >
       {partyMotionEnabled && (
-        <div
+        <PartyMotionCanvas
           className={[
             "party-motion-bg",
             hypeScore >= 75 ? "is-hype" : "",
             hypeScore >= 40 ? "is-awake" : ""
           ].filter(Boolean).join(" ")}
-          aria-hidden="true"
-        >
-          <div className="motion-layer pulse-waves">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer chasing-lights">
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer bass-glow">
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer electric-grid">
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer orbit-sparks">
-            {Array.from({ length: 30 }, (_, index) => (
-              <i key={index} style={{ "--spark-index": index }} />
-            ))}
-          </div>
-          <div className="motion-layer laser-sweep">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
+          hypeScore={hypeScore}
+        />
       )}
       <header className="app-topbar">
         <button className="topbar-brand" onClick={() => setRoomQrOpen(true)} title="Show room QR code" type="button">
@@ -3996,6 +4054,7 @@ function App() {
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
               fullscreenMotion={partyMotionEnabled && playerFullscreen}
+              hypeScore={hypeScore}
             />
             <div className="player-actions dj-control-deck" aria-label="Active DJ controls">
               <button
@@ -4121,8 +4180,6 @@ function App() {
               const isUpNextSong = song.id === nextQueuedSong(songs, room.nowPlayingId)?.id;
               const isRecentlyAddedSong = recentlyAddedSongId === song.id;
               const isSelectedSong = selectedSongId === song.id;
-              const canDeleteOwnSong = Boolean(user && song.addedByUid === user.uid && !isAdmin);
-              const isDeleteRevealed = deleteRevealSongId === song.id;
               const hideMysteryTrack = song.mystery && !isCurrentSong && !isPlayedSong && !isAdmin;
               const visibleTrackDisplay = hideMysteryTrack
                 ? { artist: "Mystery Track", title: `from ${song.addedByName || "Guest"}` }
@@ -4133,7 +4190,6 @@ function App() {
                 emoji,
                 count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
               })).filter((item) => item.count > 0);
-              const rowReactionEmoji = song.emojiByUser?.[user?.uid] || songReactionEmojiBySong[song.id] || EMOJIS[0];
               return (
                 <article
                   className={[
@@ -4143,28 +4199,12 @@ function App() {
                     isUpNextSong ? "is-up-next" : "",
                     isRecentlyAddedSong ? "is-recently-added" : "",
                     isSelectedSong ? "is-selected" : "",
-                    isDeleteRevealed ? "is-delete-revealed" : "",
-                    isAdmin && isSelectedSong ? "is-admin-selected" : "",
                     emojiSongId === song.id ? "is-reacting" : "",
                     song.unavailable ? "is-unavailable" : ""
                   ].filter(Boolean).join(" ")}
                   data-song-id={song.id}
                   key={song.id}
-                  onClick={() => {
-                    if (songSwipeRevealedRef.current) {
-                      songSwipeRevealedRef.current = false;
-                      return;
-                    }
-                    if (isDeleteRevealed) {
-                      setDeleteRevealSongId("");
-                      return;
-                    }
-                    setSelectedSongId((current) => current === song.id ? "" : song.id);
-                  }}
-                  onPointerDown={(event) => startSongDeleteSwipe(event, song, canDeleteOwnSong)}
-                  onPointerMove={(event) => moveSongDeleteSwipe(event, song, canDeleteOwnSong)}
-                  onPointerUp={(event) => finishSongDeleteSwipe(event, song, canDeleteOwnSong)}
-                  onPointerCancel={cancelSongDeleteSwipe}
+                  onClick={() => setSelectedSongId((current) => current === song.id ? "" : song.id)}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     if (isAdmin) {
@@ -4174,27 +4214,25 @@ function App() {
                     }
                   }}
                 >
-                  {canDeleteOwnSong && isDeleteRevealed && (
-                    <button
-                      className="own-song-delete-action"
-                      type="button"
-                      title="Remove song"
-                      aria-label="Remove song"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setDeleteRevealSongId("");
-                        removeOwnSong(song);
-                      }}
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </button>
-                  )}
                   <button className="song-main" type="button">
                     <span className="song-index">{index + 1}</span>
                     <span className="track-line">
-                      <strong>{visibleTrackDisplay.title}</strong>
+                      {isCurrentSong && (
+                        <em className="now-tag">
+                          <Equalizer paused={playbackState.state !== "playing"} />
+                          Now
+                        </em>
+                      )}
+                      {isUpNextSong && <em>Up next</em>}
+                      {isPlayedSong && <em>Played</em>}
+                      {isRecentlyAddedSong && <em>Added</em>}
+                      {song.unavailable && <em>Unavailable</em>}
+                      {song.mystery && <em>Mystery</em>}
+                      {song.dedication && <em>For {song.dedication}</em>}
+                      {song.id === crowdFavoriteSongId && <em>Crowd favorite</em>}
+                      {song.id === mostMessagedSongId && <em>Most talked about</em>}
                       {visibleTrackDisplay.artist && <b>{visibleTrackDisplay.artist}</b>}
+                      <strong>{visibleTrackDisplay.title}</strong>
                     </span>
                     <span className="uploaded-by">
                       Uploaded by {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
@@ -4203,18 +4241,6 @@ function App() {
                   </button>
 
                   <div className="reaction-strip">
-                    <span className="row-uploader">
-                      {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
-                    </span>
-                    <span className="track-badges">
-                      {isCurrentSong && (
-                        <em className="now-tag">
-                          <Equalizer paused={playbackState.state !== "playing"} />
-                          Now
-                        </em>
-                      )}
-                      {isUpNextSong && <em>Up next</em>}
-                    </span>
                     {emojiCounts.length > 0 && (
                       <span className="emoji-summary">
                         {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
@@ -4235,21 +4261,23 @@ function App() {
                       <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={queueIndex < 0 || queueIndex === songs.length - 1} type="button">
                         <ArrowDown aria-hidden="true" />
                       </button>
-                      <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play" type="button">
-                        <Play aria-hidden="true" />
-                      </button>
+                      {isActiveDj && (
+                        <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play" type="button">
+                          <Play aria-hidden="true" />
+                        </button>
+                      )}
                       <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song" type="button">
                         <Trash2 aria-hidden="true" />
                       </button>
                     </div>
                   )}
 
-                  {!(isAdmin && isSelectedSong) && (
+                  {isSelectedSong && (
                     <div className="song-reaction-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                       <button
                         className="song-reaction-button"
                         type="button"
-                        aria-label={`Send ${rowReactionEmoji} reaction`}
+                        aria-label={`Send ${songReactionEmoji} reaction`}
                         title="Tap to react. Hold to change emoji."
                         onPointerDown={(event) => startSongReactionPress(event, song)}
                         onPointerUp={(event) => finishSongReactionPress(event, song)}
@@ -4260,7 +4288,22 @@ function App() {
                           openSongEmojiPicker(song, "choose");
                         }}
                       >
-                        {rowReactionEmoji}
+                        {songReactionEmoji}
+                      </button>
+                      <button
+                        className="song-reaction-button"
+                        type="button"
+                        aria-label="Send message"
+                        title="Send message"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setEmojiPickerMode("react");
+                          setEmojiSongId(song.id);
+                          setMessageSongId(song.id);
+                        }}
+                      >
+                        <MessageCircle aria-hidden="true" />
                       </button>
                     </div>
                   )}
@@ -4413,9 +4456,7 @@ function App() {
           {EMOJIS.map((emoji) => (
             <button
               className={
-                (emojiPickerMode === "choose"
-                  ? (songReactionEmojiBySong[reactionSong.id] || reactionSong.emojiByUser?.[user.uid] || EMOJIS[0]) === emoji
-                  : reactionSong.emojiByUser?.[user.uid] === emoji)
+                (emojiPickerMode === "choose" ? songReactionEmoji === emoji : reactionSong.emojiByUser?.[user.uid] === emoji)
                   ? "selected"
                   : ""
               }
@@ -4423,7 +4464,7 @@ function App() {
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                setSongReactionEmojiBySong((current) => ({ ...current, [reactionSong.id]: emoji }));
+                setSongReactionEmoji(emoji);
                 reactToSong(reactionSong, emoji);
                 closeEmojiPopoverSoon();
               }}
@@ -4691,13 +4732,7 @@ function App() {
                         YouTube
                       </button>
                     </div>
-                    <form
-                      className="external-search-actions"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        openExternalSearch();
-                      }}
-                    >
+                    <div className="external-search-actions">
                       <input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
@@ -4705,11 +4740,11 @@ function App() {
                         onClick={placeCursorAtTextEnd}
                         placeholder={`Search ${externalSearchProvider === "youtube" ? "YouTube" : "YouTube Music"}`}
                       />
-                      <button className="mini-action" type="submit">
+                      <button className="mini-action" onClick={openExternalSearch} type="button">
                         <ExternalLink aria-hidden="true" />
                         Open
                       </button>
-                    </form>
+                    </div>
                     <button className="external-tutorial-button" onClick={() => setExternalTutorialOpen(true)} type="button">
                       <Info aria-hidden="true" />
                       How do I add a song?
@@ -5211,7 +5246,7 @@ function App() {
               <p className="muted">QR code is loading.</p>
             )}
             <div className="support-card room-qr-support-card">
-              <p>Enjoying the party? Send me a shoutout! 🙂</p>
+              <p>Enjoying the party? Send a shoutout to me! 🙂</p>
               <a className="etransfer-email" href="mailto:bill.defiant@gmail.com">bill.defiant@gmail.com</a>
             </div>
           </section>
@@ -5269,7 +5304,7 @@ function App() {
             <strong>{APP_VERSION}</strong>
             <span>Created by: Bill Parsons</span>
             <div className="support-card">
-              <p>Enjoying the party? Send me a shoutout! 🙂</p>
+              <p>Enjoying the party? Send a shoutout to me! 🙂</p>
               <a className="etransfer-email" href="mailto:bill.defiant@gmail.com">bill.defiant@gmail.com</a>
             </div>
           </section>
@@ -5450,7 +5485,8 @@ function YouTubePlayer({
   roomId,
   playbackState,
   onPlaybackUpdate,
-  fullscreenMotion
+  fullscreenMotion,
+  hypeScore = 0
 }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerFrameRef = useRef(null);
@@ -5883,6 +5919,7 @@ function YouTubePlayer({
           isPlaying={localPlaybackState === "playing"}
           onTogglePlayback={toggleVisualizerPlayback}
           fullscreenMotion={fullscreenMotion}
+          hypeScore={hypeScore}
         />
       )}
       {qrDataUrl && roomId && (
@@ -5912,47 +5949,13 @@ function YouTubePlayer({
   );
 }
 
-function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback, fullscreenMotion = false }) {
+function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback, fullscreenMotion = false, hypeScore = 0 }) {
   const title = displayTrack?.title || decodeHtmlEntities(song?.title || "Untitled");
   const artist = displayTrack?.artist || decodeHtmlEntities(song?.artist || "YouTube");
 
   return (
     <div className={[isPlaying ? "music-visualizer" : "music-visualizer is-paused", fullscreenMotion ? "has-embedded-party-motion" : ""].filter(Boolean).join(" ")}>
-      {fullscreenMotion && (
-        <div className="embedded-party-motion" aria-hidden="true">
-          <div className="motion-layer pulse-waves">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer chasing-lights">
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer bass-glow">
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer electric-grid">
-            <span />
-            <span />
-          </div>
-          <div className="motion-layer orbit-sparks">
-            {Array.from({ length: 30 }, (_, index) => (
-              <i key={index} style={{ "--spark-index": index }} />
-            ))}
-          </div>
-          <div className="motion-layer laser-sweep">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-      )}
+      {fullscreenMotion && <PartyMotionCanvas className="embedded-party-motion" hypeScore={hypeScore} embedded />}
       <div className="visualizer-glow visualizer-glow-a" />
       <div className="visualizer-glow visualizer-glow-b" />
       <div className="visualizer-ring visualizer-ring-a" />
