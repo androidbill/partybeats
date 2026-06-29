@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.04";
+const APP_VERSION = "2026.06.29.05";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3247,13 +3247,17 @@ function App() {
 
   function finishFloatingReactionPress() {
     window.clearTimeout(floatingReactionPressTimerRef.current);
-    if (!floatingReactionChosen) {
-      setReactionPickerOpen(true);
-      return;
-    }
+    if (!floatingReactionChosen) return;
     if (floatingReactionLongPressRef.current) return;
     setReactionPickerOpen(false);
     sendFloatingReaction();
+  }
+
+  function handleFloatingReactionClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (floatingReactionChosen) return;
+    window.setTimeout(() => setReactionPickerOpen(true), 0);
   }
 
   function openSongEmojiPicker(song, mode = "react") {
@@ -4521,7 +4525,11 @@ function App() {
                   <button
                     className="tap-away-layer reaction-tap-away"
                     aria-label="Close reaction picker"
-                    onClick={() => setReactionPickerOpen(false)}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setReactionPickerOpen(false);
+                    }}
                     type="button"
                   />
                   <div className="floating-reaction-picker" role="menu" aria-label="Choose reaction emoji">
@@ -4551,7 +4559,7 @@ function App() {
                 onPointerUp={finishFloatingReactionPress}
                 onPointerCancel={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
                 onPointerLeave={() => window.clearTimeout(floatingReactionPressTimerRef.current)}
-                onClick={(event) => event.preventDefault()}
+                onClick={handleFloatingReactionClick}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   setReactionPickerOpen(true);
