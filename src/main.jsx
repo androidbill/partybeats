@@ -29,6 +29,7 @@ import {
   SkipForward,
   Trash2,
   UserRound,
+  Vote,
   Wand2,
   X
 } from "lucide-react";
@@ -81,7 +82,6 @@ const ROOM_WORDS = [
   "glow",
   "groove",
   "halo",
-  "hype",
   "jazz",
   "kick",
   "lava",
@@ -160,7 +160,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.01";
+const APP_VERSION = "2026.06.29.02";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -606,7 +606,7 @@ function isIosDevice() {
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
-function PartyMotionCanvas({ className = "", hypeScore = 0, embedded = false }) {
+function PartyMotionCanvas({ className = "", embedded = false }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -657,7 +657,7 @@ function PartyMotionCanvas({ className = "", hypeScore = 0, embedded = false }) 
 
     const render = (timestamp = 0) => {
       const t = timestamp / 1000;
-      const energy = Math.max(0.7, Math.min(2, 0.86 + hypeScore / 85));
+      const energy = embedded ? 1.18 : 1;
       const accent = themeColor("--pb-accent", "#38bdf8");
       const accent2 = themeColor("--pb-accent-2", "#6366f1");
       const highlight = themeColor("--pb-highlight", "#7dd3fc");
@@ -708,7 +708,7 @@ function PartyMotionCanvas({ className = "", hypeScore = 0, embedded = false }) 
       });
 
       if (!reducedMotion) {
-        const sweepCount = hypeScore > 72 ? 5 : 3;
+        const sweepCount = embedded ? 4 : 3;
         for (let index = 0; index < sweepCount; index += 1) {
           const progress = (t * (0.075 + index * 0.014) * energy + index * 0.29) % 1;
           const y = height * (0.16 + index * 0.18);
@@ -739,7 +739,7 @@ function PartyMotionCanvas({ className = "", hypeScore = 0, embedded = false }) 
       resizeObserver?.disconnect();
       window.removeEventListener("resize", resize);
     };
-  }, [embedded, hypeScore]);
+  }, [embedded]);
 
   return <canvas ref={canvasRef} className={["party-motion-canvas", className].filter(Boolean).join(" ")} aria-hidden="true" />;
 }
@@ -791,6 +791,7 @@ function App() {
   const [emojiBarPosition, setEmojiBarPosition] = useState(null);
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
+  const [voteMenuSongId, setVoteMenuSongId] = useState("");
   const [installPrompt, setInstallPrompt] = useState(null);
   const [appInstalled, setAppInstalled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -823,6 +824,7 @@ function App() {
   const [roomShoutOpen, setRoomShoutOpen] = useState(false);
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
   const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
+  const [votes, setVotes] = useState([]);
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
@@ -870,7 +872,7 @@ function App() {
   const reactionSeenIdsRef = useRef(new Set());
   const shoutBaselineReadyRef = useRef(false);
   const shoutSeenIdsRef = useRef(new Set());
-  const previousHypeScoreRef = useRef(0);
+  const applyingVoteIdsRef = useRef(new Set());
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
   const baseTheme = selectedColorTheme.base || "dark";
@@ -1086,6 +1088,7 @@ function App() {
       setSongs([]);
       setMembers([]);
       setSongMessages([]);
+      setVotes([]);
       setRoomLoading(false);
       setSongsLoading(false);
       setMembersLoading(false);
@@ -1103,6 +1106,7 @@ function App() {
     const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"));
     const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"));
     const shoutsRef = query(collection(db, "rooms", activeRoomId, "shouts"), orderBy("createdAt", "asc"));
+    const votesRef = query(collection(db, "rooms", activeRoomId, "votes"), orderBy("createdAt", "asc"));
 
     const handleRoomAccessLost = (error) => {
       setToast(error ? roomListenerErrorMessage(error) : "You were removed from this room.");
@@ -1139,6 +1143,10 @@ function App() {
     const unsubMessages = onSnapshot(messagesRef, (snap) => {
       if (!active) return;
       setSongMessages(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
+    }, handleRoomAccessLost);
+    const unsubVotes = onSnapshot(votesRef, (snap) => {
+      if (!active) return;
+      setVotes(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
     }, handleRoomAccessLost);
     const unsubReactions = onSnapshot(reactionsRef, (snap) => {
       if (!active) return;
@@ -1181,6 +1189,7 @@ function App() {
       unsubSongs();
       unsubMembers();
       unsubMessages();
+      unsubVotes();
       unsubReactions();
       unsubShouts();
     };
@@ -1360,16 +1369,24 @@ function App() {
     ...songMessages.filter((message) => message.songId === song?.id)
   ];
   const totalMessages = songs.reduce((total, song) => total + messagesForSong(song).length, 0);
-  const hypeScore = Math.min(100, Math.round((totalReactions * 8) + (totalMessages * 10) + (members.length * 3)));
-  const topEmoji = EMOJIS
-    .map((emoji) => ({
-      emoji,
-      count: songs.reduce((total, song) => total + Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length, 0)
-    }))
-    .sort((a, b) => b.count - a.count)[0];
-  const partyMood = topEmoji?.count > 0 ? topEmoji.emoji : "🎶";
   const googleMemberCount = members.filter((member) => member.isAnonymous === false).length;
   const guestMemberCount = Math.max(0, members.length - googleMemberCount);
+  const activeVotes = votes.filter((vote) => vote.status === "open" && songs.some((song) => song.id === vote.songId));
+  const votePrompt = activeVotes.find((vote) => !vote.votesByUser?.[user?.uid]) || null;
+  const voteThreshold = Math.max(1, Math.floor(members.length / 2) + 1);
+  const voteActionLabel = (action) => {
+    if (action === "playNext") return "Play Next";
+    if (action === "removeSong") return "Remove Song";
+    return "Vote";
+  };
+  const voteCounts = (vote) => {
+    const values = Object.values(vote?.votesByUser || {});
+    return {
+      yes: values.filter((value) => value === "yes").length,
+      no: values.filter((value) => value === "no").length,
+      total: values.length
+    };
+  };
   const analyticsPeople = members
     .map((member) => {
       const added = songs.filter((song) => song.addedByUid === member.id).length;
@@ -1435,18 +1452,6 @@ function App() {
   useEffect(() => {
     setTaglineDraft(roomTagline);
   }, [roomTagline]);
-
-  useEffect(() => {
-    if (!noticeBaselineReady) {
-      previousHypeScoreRef.current = hypeScore;
-      return;
-    }
-    const previousScore = previousHypeScoreRef.current;
-    previousHypeScoreRef.current = hypeScore;
-    if (hypeScore < 40 || Math.floor(previousScore / 25) >= Math.floor(hypeScore / 25)) return;
-    setConfettiKey((key) => key + 1);
-    setToast(`Party moment ${partyMood} Hype hit ${hypeScore}%`);
-  }, [hypeScore, noticeBaselineReady, partyMood]);
 
   useEffect(() => {
     if (!activeRoomId || noticeBaselineReady || !room || members.length === 0) return;
@@ -2578,6 +2583,52 @@ function App() {
     }
   }
 
+  async function startSongVote(song, action) {
+    if (!user || !activeRoomId || !song?.id) return;
+    if (action === "removeSong" && song.addedByUid === user.uid && !isAdmin) {
+      await removeOwnSong(song);
+      return;
+    }
+    const existingVote = activeVotes.find((vote) => vote.songId === song.id && vote.action === action);
+    if (existingVote) {
+      await castSongVote(existingVote, "yes");
+      setToast(`You voted yes to ${voteActionLabel(action).toLowerCase()}.`);
+      return;
+    }
+    const display = playlistTrackDisplay(song);
+    try {
+      await setDoc(doc(collection(db, "rooms", activeRoomId, "votes")), {
+        songId: song.id,
+        songTitle: display.title || song.title || "Untitled",
+        songArtist: display.artist || song.artist || "",
+        action,
+        startedByUid: user.uid,
+        startedByName: activeNickname.slice(0, 30) || "Guest",
+        votesByUser: { [user.uid]: "yes" },
+        status: "open",
+        at: Date.now(),
+        createdAt: serverTimestamp()
+      });
+      await touchRoomActivity();
+      setSelectedSongId("");
+      setToast(`Vote started: ${voteActionLabel(action)}.`);
+    } catch {
+      setToast("Could not start that vote. Try again.");
+    }
+  }
+
+  async function castSongVote(vote, choice) {
+    if (!user || !activeRoomId || !vote?.id || !["yes", "no"].includes(choice)) return;
+    try {
+      await updateDoc(doc(db, "rooms", activeRoomId, "votes", vote.id), {
+        [`votesByUser.${user.uid}`]: choice
+      });
+      await touchRoomActivity();
+    } catch {
+      setToast("Could not save your vote. Try again.");
+    }
+  }
+
   async function clearPlaylist() {
     if (!isAdmin || !activeRoomId || !songs.length) return;
     const confirmed = window.confirm("Clear the entire playlist for this room?");
@@ -2631,6 +2682,73 @@ function App() {
       ...roomActivityUpdate()
     });
   }
+
+  useEffect(() => {
+    if (!isAdmin || !activeRoomId || !user || members.length === 0) return;
+
+    activeVotes.forEach((vote) => {
+      const counts = voteCounts(vote);
+      const shouldApprove = counts.yes >= voteThreshold;
+      const shouldReject = !shouldApprove && (counts.no >= voteThreshold || counts.total >= members.length);
+      if (!shouldApprove && !shouldReject) return;
+      if (applyingVoteIdsRef.current.has(vote.id)) return;
+
+      applyingVoteIdsRef.current.add(vote.id);
+      (async () => {
+        const voteRef = doc(db, "rooms", activeRoomId, "votes", vote.id);
+        try {
+          if (shouldReject) {
+            await updateDoc(voteRef, {
+              status: "rejected",
+              appliedAt: serverTimestamp(),
+              appliedBy: user.uid
+            });
+            return;
+          }
+
+          const targetSong = songs.find((song) => song.id === vote.songId);
+          if (!targetSong) {
+            await updateDoc(voteRef, {
+              status: "rejected",
+              appliedAt: serverTimestamp(),
+              appliedBy: user.uid
+            });
+            return;
+          }
+
+          const batch = writeBatch(db);
+          if (vote.action === "removeSong") {
+            batch.delete(doc(db, "rooms", activeRoomId, "songs", targetSong.id));
+          } else if (vote.action === "playNext") {
+            const queueWithoutTarget = songs.filter((song) => song.id !== targetSong.id);
+            const currentIndex = queueWithoutTarget.findIndex((song) => song.id === room?.nowPlayingId);
+            let nextPosition = Number(targetSong.position) || nextQueuePosition(songs);
+            if (currentIndex >= 0) {
+              const currentPosition = Number(queueWithoutTarget[currentIndex]?.position) || 0;
+              const nextSong = queueWithoutTarget[currentIndex + 1] || null;
+              nextPosition = nextSong
+                ? (currentPosition + (Number(nextSong.position) || currentPosition + 1)) / 2
+                : currentPosition + 1;
+            } else if (queueWithoutTarget.length > 0) {
+              nextPosition = (Number(queueWithoutTarget[0].position) || Date.now()) - 1;
+            }
+            batch.update(doc(db, "rooms", activeRoomId, "songs", targetSong.id), { position: nextPosition });
+          }
+
+          batch.update(voteRef, {
+            status: "approved",
+            appliedAt: serverTimestamp(),
+            appliedBy: user.uid
+          });
+          await batch.commit();
+        } catch {
+          // Another admin may have applied it first.
+        } finally {
+          applyingVoteIdsRef.current.delete(vote.id);
+        }
+      })();
+    });
+  }, [activeRoomId, activeVotes, isAdmin, members.length, room?.nowPlayingId, songs, user, voteThreshold]);
 
   async function syncPlaybackState({ songId, seconds, state }) {
     if (!isActiveDj || !activeRoomId || !user || !songId || songId !== room?.nowPlayingId) return;
@@ -3264,6 +3382,8 @@ function App() {
     setSongs([]);
     setMembers([]);
     setSongMessages([]);
+    setVotes([]);
+    setVoteMenuSongId("");
     setPlayerChoicePrompt(null);
     setDismissedPlayerPromptKey("");
     setDismissedVersionPrompt("");
@@ -3666,7 +3786,6 @@ function App() {
       `Date: ${new Date().toLocaleString()}`,
       `Songs: ${songs.length}`,
       `People: ${members.length}`,
-      `Hype: ${hypeScore}% ${partyMood}`,
       topTrack ? `Crowd favorite: ${topTrack.display.artist ? `${topTrack.display.artist} - ` : ""}${topTrack.display.title}` : "Crowd favorite: none yet",
       topPerson ? `Most active: ${topPerson.name || "Guest"} (${topPerson.total} actions)` : "Most active: none yet",
       activeReactionStreak?.streak > 1 ? `Reaction streak: ${activeReactionStreak.name || "Guest"} hit ${activeReactionStreak.streak} songs` : "",
@@ -3906,16 +4025,11 @@ function App() {
     <main
       ref={roomAppRef}
       className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"} ${partyMotionEnabled ? "has-party-motion" : ""} ${isIos ? "is-ios" : ""}`}
-      style={{ "--desktop-player-split": `${desktopPlayerSplit}%`, "--hype-score": `${hypeScore}%`, "--party-motion-speed": `${Math.max(0.62, 1.45 - (hypeScore / 130))}` }}
+      style={{ "--desktop-player-split": `${desktopPlayerSplit}%` }}
     >
       {partyMotionEnabled && (
         <PartyMotionCanvas
-          className={[
-            "party-motion-bg",
-            hypeScore >= 75 ? "is-hype" : "",
-            hypeScore >= 40 ? "is-awake" : ""
-          ].filter(Boolean).join(" ")}
-          hypeScore={hypeScore}
+          className="party-motion-bg"
         />
       )}
       <header className="app-topbar">
@@ -4078,11 +4192,6 @@ function App() {
                 : "The Active DJ starts playback from the phone connected to the speaker."}
           </p>
           {roomTagline && <p className="room-vibe-line">{roomTagline}</p>}
-          <div className="hype-meter" aria-label={`Party hype ${hypeScore}%`}>
-            <span>{partyMood} Hype</span>
-            <i><b /></i>
-            <strong>{hypeScore}%</strong>
-          </div>
         </div>
         {isActiveDj ? (
           <>
@@ -4102,7 +4211,6 @@ function App() {
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
               fullscreenMotion={partyMotionEnabled && playerFullscreen}
-              hypeScore={hypeScore}
             />
             <div className="player-actions dj-control-deck" aria-label="Active DJ controls">
               <button
@@ -4230,6 +4338,8 @@ function App() {
               const isSelectedSong = selectedSongId === song.id;
               const canDeleteOwnSong = Boolean(user && song.addedByUid === user.uid && !isAdmin);
               const isDeleteRevealed = deleteRevealSongId === song.id;
+              const isVoteMenuOpen = voteMenuSongId === song.id;
+              const openVoteForSong = activeVotes.find((vote) => vote.songId === song.id);
               const hideMysteryTrack = song.mystery && !isCurrentSong && !isPlayedSong && !isAdmin;
               const visibleTrackDisplay = hideMysteryTrack
                 ? { artist: "Mystery Track", title: `from ${song.addedByName || "Guest"}` }
@@ -4266,7 +4376,11 @@ function App() {
                       setDeleteRevealSongId("");
                       return;
                     }
-                    setSelectedSongId((current) => current === song.id ? "" : song.id);
+                    setSelectedSongId((current) => {
+                      const next = current === song.id ? "" : song.id;
+                      if (!next || next !== song.id) setVoteMenuSongId("");
+                      return next;
+                    });
                   }}
                   onPointerDown={(event) => startSongDeleteSwipe(event, song, canDeleteOwnSong)}
                   onPointerMove={(event) => moveSongDeleteSwipe(event, song, canDeleteOwnSong)}
@@ -4351,8 +4465,8 @@ function App() {
                     </div>
                   )}
 
-                  {!(isAdmin && isSelectedSong) && (
-                    <div className="song-reaction-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+                  {!isAdmin && isSelectedSong && (
+                    <div className={isVoteMenuOpen ? "song-reaction-actions is-vote-open" : "song-reaction-actions"} onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                       <button
                         className="song-reaction-button"
                         type="button"
@@ -4369,6 +4483,45 @@ function App() {
                       >
                         {rowReactionEmoji}
                       </button>
+                      <button
+                        className="song-reaction-button vote-track-button"
+                        type="button"
+                        aria-label="Start a vote"
+                        title={openVoteForSong ? `Vote open: ${voteActionLabel(openVoteForSong.action)}` : "Start a vote"}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setVoteMenuSongId((current) => current === song.id ? "" : song.id);
+                        }}
+                      >
+                        <Vote aria-hidden="true" />
+                      </button>
+                      {isVoteMenuOpen && (
+                        <div className="track-vote-menu" role="menu" aria-label="Vote action">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setVoteMenuSongId("");
+                              startSongVote(song, "playNext");
+                            }}
+                          >
+                            Play Next
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setVoteMenuSongId("");
+                              startSongVote(song, "removeSong");
+                            }}
+                          >
+                            {canDeleteOwnSong ? "Remove My Song" : "Remove Song"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </article>
@@ -4469,6 +4622,36 @@ function App() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {votePrompt && (
+        <div className="modal-backdrop vote-prompt-backdrop" role="dialog" aria-modal="true" aria-labelledby="vote-prompt-title">
+          <section className="vote-prompt-card">
+            <div>
+              <span className="vote-kicker">Room Vote</span>
+              <h2 id="vote-prompt-title">{voteActionLabel(votePrompt.action)}?</h2>
+              <p>
+                <strong>{votePrompt.songArtist ? `${votePrompt.songArtist} - ` : ""}{votePrompt.songTitle || "This song"}</strong>
+                <span>Started by {votePrompt.startedByName || "Guest"}</span>
+              </p>
+            </div>
+            <div className="vote-counts" aria-label="Vote progress">
+              <span>Yes {voteCounts(votePrompt).yes}</span>
+              <span>No {voteCounts(votePrompt).no}</span>
+              <span>Needs {voteThreshold}</span>
+            </div>
+            <div className="vote-prompt-actions">
+              <button className="mini-action primary" onClick={() => castSongVote(votePrompt, "yes")} type="button">
+                <Check aria-hidden="true" />
+                Yes
+              </button>
+              <button className="mini-action ghost" onClick={() => castSongVote(votePrompt, "no")} type="button">
+                <X aria-hidden="true" />
+                No
+              </button>
+            </div>
+          </section>
         </div>
       )}
 
@@ -5231,10 +5414,6 @@ function App() {
                     <strong>{guestMemberCount}</strong>
                   </div>
                   <div>
-                    <span>Hype</span>
-                    <strong>{hypeScore}% {partyMood}</strong>
-                  </div>
-                  <div>
                     <span>Streak</span>
                     <strong>{activeReactionStreak?.streak > 1 ? `${activeReactionStreak.name || "Guest"} ${activeReactionStreak.streak}` : "----"}</strong>
                   </div>
@@ -5557,8 +5736,7 @@ function YouTubePlayer({
   roomId,
   playbackState,
   onPlaybackUpdate,
-  fullscreenMotion,
-  hypeScore = 0
+  fullscreenMotion
 }) {
   const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`);
   const playerFrameRef = useRef(null);
@@ -5991,7 +6169,6 @@ function YouTubePlayer({
           isPlaying={localPlaybackState === "playing"}
           onTogglePlayback={toggleVisualizerPlayback}
           fullscreenMotion={fullscreenMotion}
-          hypeScore={hypeScore}
         />
       )}
       {qrDataUrl && roomId && (
@@ -6021,13 +6198,13 @@ function YouTubePlayer({
   );
 }
 
-function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback, fullscreenMotion = false, hypeScore = 0 }) {
+function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback, fullscreenMotion = false }) {
   const title = displayTrack?.title || decodeHtmlEntities(song?.title || "Untitled");
   const artist = displayTrack?.artist || decodeHtmlEntities(song?.artist || "YouTube");
 
   return (
     <div className={[isPlaying ? "music-visualizer" : "music-visualizer is-paused", fullscreenMotion ? "has-embedded-party-motion" : ""].filter(Boolean).join(" ")}>
-      {fullscreenMotion && <PartyMotionCanvas className="embedded-party-motion" hypeScore={hypeScore} embedded />}
+      {fullscreenMotion && <PartyMotionCanvas className="embedded-party-motion" embedded />}
       <div className="visualizer-glow visualizer-glow-a" />
       <div className="visualizer-glow visualizer-glow-b" />
       <div className="visualizer-ring visualizer-ring-a" />
