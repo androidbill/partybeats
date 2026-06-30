@@ -2814,42 +2814,6 @@ input:focus {
   background: rgba(57, 198, 163, 0.22);
 }
 
-.vote-track-button {
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--pb-accent), var(--pb-accent-2));
-}
-
-.track-vote-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 12;
-  display: grid;
-  gap: 6px;
-  min-width: 150px;
-  padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  background: rgba(16, 19, 28, 0.94);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(18px);
-}
-
-.track-vote-menu button {
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 10px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 0.82rem;
-  font-weight: 900;
-  text-align: left;
-}
-
-.track-vote-menu button:hover {
-  background: color-mix(in srgb, var(--pb-accent) 38%, rgba(255, 255, 255, 0.1));
-}
-
 @keyframes rowControlsIn {
   from {
     opacity: 0;
@@ -3311,74 +3275,6 @@ input:focus {
 .player-choice-actions .primary-action {
   justify-content: center;
   min-height: 48px;
-}
-
-.vote-prompt-backdrop {
-  z-index: 560;
-}
-
-.vote-prompt-card {
-  display: grid;
-  gap: 14px;
-  width: min(430px, calc(100vw - 28px));
-  padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--pb-accent) 30%, rgba(255, 255, 255, 0.16));
-  border-radius: 18px;
-  color: #ffffff;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent),
-    rgba(16, 19, 28, 0.96);
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(18px);
-}
-
-.vote-kicker {
-  color: var(--pb-accent);
-  font-size: 0.78rem;
-  font-weight: 950;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.vote-prompt-card h2 {
-  margin: 2px 0 8px;
-  font-size: 1.65rem;
-}
-
-.vote-prompt-card p {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-}
-
-.vote-prompt-card p span {
-  color: rgba(226, 232, 240, 0.72);
-  font-size: 0.88rem;
-}
-
-.vote-counts,
-.vote-prompt-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.vote-counts span {
-  padding: 6px 9px;
-  border-radius: 999px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 0.82rem;
-  font-weight: 900;
-}
-
-.vote-prompt-actions {
-  justify-content: flex-end;
-}
-
-.vote-prompt-actions .mini-action {
-  min-width: 110px;
 }
 
 .room-panel-backdrop {

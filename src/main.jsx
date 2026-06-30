@@ -30,7 +30,6 @@ import {
   SkipForward,
   Trash2,
   UserRound,
-  Vote,
   Wand2,
   X
 } from "lucide-react";
@@ -53,7 +52,6 @@ import {
   onSnapshot,
   orderBy,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -172,7 +170,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.10";
+const APP_VERSION = "2026.06.30.11";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -813,7 +811,6 @@ function App() {
   const [emojiBarPosition, setEmojiBarPosition] = useState(null);
   const [messageSongId, setMessageSongId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
-  const [voteMenuSongId, setVoteMenuSongId] = useState("");
   const [installPrompt, setInstallPrompt] = useState(null);
   const [appInstalled, setAppInstalled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -847,7 +844,6 @@ function App() {
   const [roomShoutOpen, setRoomShoutOpen] = useState(false);
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
   const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
-  const [votes, setVotes] = useState([]);
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
   const [desktopPlayerSplit, setDesktopPlayerSplit] = useState(savedDesktopPlayerSplit);
@@ -896,7 +892,6 @@ function App() {
   const reactionSeenIdsRef = useRef(new Set());
   const shoutBaselineReadyRef = useRef(false);
   const shoutSeenIdsRef = useRef(new Set());
-  const applyingVoteIdsRef = useRef(new Set());
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
   const baseTheme = selectedColorTheme.base || "dark";
@@ -1123,7 +1118,6 @@ function App() {
       setSongs([]);
       setMembers([]);
       setSongMessages([]);
-      setVotes([]);
       setRoomLoading(false);
       setSongsLoading(false);
       setMembersLoading(false);
@@ -1147,7 +1141,6 @@ function App() {
     const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"));
     const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"));
     const shoutsRef = query(collection(db, "rooms", activeRoomId, "shouts"), orderBy("createdAt", "asc"));
-    const votesRef = query(collection(db, "rooms", activeRoomId, "votes"), orderBy("createdAt", "asc"));
 
     const handleRoomAccessLost = (error) => {
       setToast(error ? roomListenerErrorMessage(error) : "You were removed from this room.");
@@ -1184,10 +1177,6 @@ function App() {
     const unsubMessages = onSnapshot(messagesRef, (snap) => {
       if (!active) return;
       setSongMessages(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
-    }, handleRoomAccessLost);
-    const unsubVotes = onSnapshot(votesRef, (snap) => {
-      if (!active) return;
-      setVotes(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
     }, handleRoomAccessLost);
     const unsubReactions = onSnapshot(reactionsRef, (snap) => {
       if (!active) return;
@@ -1230,7 +1219,6 @@ function App() {
       unsubSongs();
       unsubMembers();
       unsubMessages();
-      unsubVotes();
       unsubReactions();
       unsubShouts();
     };
@@ -1337,7 +1325,6 @@ function App() {
   const internalSearchEnabled = room?.internalSearchEnabled === true;
   const floatingReactionsEnabled = room?.floatingReactionsEnabled !== false;
   const roomShoutsEnabled = room?.roomShoutsEnabled !== false;
-  const votingEnabled = room?.votingEnabled !== false;
   const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
   const roomPartyMotionEnabled = room?.partyMotionEnabled !== false;
@@ -1448,22 +1435,6 @@ function App() {
   const totalMessages = songs.reduce((total, song) => total + messagesForSong(song).length, 0);
   const googleMemberCount = members.filter((member) => member.isAnonymous === false).length;
   const guestMemberCount = Math.max(0, members.length - googleMemberCount);
-  const activeVotes = votes.filter((vote) => vote.status === "open" && songs.some((song) => song.id === vote.songId));
-  const votePrompt = votingEnabled ? activeVotes.find((vote) => !vote.votesByUser?.[user?.uid]) || null : null;
-  const voteThreshold = Math.max(1, Math.floor(members.length / 2) + 1);
-  const voteActionLabel = (action) => {
-    if (action === "playNext") return "Play Next";
-    if (action === "removeSong") return "Remove Song";
-    return "Vote";
-  };
-  const voteCounts = (vote) => {
-    const values = Object.values(vote?.votesByUser || {});
-    return {
-      yes: values.filter((value) => value === "yes").length,
-      no: values.filter((value) => value === "no").length,
-      total: values.length
-    };
-  };
   const analyticsPeople = members
     .map((member) => {
       const added = songs.filter((song) => song.addedByUid === member.id).length;
@@ -1995,7 +1966,6 @@ function App() {
             internalSearchEnabled: false,
             floatingReactionsEnabled: true,
             roomShoutsEnabled: true,
-            votingEnabled: true,
             visualizerEnabled: false,
             partyMotionEnabled: true,
             tagline: "",
@@ -2754,72 +2724,6 @@ function App() {
     }
   }
 
-  async function startSongVote(song, action) {
-    if (!user || !activeRoomId || !song?.id) return;
-    if (!votingEnabled) {
-      setToast("Voting is turned off for this room.");
-      return;
-    }
-    if (action === "removeSong" && song.addedByUid === user.uid && !isAdmin) {
-      await removeOwnSong(song);
-      return;
-    }
-    const display = playlistTrackDisplay(song);
-    const starterName = (memberRecord?.name || activeNickname || nicknameFor(user, "Guest")).slice(0, 30) || "Guest";
-    const voteRef = doc(db, "rooms", activeRoomId, "votes", `${song.id}_${action}`);
-    try {
-      const voteResult = await runTransaction(db, async (transaction) => {
-        const voteSnap = await transaction.get(voteRef);
-        if (voteSnap.exists()) {
-          const voteData = voteSnap.data();
-          if (voteData?.status === "open") {
-            transaction.update(voteRef, { [`votesByUser.${user.uid}`]: "yes" });
-            return "cast";
-          }
-          return "closed";
-        }
-        transaction.set(voteRef, {
-          songId: song.id,
-          songTitle: display.title || song.title || "Untitled",
-          songArtist: display.artist || song.artist || "",
-          action,
-          startedByUid: user.uid,
-          startedByName: starterName,
-          votesByUser: { [user.uid]: "yes" },
-          status: "open",
-          at: Date.now(),
-          createdAt: serverTimestamp()
-        });
-        return "created";
-      });
-      touchRoomActivity().catch(() => undefined);
-      setSelectedSongId("");
-      setToast(voteResult === "cast"
-        ? `You voted yes to ${voteActionLabel(action).toLowerCase()}.`
-        : voteResult === "closed"
-          ? "That vote already finished."
-          : `Vote started: ${voteActionLabel(action)}.`);
-    } catch {
-      setToast("Could not start that vote. Try again.");
-    }
-  }
-
-  async function castSongVote(vote, choice) {
-    if (!user || !activeRoomId || !vote?.id || !["yes", "no"].includes(choice)) return;
-    if (!votingEnabled) {
-      setToast("Voting is turned off for this room.");
-      return;
-    }
-    try {
-      await updateDoc(doc(db, "rooms", activeRoomId, "votes", vote.id), {
-        [`votesByUser.${user.uid}`]: choice
-      });
-      touchRoomActivity().catch(() => undefined);
-    } catch {
-      setToast("Could not save your vote. Try again.");
-    }
-  }
-
   async function clearPlaylist() {
     if (!isAdmin || !activeRoomId || !songs.length) return;
     const confirmed = window.confirm("Clear the entire playlist for this room?");
@@ -2873,73 +2777,6 @@ function App() {
       ...roomActivityUpdate()
     });
   }
-
-  useEffect(() => {
-    if (!votingEnabled || !isAdmin || !activeRoomId || !user || members.length === 0) return;
-
-    activeVotes.forEach((vote) => {
-      const counts = voteCounts(vote);
-      const shouldApprove = counts.yes >= voteThreshold;
-      const shouldReject = !shouldApprove && (counts.no >= voteThreshold || counts.total >= members.length);
-      if (!shouldApprove && !shouldReject) return;
-      if (applyingVoteIdsRef.current.has(vote.id)) return;
-
-      applyingVoteIdsRef.current.add(vote.id);
-      (async () => {
-        const voteRef = doc(db, "rooms", activeRoomId, "votes", vote.id);
-        try {
-          if (shouldReject) {
-            await updateDoc(voteRef, {
-              status: "rejected",
-              appliedAt: serverTimestamp(),
-              appliedBy: user.uid
-            });
-            return;
-          }
-
-          const targetSong = songs.find((song) => song.id === vote.songId);
-          if (!targetSong) {
-            await updateDoc(voteRef, {
-              status: "rejected",
-              appliedAt: serverTimestamp(),
-              appliedBy: user.uid
-            });
-            return;
-          }
-
-          const batch = writeBatch(db);
-          if (vote.action === "removeSong") {
-            batch.delete(doc(db, "rooms", activeRoomId, "songs", targetSong.id));
-          } else if (vote.action === "playNext") {
-            const queueWithoutTarget = songs.filter((song) => song.id !== targetSong.id);
-            const currentIndex = queueWithoutTarget.findIndex((song) => song.id === room?.nowPlayingId);
-            let nextPosition = Number(targetSong.position) || nextQueuePosition(songs);
-            if (currentIndex >= 0) {
-              const currentPosition = Number(queueWithoutTarget[currentIndex]?.position) || 0;
-              const nextSong = queueWithoutTarget[currentIndex + 1] || null;
-              nextPosition = nextSong
-                ? (currentPosition + (Number(nextSong.position) || currentPosition + 1)) / 2
-                : currentPosition + 1;
-            } else if (queueWithoutTarget.length > 0) {
-              nextPosition = (Number(queueWithoutTarget[0].position) || Date.now()) - 1;
-            }
-            batch.update(doc(db, "rooms", activeRoomId, "songs", targetSong.id), { position: nextPosition });
-          }
-
-          batch.update(voteRef, {
-            status: "approved",
-            appliedAt: serverTimestamp(),
-            appliedBy: user.uid
-          });
-          await batch.commit();
-        } catch {
-          // Another admin may have applied it first.
-        } finally {
-          applyingVoteIdsRef.current.delete(vote.id);
-        }
-      })();
-    });
-  }, [activeRoomId, activeVotes, isAdmin, members.length, room?.nowPlayingId, songs, user, voteThreshold, votingEnabled]);
 
   async function syncPlaybackState({ songId, seconds, state }) {
     if (!isActiveDj || !activeRoomId || !user || !songId || songId !== room?.nowPlayingId) return;
@@ -3562,8 +3399,6 @@ function App() {
     setSongs([]);
     setMembers([]);
     setSongMessages([]);
-    setVotes([]);
-    setVoteMenuSongId("");
     setPlayerChoicePrompt(null);
     setDismissedPlayerPromptKey("");
     setDismissedVersionPrompt("");
@@ -3647,11 +3482,6 @@ function App() {
   async function updateRoomShoutsEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { roomShoutsEnabled: enabled, ...roomActivityUpdate() });
-  }
-
-  async function updateVotingEnabled(enabled) {
-    if (!isAdmin || !activeRoomId) return;
-    await updateDoc(doc(db, "rooms", activeRoomId), { votingEnabled: enabled, ...roomActivityUpdate() });
   }
 
   async function updatePartyMotionEnabled(enabled) {
@@ -4548,8 +4378,6 @@ function App() {
               const isSelectedSong = selectedSongId === song.id;
               const canDeleteOwnSong = Boolean(user && song.addedByUid === user.uid && !isAdmin);
               const isDeleteRevealed = deleteRevealSongId === song.id;
-              const isVoteMenuOpen = voteMenuSongId === song.id;
-              const openVoteForSong = activeVotes.find((vote) => vote.songId === song.id);
               const visibleTrackDisplay = trackDisplay;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
@@ -4584,7 +4412,6 @@ function App() {
                     }
                     setSelectedSongId((current) => {
                       const next = current === song.id ? "" : song.id;
-                      if (!next || next !== song.id) setVoteMenuSongId("");
                       return next;
                     });
                   }}
@@ -4672,7 +4499,7 @@ function App() {
 
                   {!isAdmin && isSelectedSong && (
                     <div
-                      className={isVoteMenuOpen ? "song-reaction-actions is-vote-open" : "song-reaction-actions"}
+                      className="song-reaction-actions"
                       onClick={(event) => event.stopPropagation()}
                       onPointerDown={(event) => event.stopPropagation()}
                       onPointerUp={(event) => event.stopPropagation()}
@@ -4692,60 +4519,6 @@ function App() {
                       >
                         <Smile aria-hidden="true" />
                       </button>
-                      {votingEnabled && (
-                        <button
-                          className="song-reaction-button vote-track-button"
-                          type="button"
-                          aria-label="Start a vote"
-                          title={openVoteForSong ? `Vote open: ${voteActionLabel(openVoteForSong.action)}` : "Start a vote"}
-                          onPointerDown={(event) => event.stopPropagation()}
-                          onPointerUp={(event) => event.stopPropagation()}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setVoteMenuSongId((current) => current === song.id ? "" : song.id);
-                          }}
-                        >
-                          <Vote aria-hidden="true" />
-                        </button>
-                      )}
-                      {votingEnabled && isVoteMenuOpen && (
-                        <div
-                          className="track-vote-menu"
-                          role="menu"
-                          aria-label="Vote action"
-                          onPointerDown={(event) => event.stopPropagation()}
-                          onPointerUp={(event) => event.stopPropagation()}
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onPointerUp={(event) => event.stopPropagation()}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setVoteMenuSongId("");
-                              startSongVote(song, "playNext");
-                            }}
-                          >
-                            Play Next
-                          </button>
-                          <button
-                            type="button"
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onPointerUp={(event) => event.stopPropagation()}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setVoteMenuSongId("");
-                              startSongVote(song, "removeSong");
-                            }}
-                          >
-                            {canDeleteOwnSong ? "Remove My Song" : "Remove Song"}
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )}
                 </article>
@@ -4851,36 +4624,6 @@ function App() {
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {votePrompt && (
-        <div className="modal-backdrop vote-prompt-backdrop" role="dialog" aria-modal="true" aria-labelledby="vote-prompt-title">
-          <section className="vote-prompt-card">
-            <div>
-              <span className="vote-kicker">Room Vote</span>
-              <h2 id="vote-prompt-title">{voteActionLabel(votePrompt.action)}?</h2>
-              <p>
-                <strong>{votePrompt.songArtist ? `${votePrompt.songArtist} - ` : ""}{votePrompt.songTitle || "This song"}</strong>
-                <span>Started by {votePrompt.startedByName || "Guest"}</span>
-              </p>
-            </div>
-            <div className="vote-counts" aria-label="Vote progress">
-              <span>Yes {voteCounts(votePrompt).yes}</span>
-              <span>No {voteCounts(votePrompt).no}</span>
-              <span>Needs {voteThreshold}</span>
-            </div>
-            <div className="vote-prompt-actions">
-              <button className="mini-action primary" onClick={() => castSongVote(votePrompt, "yes")} type="button">
-                <Check aria-hidden="true" />
-                Yes
-              </button>
-              <button className="mini-action ghost" onClick={() => castSongVote(votePrompt, "no")} type="button">
-                <X aria-hidden="true" />
-                No
-              </button>
-            </div>
-          </section>
         </div>
       )}
 
@@ -5567,20 +5310,6 @@ function App() {
                     type="button"
                   >
                     {roomShoutsEnabled ? "On" : "Off"}
-                  </button>
-                </div>
-                <div className="setting-row">
-                  <div>
-                    <strong>Voting</strong>
-                    <span>{votingEnabled ? "Guests can vote to play next or remove songs" : "Track voting is off"}</span>
-                  </div>
-                  <button
-                    className={votingEnabled ? "toggle-button is-on" : "toggle-button"}
-                    onClick={() => updateVotingEnabled(!votingEnabled)}
-                    disabled={!isAdmin}
-                    type="button"
-                  >
-                    {votingEnabled ? "On" : "Off"}
                   </button>
                 </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
