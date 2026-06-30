@@ -171,7 +171,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.08";
+const APP_VERSION = "2026.06.30.09";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -2764,6 +2764,7 @@ function App() {
       return;
     }
     const display = playlistTrackDisplay(song);
+    const starterName = (memberRecord?.name || activeNickname || nicknameFor(user, "Guest")).slice(0, 30) || "Guest";
     try {
       await setDoc(doc(collection(db, "rooms", activeRoomId, "votes")), {
         songId: song.id,
@@ -2771,13 +2772,13 @@ function App() {
         songArtist: display.artist || song.artist || "",
         action,
         startedByUid: user.uid,
-        startedByName: activeNickname.slice(0, 30) || "Guest",
+        startedByName: starterName,
         votesByUser: { [user.uid]: "yes" },
         status: "open",
         at: Date.now(),
         createdAt: serverTimestamp()
       });
-      await touchRoomActivity();
+      touchRoomActivity().catch(() => undefined);
       setSelectedSongId("");
       setToast(`Vote started: ${voteActionLabel(action)}.`);
     } catch {
@@ -2791,7 +2792,7 @@ function App() {
       await updateDoc(doc(db, "rooms", activeRoomId, "votes", vote.id), {
         [`votesByUser.${user.uid}`]: choice
       });
-      await touchRoomActivity();
+      touchRoomActivity().catch(() => undefined);
     } catch {
       setToast("Could not save your vote. Try again.");
     }
@@ -4643,12 +4644,19 @@ function App() {
                   )}
 
                   {!isAdmin && isSelectedSong && (
-                    <div className={isVoteMenuOpen ? "song-reaction-actions is-vote-open" : "song-reaction-actions"} onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+                    <div
+                      className={isVoteMenuOpen ? "song-reaction-actions is-vote-open" : "song-reaction-actions"}
+                      onClick={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onPointerUp={(event) => event.stopPropagation()}
+                    >
                       <button
                         className="song-reaction-button song-smiley-button"
                         type="button"
                         aria-label="Choose reaction emoji"
                         title="Choose reaction emoji"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onPointerUp={(event) => event.stopPropagation()}
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -4662,6 +4670,8 @@ function App() {
                         type="button"
                         aria-label="Start a vote"
                         title={openVoteForSong ? `Vote open: ${voteActionLabel(openVoteForSong.action)}` : "Start a vote"}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onPointerUp={(event) => event.stopPropagation()}
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -4671,9 +4681,18 @@ function App() {
                         <Vote aria-hidden="true" />
                       </button>
                       {isVoteMenuOpen && (
-                        <div className="track-vote-menu" role="menu" aria-label="Vote action">
+                        <div
+                          className="track-vote-menu"
+                          role="menu"
+                          aria-label="Vote action"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onPointerUp={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           <button
                             type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onPointerUp={(event) => event.stopPropagation()}
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
@@ -4685,6 +4704,8 @@ function App() {
                           </button>
                           <button
                             type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onPointerUp={(event) => event.stopPropagation()}
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
