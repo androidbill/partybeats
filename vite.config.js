@@ -23,6 +23,16 @@ export default defineConfig({
         categories: ["music", "entertainment", "social"],
         scope: ".",
         start_url: ".",
+        share_target: {
+          action: "./?share-target=1",
+          method: "GET",
+          enctype: "application/x-www-form-urlencoded",
+          params: {
+            title: "title",
+            text: "text",
+            url: "url"
+          }
+        },
         icons: [
           {
             src: "partybeats-icon.png",
