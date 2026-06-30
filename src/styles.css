@@ -2004,10 +2004,11 @@ input:focus {
   height: 52px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
+  color: #111827;
   background:
-    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.95), transparent 24%),
-    linear-gradient(135deg, var(--pb-highlight), var(--pb-accent-2));
-  box-shadow: 0 16px 38px color-mix(in srgb, var(--pb-accent-2) 32%, transparent);
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.96), transparent 24%),
+    linear-gradient(135deg, var(--pb-link), var(--pb-accent));
+  box-shadow: 0 16px 38px color-mix(in srgb, var(--pb-link) 28%, transparent);
   font-size: 1.55rem;
   line-height: 1;
   touch-action: manipulation;
@@ -2015,9 +2016,7 @@ input:focus {
 }
 
 .floating-reaction-button.is-unset {
-  color: #ffffff;
-  border: 2px solid rgba(255, 255, 255, 0.76);
-  background: rgba(255, 255, 255, 0.08);
+  color: #111827;
 }
 
 .floating-reaction-button.is-unset svg {
