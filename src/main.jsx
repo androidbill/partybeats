@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.17";
+const APP_VERSION = "2026.06.30.01";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -776,8 +776,6 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [externalSearchProvider, setExternalSearchProvider] = useState(savedExternalSearchProvider);
   const [youtubeLink, setYoutubeLink] = useState("");
-  const [songDedication, setSongDedication] = useState("");
-  const [mysteryAdd, setMysteryAdd] = useState(false);
   const [externalSearchStep, setExternalSearchStep] = useState("search");
   const [externalClipboardCandidate, setExternalClipboardCandidate] = useState(null);
   const [externalClipboardChecking, setExternalClipboardChecking] = useState(false);
@@ -2140,7 +2138,6 @@ function App() {
     const title = decodeHtmlEntities(selectedVideo?.title || "YouTube track");
     const channelTitle = decodeHtmlEntities(selectedVideo?.channelTitle || "YouTube");
     const thumbnail = selectedVideo?.thumbnail || youtubeThumb(videoId);
-    const dedication = songDedication.trim().slice(0, 48);
     const nextPosition = nextQueuePosition(songs);
     const songRef = doc(collection(db, "rooms", activeRoomId, "songs"));
     const batch = writeBatch(db);
@@ -2156,8 +2153,6 @@ function App() {
       addedByName: activeNickname,
       addedByIsAnonymous: user.isAnonymous,
       position: nextPosition,
-      dedication,
-      mystery: mysteryAdd,
       emojiByUser: {},
       createdAt: serverTimestamp()
     });
@@ -2191,8 +2186,6 @@ function App() {
     setAddingSongKey("");
     setSearchResults([]);
     setYoutubeLink("");
-    setSongDedication("");
-    setMysteryAdd(false);
     setAddSheetOpen(false);
     return true;
   }
@@ -2609,7 +2602,6 @@ function App() {
 
       const batch = writeBatch(db);
       const startingPosition = nextQueuePosition(songs);
-      const dedication = songDedication.trim().slice(0, 48);
       let firstSongRef = null;
       tracks.forEach((track, index) => {
         const details = detailsById.get(track.videoId);
@@ -2627,8 +2619,6 @@ function App() {
           addedByName: activeNickname,
           addedByIsAnonymous: user.isAnonymous,
           position: startingPosition + (index / 1000),
-          dedication,
-          mystery: mysteryAdd,
           emojiByUser: {},
           createdAt: serverTimestamp()
         });
@@ -2651,8 +2641,6 @@ function App() {
       const skippedCount = playlistItems.length - tracks.length;
       setToast(`Added ${tracks.length} playable tracks${skippedCount ? ` and skipped ${skippedCount} unavailable tracks` : ""}.`);
       setYoutubeLink("");
-      setSongDedication("");
-      setMysteryAdd(false);
       setAddSheetOpen(false);
       return true;
     } catch (error) {
@@ -4392,7 +4380,7 @@ function App() {
           </div>
           <p className="track-credit">
             {nowPlayingSong
-              ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}${nowPlayingSong.dedication ? ` · for ${nowPlayingSong.dedication}` : ""}`
+              ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
               : nowPlayingSyncing
                 ? "Fetching the song that is already playing in this room."
                 : "The Active DJ starts playback from the phone connected to the speaker."}
@@ -4546,10 +4534,7 @@ function App() {
               const isDeleteRevealed = deleteRevealSongId === song.id;
               const isVoteMenuOpen = voteMenuSongId === song.id;
               const openVoteForSong = activeVotes.find((vote) => vote.songId === song.id);
-              const hideMysteryTrack = song.mystery && !isCurrentSong && !isPlayedSong && !isAdmin;
-              const visibleTrackDisplay = hideMysteryTrack
-                ? { artist: "Mystery Track", title: `from ${song.addedByName || "Guest"}` }
-                : trackDisplay;
+              const visibleTrackDisplay = trackDisplay;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
               const emojiCounts = EMOJIS.map((emoji) => ({
@@ -4624,7 +4609,6 @@ function App() {
                     </span>
                     <span className="uploaded-by">
                       Uploaded by {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
-                      {song.dedication ? ` · dedicated to ${song.dedication}` : ""}
                     </span>
                   </button>
 
@@ -5066,27 +5050,6 @@ function App() {
                 </small>
               </div>
             )}
-
-            <div className="song-fun-options">
-              <label>
-                <span>Dedication</span>
-                <input
-                  value={songDedication}
-                  onChange={(event) => setSongDedication(event.target.value.slice(0, 48))}
-                  onFocus={selectExistingText}
-                  placeholder="Optional: for someone in the room"
-                  maxLength={48}
-                />
-              </label>
-              <label className="mystery-toggle">
-                <input
-                  type="checkbox"
-                  checked={mysteryAdd}
-                  onChange={(event) => setMysteryAdd(event.target.checked)}
-                />
-                <span>Mystery add</span>
-              </label>
-            </div>
 
             {internalSearchAvailable && (
               <div className="search-tabs" role="tablist" aria-label="Song search mode">

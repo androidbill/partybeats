@@ -2290,24 +2290,6 @@ input:focus {
   text-transform: uppercase;
 }
 
-.mystery-toggle {
-  grid-template-columns: auto auto;
-  align-items: center;
-  min-height: 42px;
-  padding: 0 10px;
-  border-radius: 999px;
-  color: #17181f;
-  background: #f7c948;
-  font-weight: 900;
-}
-
-.mystery-toggle input {
-  width: 18px;
-  height: 18px;
-  min-height: 0;
-  padding: 0;
-}
-
 .search-tabs,
 .external-provider-toggle,
 .panel-tabs {
@@ -4979,11 +4961,6 @@ input:focus {
 
   .song-fun-options {
     grid-template-columns: 1fr;
-  }
-
-  .mystery-toggle {
-    justify-content: start;
-    width: fit-content;
   }
 
   .tagline-setting,
