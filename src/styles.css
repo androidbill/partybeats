@@ -2002,13 +2002,15 @@ input:focus {
   place-items: center;
   width: 52px;
   height: 52px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.82);
   border-radius: 999px;
-  color: #111827;
-  background:
-    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.96), transparent 24%),
-    linear-gradient(135deg, var(--pb-link), var(--pb-accent));
-  box-shadow: 0 16px 38px color-mix(in srgb, var(--pb-link) 28%, transparent);
+  color: #ffffff;
+  background: rgba(5, 8, 18, 0.36);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   font-size: 1.55rem;
   line-height: 1;
   touch-action: manipulation;
@@ -2016,7 +2018,7 @@ input:focus {
 }
 
 .floating-reaction-button.is-unset {
-  color: #111827;
+  color: #ffffff;
 }
 
 .floating-reaction-button.is-unset svg {
@@ -2034,13 +2036,15 @@ input:focus {
   place-items: center;
   width: 52px;
   height: 52px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.82);
   border-radius: 999px;
-  color: #111827;
-  background:
-    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.96), transparent 24%),
-    linear-gradient(135deg, var(--pb-link), var(--pb-accent));
-  box-shadow: 0 16px 38px color-mix(in srgb, var(--pb-link) 28%, transparent);
+  color: #ffffff;
+  background: rgba(5, 8, 18, 0.36);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   touch-action: manipulation;
   user-select: none;
 }
