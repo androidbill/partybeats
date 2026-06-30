@@ -2427,6 +2427,40 @@ input:focus {
   width: 100%;
 }
 
+.clipboard-paste-target {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(88, 198, 255, 0.34);
+  border-radius: 14px;
+  background: rgba(88, 198, 255, 0.1);
+}
+
+.clipboard-paste-target span {
+  color: #1f2937;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.clipboard-paste-target input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(10, 15, 28, 0.18);
+  border-radius: 12px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #151821;
+  font: inherit;
+  font-weight: 800;
+  outline: none;
+}
+
+.clipboard-paste-target input:focus {
+  border-color: rgba(88, 198, 255, 0.82);
+  box-shadow: 0 0 0 4px rgba(88, 198, 255, 0.18);
+}
+
 .compact-link-form {
   margin-bottom: 0;
 }
@@ -2449,6 +2483,21 @@ input:focus {
 
 .room-app.dark-mode .clipboard-track small {
   color: #a7adbb;
+}
+
+.room-app.dark-mode .clipboard-paste-target {
+  border-color: rgba(88, 198, 255, 0.36);
+  background: rgba(88, 198, 255, 0.1);
+}
+
+.room-app.dark-mode .clipboard-paste-target span {
+  color: #dce8ff;
+}
+
+.room-app.dark-mode .clipboard-paste-target input {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(5, 8, 18, 0.84);
+  color: #ffffff;
 }
 
 .cooldown-note {

@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.10";
+const APP_VERSION = "2026.06.29.11";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -781,6 +781,7 @@ function App() {
   const [externalClipboardCandidate, setExternalClipboardCandidate] = useState(null);
   const [externalClipboardChecking, setExternalClipboardChecking] = useState(false);
   const [externalClipboardMessage, setExternalClipboardMessage] = useState("");
+  const [clipboardPasteMode, setClipboardPasteMode] = useState(false);
   const [pendingSharedLink, setPendingSharedLink] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -857,6 +858,7 @@ function App() {
   const emojiBarRef = useRef(null);
   const roomShoutBackdropRef = useRef(null);
   const roomShoutTextareaRef = useRef(null);
+  const clipboardPasteInputRef = useRef(null);
   const nicknameBackdropRef = useRef(null);
   const nicknameInputRef = useRef(null);
   const playerCardRef = useRef(null);
@@ -2336,11 +2338,36 @@ function App() {
     }
   }
 
+  async function addPastedSongLink(event) {
+    const pastedText = event.clipboardData?.getData("text") || "";
+    const shareUrl = extractYouTubeShareUrl(pastedText);
+    if (!shareUrl) {
+      setExternalClipboardMessage("That paste did not include a YouTube or YouTube Music link.");
+      return;
+    }
+    event.preventDefault();
+    setYoutubeLink(shareUrl);
+    await addIncomingSharedLink(shareUrl);
+  }
+
+  async function addCopiedSongFromButton() {
+    await addSongFromClipboard();
+  }
+
   function resetExternalClipboardPrompt() {
     setExternalClipboardCandidate(null);
     setExternalClipboardMessage("");
     setExternalClipboardChecking(false);
+    setClipboardPasteMode(false);
     lastClipboardVideoIdRef.current = "";
+  }
+
+  function requestClipboardPaste(message = "Tap the field below, paste the copied link, and PartyBeats will add it.") {
+    setClipboardPasteMode(true);
+    setExternalClipboardMessage(message);
+    window.setTimeout(() => {
+      clipboardPasteInputRef.current?.focus();
+    }, 80);
   }
 
   async function clearClipboardAfterExternalSearch() {
@@ -2413,7 +2440,7 @@ function App() {
       return;
     }
     if (!navigator.clipboard?.readText) {
-      if (!automatic) setExternalClipboardMessage("iPhone blocked clipboard access. Paste the copied link below, then tap Add Link.");
+      if (!automatic) requestClipboardPaste("Your browser needs the native Paste action. Paste the copied link below.");
       return;
     }
 
@@ -2454,7 +2481,7 @@ function App() {
         if (!automatic) {
           setExternalClipboardMessage("No playable YouTube song link was found. Paste the link below, then tap Add Link.");
         } else {
-          setExternalClipboardMessage("No copied YouTube link found yet. If it does not auto-add, tap Add from Clipboard.");
+          setExternalClipboardMessage("No copied YouTube link found yet. If it does not auto-add, tap Add Copied Song.");
         }
         return;
       }
@@ -2482,9 +2509,9 @@ function App() {
     } catch {
       if (automatic) {
         stopExternalClipboardAutoAdd();
-        setExternalClipboardMessage("Your browser blocked automatic clipboard access. Tap Add Copied Song to finish.");
+        requestClipboardPaste("Your browser blocked automatic clipboard access. Tap Add Copied Song, or paste the copied link below.");
       } else {
-        setExternalClipboardMessage("iPhone could not read the clipboard. Paste the copied link below, then tap Add Link.");
+        requestClipboardPaste("Your browser needs the native Paste action. Paste the copied link below.");
       }
     } finally {
       setExternalClipboardChecking(false);
@@ -5181,10 +5208,25 @@ function App() {
                           <strong>{externalClipboardChecking ? "Checking clipboard" : "Add copied song link"}</strong>
                           <span>{externalClipboardMessage || "Return to PartyBeats after copying a YouTube or YouTube Music link. If your browser asks for a tap, tap Add Copied Song."}</span>
                         </div>
-                        <button className="primary-action clipboard-check-action" onClick={addSongFromClipboard} disabled={externalClipboardChecking || Boolean(addingSongKey)} type="button">
+                        <button className="primary-action clipboard-check-action" onClick={addCopiedSongFromButton} disabled={externalClipboardChecking || Boolean(addingSongKey)} type="button">
                           <Plus aria-hidden="true" />
                           {externalClipboardChecking || addingSongKey ? "Adding..." : "Add Copied Song"}
                         </button>
+                        {clipboardPasteMode && (
+                          <label className="clipboard-paste-target">
+                            <span>Paste copied link</span>
+                            <input
+                              ref={clipboardPasteInputRef}
+                              value={youtubeLink}
+                              onChange={(event) => setYoutubeLink(event.target.value)}
+                              onPaste={addPastedSongLink}
+                              placeholder="Tap here, then Paste"
+                              inputMode="url"
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                            />
+                          </label>
+                        )}
                         <form className="youtube-link-form compact-link-form" onSubmit={addSongFromLink}>
                           <input
                             value={youtubeLink}
