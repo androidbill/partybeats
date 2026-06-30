@@ -5520,43 +5520,20 @@ input:focus {
   opacity: 0.66;
 }
 
-.embedded-party-motion {
+.visualizer-party-motion {
   position: absolute;
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  opacity: 1;
+  opacity: 0.94;
   pointer-events: none;
-  --motion-energy: 2.2;
+  mix-blend-mode: screen;
 }
 
-.embedded-party-motion .pulse-waves {
-  inset: -22%;
-}
-
-.embedded-party-motion .orbit-sparks i {
-  animation-duration: 2.7s;
-}
-
-.embedded-party-motion .chasing-lights span {
-  animation-duration: 4.6s;
-}
-
-.embedded-party-motion .laser-sweep span {
-  height: 2px;
-  opacity: 0.44;
-  animation-duration: 7.2s;
-}
-
-.embedded-party-motion .electric-grid {
-  opacity: 0.48;
-}
-
-.music-visualizer.has-embedded-party-motion {
+.music-visualizer.has-party-motion-canvas {
   background:
-    radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--pb-accent-2) 36%, transparent), transparent 32%),
-    radial-gradient(circle at 82% 22%, color-mix(in srgb, var(--pb-accent) 32%, transparent), transparent 36%),
-    radial-gradient(circle at 50% 86%, color-mix(in srgb, var(--pb-highlight) 24%, transparent), transparent 40%),
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--pb-accent-2) 18%, transparent), transparent 32%),
+    radial-gradient(circle at 86% 78%, color-mix(in srgb, var(--pb-accent) 16%, transparent), transparent 30%),
     #020308 !important;
 }
 
@@ -7804,8 +7781,8 @@ input,
 .now-playing-card.has-fullscreen-motion:fullscreen .visualizer-bars,
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-ring,
 .now-playing-card.has-fullscreen-motion:fullscreen .visualizer-ring,
-.now-playing-card.is-fullscreen-player.has-fullscreen-motion .embedded-party-motion + .visualizer-glow,
-.now-playing-card.has-fullscreen-motion:fullscreen .embedded-party-motion + .visualizer-glow {
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-party-motion + .visualizer-glow,
+.now-playing-card.has-fullscreen-motion:fullscreen .visualizer-party-motion + .visualizer-glow {
   z-index: 2;
 }
 
@@ -8623,6 +8600,24 @@ input,
 .room-app .own-song-delete-action svg {
   width: 18px;
   height: 18px;
+}
+
+.music-visualizer.has-party-motion-canvas,
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer.has-party-motion-canvas,
+.now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer.has-party-motion-canvas {
+  background:
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--pb-accent-2) 18%, transparent), transparent 32%),
+    radial-gradient(circle at 86% 78%, color-mix(in srgb, var(--pb-accent) 16%, transparent), transparent 30%),
+    #020308 !important;
+}
+
+.music-visualizer.has-party-motion-canvas::before,
+.music-visualizer.has-party-motion-canvas::after,
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer.has-party-motion-canvas::before,
+.now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer.has-party-motion-canvas::after,
+.now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer.has-party-motion-canvas::before,
+.now-playing-card.has-fullscreen-motion:fullscreen .music-visualizer.has-party-motion-canvas::after {
+  display: none !important;
 }
 
 .room-app .song-row .song-main,

@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.14";
+const APP_VERSION = "2026.06.29.15";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -617,7 +617,7 @@ function isIosDevice() {
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
-function PartyMotionCanvas({ className = "", embedded = false }) {
+function PartyMotionCanvas({ className = "" }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -631,11 +631,11 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
     let width = 1;
     let height = 1;
     let dpr = 1;
-    const particles = Array.from({ length: embedded ? 86 : 118 }, (_, index) => ({
+    const particles = Array.from({ length: 118 }, (_, index) => ({
       seed: index * 91.7,
       x: Math.random(),
       y: Math.random(),
-      radius: 1.4 + Math.random() * (embedded ? 4.2 : 5.2),
+      radius: 1.4 + Math.random() * 5.2,
       speed: 0.34 + Math.random() * 1.18,
       drift: -0.72 + Math.random() * 1.44
     }));
@@ -668,8 +668,8 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
 
     const render = (timestamp = 0) => {
       const t = timestamp / 1000;
-      const energy = embedded ? 2.65 : 1.85;
-      const pulse = 1 + Math.sin(t * (embedded ? 2.8 : 2.15)) * (embedded ? 0.16 : 0.11);
+      const energy = 1.85;
+      const pulse = 1 + Math.sin(t * 2.15) * 0.11;
       const accent = themeColor("--pb-accent", "#38bdf8");
       const accent2 = themeColor("--pb-accent-2", "#6366f1");
       const highlight = themeColor("--pb-highlight", "#7dd3fc");
@@ -677,20 +677,20 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
       const wash = ctx.createLinearGradient(0, 0, width, height);
-      wash.addColorStop(0, `${accent2}${embedded ? "30" : "24"}`);
+      wash.addColorStop(0, `${accent2}24`);
       wash.addColorStop(0.5, "rgba(0,0,0,0)");
-      wash.addColorStop(1, `${accent}${embedded ? "34" : "22"}`);
+      wash.addColorStop(1, `${accent}22`);
       ctx.fillStyle = wash;
       ctx.fillRect(0, 0, width, height);
 
       ctx.globalCompositeOperation = "screen";
-      glow(width * (0.24 + Math.sin(t * 0.46) * 0.12), height * (0.28 + Math.cos(t * 0.34) * 0.08), Math.min(width, height) * (0.7 + energy * 0.08) * pulse, accent2, embedded ? "86" : "74");
-      glow(width * (0.78 + Math.cos(t * 0.4) * 0.13), height * (0.72 + Math.sin(t * 0.36) * 0.09), Math.min(width, height) * (0.58 + energy * 0.08) * pulse, accent, embedded ? "78" : "66");
-      glow(width * (0.5 + Math.sin(t * 0.52) * 0.08), height * (0.56 + Math.sin(t * 0.58) * 0.1), Math.min(width, height) * 0.56 * pulse, highlight, embedded ? "56" : "46");
+      glow(width * (0.24 + Math.sin(t * 0.46) * 0.12), height * (0.28 + Math.cos(t * 0.34) * 0.08), Math.min(width, height) * (0.7 + energy * 0.08) * pulse, accent2, "74");
+      glow(width * (0.78 + Math.cos(t * 0.4) * 0.13), height * (0.72 + Math.sin(t * 0.36) * 0.09), Math.min(width, height) * (0.58 + energy * 0.08) * pulse, accent, "66");
+      glow(width * (0.5 + Math.sin(t * 0.52) * 0.08), height * (0.56 + Math.sin(t * 0.58) * 0.1), Math.min(width, height) * 0.56 * pulse, highlight, "46");
 
-      ctx.globalAlpha = embedded ? 0.34 : 0.24;
+      ctx.globalAlpha = 0.24;
       ctx.lineWidth = 1;
-      const grid = embedded ? 46 : 64;
+      const grid = 64;
       const gridOffset = reducedMotion ? 0 : (t * 42 * energy) % grid;
       ctx.strokeStyle = accent;
       for (let x = -grid + gridOffset; x < width + grid; x += grid) {
@@ -713,14 +713,14 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
         const y = height - (((t * speed * 112 + particle.seed) % (height + 120)) - 60);
         const x = width * particle.x + Math.sin(t * 1.55 + particle.seed) * 42 * particle.drift;
         const color = index % 3 === 0 ? highlight : index % 2 === 0 ? accent : accent2;
-        ctx.fillStyle = `${color}${embedded ? "ba" : "9c"}`;
+        ctx.fillStyle = `${color}9c`;
         ctx.beginPath();
         ctx.arc(x, y, particle.radius, 0, Math.PI * 2);
         ctx.fill();
       });
 
       if (!reducedMotion) {
-        const sweepCount = embedded ? 7 : 5;
+        const sweepCount = 5;
         for (let index = 0; index < sweepCount; index += 1) {
           const progress = (t * (0.14 + index * 0.022) * energy + index * 0.21) % 1;
           const y = height * (0.16 + index * 0.18);
@@ -730,7 +730,7 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
           laser.addColorStop(0.5, index % 2 ? `${accent2}96` : `${highlight}a8`);
           laser.addColorStop(1, "rgba(255,255,255,0)");
           ctx.strokeStyle = laser;
-          ctx.lineWidth = embedded ? 2 : 1.5;
+          ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(x, y);
           ctx.lineTo(x + width * 0.38, y + height * 0.08);
@@ -751,7 +751,7 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
       resizeObserver?.disconnect();
       window.removeEventListener("resize", resize);
     };
-  }, [embedded]);
+  }, []);
 
   return <canvas ref={canvasRef} className={["party-motion-canvas", className].filter(Boolean).join(" ")} aria-hidden="true" />;
 }
@@ -4416,7 +4416,7 @@ function App() {
               roomId={activeRoomId}
               playbackState={playbackState}
               onPlaybackUpdate={syncPlaybackState}
-              fullscreenMotion={partyMotionEnabled && playerFullscreen}
+              fullscreenMotion={partyMotionEnabled}
             />
             <div className="player-actions dj-control-deck" aria-label="Active DJ controls">
               <button
@@ -6425,8 +6425,8 @@ function MusicVisualizer({ song, displayTrack, isPlaying, onTogglePlayback, full
   const artist = displayTrack?.artist || decodeHtmlEntities(song?.artist || "YouTube");
 
   return (
-    <div className={[isPlaying ? "music-visualizer" : "music-visualizer is-paused", fullscreenMotion ? "has-embedded-party-motion" : ""].filter(Boolean).join(" ")}>
-      {fullscreenMotion && <PartyMotionCanvas className="embedded-party-motion" embedded />}
+    <div className={[isPlaying ? "music-visualizer" : "music-visualizer is-paused", fullscreenMotion ? "has-party-motion-canvas" : ""].filter(Boolean).join(" ")}>
+      {fullscreenMotion && <PartyMotionCanvas className="visualizer-party-motion" />}
       <div className="visualizer-glow visualizer-glow-a" />
       <div className="visualizer-glow visualizer-glow-b" />
       <div className="visualizer-ring visualizer-ring-a" />
