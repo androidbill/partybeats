@@ -161,10 +161,11 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.06";
+const APP_VERSION = "2026.06.29.07";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
+const LAST_ACTIVE_ROOM_KEY = "partybeats-last-active-room";
 const APP_ICON_URL = `${import.meta.env.BASE_URL}partybeats-icon.png`;
 const PROFANITY_PATTERNS = [
   /\bass+hole\b/,
@@ -363,6 +364,15 @@ function extractYouTubeShareUrl(value) {
   if (!rawValue) return "";
   const urlMatch = rawValue.match(/https?:\/\/(?:www\.|m\.)?(?:music\.)?(?:youtube\.com|youtu\.be|youtube-nocookie\.com)\/[^\s"'<>]+/i);
   return (urlMatch?.[0] || rawValue).replace(/[)\].,;]+$/, "");
+}
+
+function extractSharedYouTubeLink(params) {
+  const candidates = [
+    params.get("url"),
+    params.get("text"),
+    params.get("title")
+  ].filter(Boolean);
+  return extractYouTubeShareUrl(candidates.join(" "));
 }
 
 function cleanYouTubeVideoId(videoId) {
@@ -771,6 +781,7 @@ function App() {
   const [externalClipboardCandidate, setExternalClipboardCandidate] = useState(null);
   const [externalClipboardChecking, setExternalClipboardChecking] = useState(false);
   const [externalClipboardMessage, setExternalClipboardMessage] = useState("");
+  const [pendingSharedLink, setPendingSharedLink] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [addingSongKey, setAddingSongKey] = useState("");
@@ -856,6 +867,7 @@ function App() {
   const externalSearchLeftAtRef = useRef(0);
   const externalClipboardCheckTimerRef = useRef(null);
   const externalClipboardAutoAddInFlightRef = useRef(false);
+  const pendingSharedLinkInFlightRef = useRef(false);
   const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
@@ -1234,12 +1246,37 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get("room");
+    const sharedLink = extractSharedYouTubeLink(params);
+    let rememberedRoomId = "";
+    try {
+      rememberedRoomId = normalizeRoomId(localStorage.getItem(LAST_ACTIVE_ROOM_KEY) || "");
+    } catch {
+      rememberedRoomId = "";
+    }
     if (roomParam) {
       const normalized = normalizeRoomId(roomParam);
       setRoomId(normalized);
       setRestoreRoomId(normalized);
+    } else if (sharedLink && /^[A-Z]{4}\d{3}$/.test(rememberedRoomId)) {
+      setRoomId(rememberedRoomId);
+      setRestoreRoomId(rememberedRoomId);
+    }
+    if (sharedLink) {
+      setPendingSharedLink(sharedLink);
+      setYoutubeLink(sharedLink);
+      setExternalSearchStep("paste");
+      setAddSheetOpen(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!activeRoomId) return;
+    try {
+      localStorage.setItem(LAST_ACTIVE_ROOM_KEY, activeRoomId);
+    } catch {
+      // Local storage can be unavailable in private browsing.
+    }
+  }, [activeRoomId]);
 
   useEffect(() => {
     if (authLoading || !user || !restoreRoomId || activeRoomId === restoreRoomId) return;
@@ -1349,6 +1386,14 @@ function App() {
     : isActiveDjAccount
       ? `Player on another device · ${activeDjName}`
       : `Player: ${activeDjName}`;
+
+  useEffect(() => {
+    if (!pendingSharedLink || !activeRoomId || !user || roomLoading || songsLoading) return undefined;
+    const timer = window.setTimeout(() => {
+      addIncomingSharedLink(pendingSharedLink);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [pendingSharedLink, activeRoomId, user?.uid, roomLoading, songsLoading]);
 
   useEffect(() => {
     if (!room || !user || !isAdmin || !isActiveDjAccount || !activePlayerDeviceId || activePlayerDeviceId === deviceId) {
@@ -2224,6 +2269,60 @@ function App() {
       await clearClipboardAfterExternalSearch();
       resetExternalClipboardPrompt();
       setExternalSearchStep("search");
+    }
+  }
+
+  async function addIncomingSharedLink(sharedLink) {
+    const shareUrl = extractYouTubeShareUrl(sharedLink);
+    if (!shareUrl || pendingSharedLinkInFlightRef.current || addingSongKey) return false;
+    if (!activeRoomId || !user) {
+      setYoutubeLink(shareUrl);
+      setExternalSearchStep("paste");
+      setAddSheetOpen(true);
+      return false;
+    }
+
+    pendingSharedLinkInFlightRef.current = true;
+    setExternalClipboardChecking(true);
+    setExternalClipboardMessage("Adding shared link...");
+    setYoutubeLink(shareUrl);
+    setExternalSearchStep("paste");
+    setAddSheetOpen(true);
+    try {
+      const playlistId = extractYouTubePlaylistId(shareUrl);
+      if (shouldImportYouTubePlaylist(shareUrl)) {
+        setExternalClipboardMessage("Importing shared playlist...");
+        const imported = await importYouTubePlaylist(playlistId);
+        if (imported) {
+          setPendingSharedLink("");
+          resetExternalClipboardPrompt();
+          setExternalSearchStep("search");
+          window.history.replaceState({}, "", `${window.location.pathname}?room=${activeRoomId}`);
+        } else {
+          setExternalClipboardMessage("Could not import the shared playlist. Try Add Link below.");
+        }
+        return imported;
+      }
+
+      const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(shareUrl));
+      if (!videoId) {
+        setExternalClipboardMessage("That share did not include a playable YouTube link. Paste the link below, then tap Add Link.");
+        return false;
+      }
+      const selectedVideo = await fetchYouTubeLinkDetails(videoId);
+      const added = await addSong(null, selectedVideo);
+      if (added) {
+        setPendingSharedLink("");
+        resetExternalClipboardPrompt();
+        setExternalSearchStep("search");
+        window.history.replaceState({}, "", `${window.location.pathname}?room=${activeRoomId}`);
+      } else {
+        setExternalClipboardMessage("Could not add the shared song. Try Add Link below, or copy a different YouTube link.");
+      }
+      return added;
+    } finally {
+      pendingSharedLinkInFlightRef.current = false;
+      setExternalClipboardChecking(false);
     }
   }
 
@@ -3389,6 +3488,11 @@ function App() {
   }
 
   function clearRoomState() {
+    try {
+      localStorage.removeItem(LAST_ACTIVE_ROOM_KEY);
+    } catch {
+      // Local storage can be unavailable in private browsing.
+    }
     setActiveRoomId("");
     setRoom(null);
     setSongs([]);
