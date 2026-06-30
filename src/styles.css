@@ -4642,6 +4642,156 @@ input:focus {
   --pb-visualizer-base: #101a08;
 }
 
+:root[data-color-theme="crimson"] {
+  --pb-accent: #ff2e63;
+  --pb-accent-2: #b00020;
+  --pb-highlight: #ff8fab;
+  --pb-link: #ff4d6d;
+  --pb-panel-dark: #220711;
+  --pb-page-bg: #180309;
+  --pb-row-playing-bg: #8f1431;
+  --pb-row-upnext-bg: #c9184a;
+  --pb-visualizer-a: #ff2e63;
+  --pb-visualizer-b: #b00020;
+  --pb-visualizer-c: #ff8fab;
+  --pb-visualizer-base: #130207;
+}
+
+:root[data-color-theme="goldrush"] {
+  --pb-accent: #ffd60a;
+  --pb-accent-2: #ff9f1c;
+  --pb-highlight: #fff3b0;
+  --pb-link: #ffb703;
+  --pb-panel-dark: #171206;
+  --pb-page-bg: #130f04;
+  --pb-row-playing-bg: #8d6a00;
+  --pb-row-upnext-bg: #b45309;
+  --pb-visualizer-a: #ffd60a;
+  --pb-visualizer-b: #ff9f1c;
+  --pb-visualizer-c: #fff3b0;
+  --pb-visualizer-base: #0f0b02;
+}
+
+:root[data-color-theme="pinknova"] {
+  --pb-accent: #ff4ecd;
+  --pb-accent-2: #7c3aed;
+  --pb-highlight: #f0abfc;
+  --pb-link: #ec4899;
+  --pb-panel-dark: #21072f;
+  --pb-page-bg: #16021f;
+  --pb-row-playing-bg: #a21caf;
+  --pb-row-upnext-bg: #be185d;
+  --pb-visualizer-a: #ff4ecd;
+  --pb-visualizer-b: #7c3aed;
+  --pb-visualizer-c: #f0abfc;
+  --pb-visualizer-base: #120117;
+}
+
+:root[data-color-theme="cyberpunk"] {
+  --pb-accent: #f9f871;
+  --pb-accent-2: #ff00a8;
+  --pb-highlight: #00f5ff;
+  --pb-link: #ff00a8;
+  --pb-panel-dark: #121018;
+  --pb-page-bg: #09070d;
+  --pb-row-playing-bg: #9d0068;
+  --pb-row-upnext-bg: #777100;
+  --pb-visualizer-a: #ff00a8;
+  --pb-visualizer-b: #f9f871;
+  --pb-visualizer-c: #00f5ff;
+  --pb-visualizer-base: #07050a;
+}
+
+:root[data-color-theme="voltage"] {
+  --pb-accent: #00bbf9;
+  --pb-accent-2: #fee440;
+  --pb-highlight: #9b5de5;
+  --pb-link: #00f5d4;
+  --pb-panel-dark: #061526;
+  --pb-page-bg: #03101f;
+  --pb-row-playing-bg: #006e94;
+  --pb-row-upnext-bg: #8a7a00;
+  --pb-visualizer-a: #00bbf9;
+  --pb-visualizer-b: #fee440;
+  --pb-visualizer-c: #9b5de5;
+  --pb-visualizer-base: #020b16;
+}
+
+:root[data-color-theme="watermelon"] {
+  --pb-accent: #ff4d6d;
+  --pb-accent-2: #2dd4bf;
+  --pb-highlight: #a7f3d0;
+  --pb-link: #e11d48;
+  --pb-panel-dark: #312020;
+  --pb-page-bg: #fff1f4;
+  --pb-row-playing-bg: #d9365b;
+  --pb-row-upnext-bg: #0f9f8f;
+  --pb-visualizer-a: #ff4d6d;
+  --pb-visualizer-b: #2dd4bf;
+  --pb-visualizer-c: #a7f3d0;
+  --pb-visualizer-base: #211516;
+}
+
+:root[data-color-theme="lemonade"] {
+  --pb-accent: #facc15;
+  --pb-accent-2: #fb7185;
+  --pb-highlight: #fff7ad;
+  --pb-link: #db2777;
+  --pb-panel-dark: #2f2411;
+  --pb-page-bg: #fff9d7;
+  --pb-row-playing-bg: #bd8b00;
+  --pb-row-upnext-bg: #d43f67;
+  --pb-visualizer-a: #facc15;
+  --pb-visualizer-b: #fb7185;
+  --pb-visualizer-c: #fff7ad;
+  --pb-visualizer-base: #211805;
+}
+
+:root[data-color-theme="bubblegum"] {
+  --pb-accent: #ff5da2;
+  --pb-accent-2: #67e8f9;
+  --pb-highlight: #ffffff;
+  --pb-link: #d946ef;
+  --pb-panel-dark: #2c1832;
+  --pb-page-bg: #fff2fb;
+  --pb-row-playing-bg: #cf3d83;
+  --pb-row-upnext-bg: #14a9bd;
+  --pb-visualizer-a: #ff5da2;
+  --pb-visualizer-b: #67e8f9;
+  --pb-visualizer-c: #ffffff;
+  --pb-visualizer-base: #1d1024;
+}
+
+:root[data-color-theme="tangerine"] {
+  --pb-accent: #ff7a00;
+  --pb-accent-2: #ff3d5a;
+  --pb-highlight: #ffe066;
+  --pb-link: #f97316;
+  --pb-panel-dark: #2b1608;
+  --pb-page-bg: #fff3e2;
+  --pb-row-playing-bg: #c24f00;
+  --pb-row-upnext-bg: #c72d46;
+  --pb-visualizer-a: #ff7a00;
+  --pb-visualizer-b: #ff3d5a;
+  --pb-visualizer-c: #ffe066;
+  --pb-visualizer-base: #210f04;
+}
+
+:root[data-color-theme="miami"] {
+  --pb-accent: #00d4ff;
+  --pb-accent-2: #ff4ecd;
+  --pb-highlight: #c084fc;
+  --pb-link: #0ea5e9;
+  --pb-panel-dark: #162036;
+  --pb-page-bg: #eefbff;
+  --pb-row-playing-bg: #0d8cb5;
+  --pb-row-upnext-bg: #ca2ca0;
+  --pb-visualizer-a: #00d4ff;
+  --pb-visualizer-b: #ff4ecd;
+  --pb-visualizer-c: #c084fc;
+  --pb-visualizer-base: #10172a;
+}
+
 a { color: var(--pb-link); }
 
 .app-shell,
@@ -4690,6 +4840,24 @@ input:focus {
 
 .color-theme-modal {
   width: min(560px, 100%);
+}
+
+.color-theme-section {
+  display: grid;
+  gap: 10px;
+}
+
+.color-theme-section + .color-theme-section {
+  margin-top: 18px;
+}
+
+.color-theme-section h3 {
+  margin: 0;
+  color: color-mix(in srgb, var(--pb-accent) 78%, #ffffff);
+  font-size: 0.82rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .color-theme-grid {
@@ -4756,6 +4924,16 @@ input:focus {
 [data-theme-choice="royal"] { --swatch-a: #312e81; --swatch-b: #7c3aed; --swatch-c: #facc15; }
 [data-theme-choice="mono"] { --swatch-a: #111827; --swatch-b: #6b7280; --swatch-c: #e5e7eb; }
 [data-theme-choice="lime"] { --swatch-a: #17210f; --swatch-b: #22c55e; --swatch-c: #a3e635; }
+[data-theme-choice="crimson"] { --swatch-a: #220711; --swatch-b: #b00020; --swatch-c: #ff2e63; }
+[data-theme-choice="goldrush"] { --swatch-a: #171206; --swatch-b: #ff9f1c; --swatch-c: #ffd60a; }
+[data-theme-choice="pinknova"] { --swatch-a: #21072f; --swatch-b: #7c3aed; --swatch-c: #ff4ecd; }
+[data-theme-choice="cyberpunk"] { --swatch-a: #09070d; --swatch-b: #ff00a8; --swatch-c: #f9f871; }
+[data-theme-choice="voltage"] { --swatch-a: #061526; --swatch-b: #00bbf9; --swatch-c: #fee440; }
+[data-theme-choice="watermelon"] { --swatch-a: #fff1f4; --swatch-b: #ff4d6d; --swatch-c: #2dd4bf; }
+[data-theme-choice="lemonade"] { --swatch-a: #fff9d7; --swatch-b: #facc15; --swatch-c: #fb7185; }
+[data-theme-choice="bubblegum"] { --swatch-a: #fff2fb; --swatch-b: #ff5da2; --swatch-c: #67e8f9; }
+[data-theme-choice="tangerine"] { --swatch-a: #fff3e2; --swatch-b: #ff7a00; --swatch-c: #ff3d5a; }
+[data-theme-choice="miami"] { --swatch-a: #eefbff; --swatch-b: #00d4ff; --swatch-c: #ff4ecd; }
 
 @media (max-width: 520px) {
   .color-theme-grid {
@@ -7259,6 +7437,10 @@ input,
 
 :root[data-theme="dark"] .color-theme-option small {
   color: #a7adbb;
+}
+
+:root[data-theme="dark"] .color-theme-section h3 {
+  color: color-mix(in srgb, var(--pb-highlight) 72%, #ffffff);
 }
 
 :root[data-theme="dark"] .color-theme-modal .icon-button {

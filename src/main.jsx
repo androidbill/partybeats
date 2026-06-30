@@ -151,6 +151,16 @@ const COLOR_THEMES = [
   { id: "royal", name: "Royal Velvet", note: "Violet + champagne gold", base: "dark" },
   { id: "forest", name: "Forest Rave", note: "Pine green + glow lime", base: "dark" },
   { id: "lime", name: "Limelight", note: "Lime + spring green", base: "light" },
+  { id: "crimson", name: "Crimson Pulse", note: "Red, rose + hot pink", base: "dark" },
+  { id: "goldrush", name: "Gold Rush", note: "Yellow, amber + black", base: "dark" },
+  { id: "pinknova", name: "Pink Nova", note: "Fuchsia, pink + violet", base: "dark" },
+  { id: "cyberpunk", name: "Cyberpunk", note: "Yellow, magenta + ink", base: "dark" },
+  { id: "voltage", name: "Voltage", note: "Electric blue + neon yellow", base: "dark" },
+  { id: "watermelon", name: "Watermelon", note: "Red, pink + fresh green", base: "light" },
+  { id: "lemonade", name: "Lemonade", note: "Bright yellow + raspberry", base: "light" },
+  { id: "bubblegum", name: "Bubblegum", note: "Pink, aqua + white", base: "light" },
+  { id: "tangerine", name: "Tangerine Pop", note: "Orange, coral + sunshine", base: "light" },
+  { id: "miami", name: "Miami Lights", note: "Cyan, pink + lavender", base: "light" },
   { id: "mono", name: "Monochrome", note: "Ink, slate + silver", base: "dark" }
 ];
 const EMOJI_BURST_LIFETIME_MS = 1600;
@@ -161,7 +171,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.06";
+const APP_VERSION = "2026.06.30.07";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3978,27 +3988,32 @@ function App() {
             <X aria-hidden="true" />
           </button>
         </div>
-        <div className="color-theme-grid">
-          {COLOR_THEMES.map((option) => (
-            <button
-              className={colorTheme === option.id ? "color-theme-option is-selected" : "color-theme-option"}
-              data-theme-choice={option.id}
-              key={option.id}
-              onClick={() => {
-                setColorTheme(option.id);
-                setThemePickerOpen(false);
-              }}
-              type="button"
-            >
-              <span className="theme-swatch" aria-hidden="true" />
-              <strong>
-                {option.name}
-                {colorTheme === option.id && <Check className="theme-check" aria-hidden="true" />}
-              </strong>
-              <small>{option.note}</small>
-            </button>
-          ))}
-        </div>
+        {["dark", "light"].map((themeBase) => (
+          <div className="color-theme-section" key={themeBase}>
+            <h3>{themeBase === "dark" ? "Dark Themes" : "Light Themes"}</h3>
+            <div className="color-theme-grid">
+              {COLOR_THEMES.filter((option) => option.base === themeBase).map((option) => (
+                <button
+                  className={colorTheme === option.id ? "color-theme-option is-selected" : "color-theme-option"}
+                  data-theme-choice={option.id}
+                  key={option.id}
+                  onClick={() => {
+                    setColorTheme(option.id);
+                    setThemePickerOpen(false);
+                  }}
+                  type="button"
+                >
+                  <span className="theme-swatch" aria-hidden="true" />
+                  <strong>
+                    {option.name}
+                    {colorTheme === option.id && <Check className="theme-check" aria-hidden="true" />}
+                  </strong>
+                  <small>{option.note}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
     </div>
   );
