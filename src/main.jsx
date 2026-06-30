@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.05";
+const APP_VERSION = "2026.06.29.06";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -855,6 +855,7 @@ function App() {
   const externalSearchOpenedAtRef = useRef(0);
   const externalSearchLeftAtRef = useRef(0);
   const externalClipboardCheckTimerRef = useRef(null);
+  const externalClipboardAutoAddInFlightRef = useRef(false);
   const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
   const creatingRoomRef = useRef(false);
@@ -886,6 +887,15 @@ function App() {
     externalClipboardCheckTimerRef.current = null;
   }
 
+  function scheduleExternalClipboardAutoAdd(delayMs = 450) {
+    if (!externalClipboardCheckPendingRef.current) return;
+    clearExternalClipboardCheckTimer();
+    externalClipboardCheckTimerRef.current = window.setTimeout(() => {
+      externalClipboardCheckTimerRef.current = null;
+      addSongFromClipboard({ automatic: true });
+    }, delayMs);
+  }
+
   useEffect(() => {
     const preventZoom = (event) => event.preventDefault();
     const preventModifiedWheelZoom = (event) => {
@@ -906,13 +916,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    function stopAutomaticExternalClipboardCheck() {
-      clearExternalClipboardCheckTimer();
-      externalClipboardCheckPendingRef.current = false;
-      externalSearchOpenedAtRef.current = 0;
-      externalSearchLeftAtRef.current = 0;
-    }
-
     function markExternalSearchLeftApp() {
       if (!externalClipboardCheckPendingRef.current) return;
       externalSearchLeftAppRef.current = true;
@@ -933,7 +936,7 @@ function App() {
       }
       externalYouTubeTabRef.current = null;
       if (externalClipboardCheckPendingRef.current) {
-        stopAutomaticExternalClipboardCheck();
+        scheduleExternalClipboardAutoAdd(externalSearchLeftAppRef.current ? 500 : 900);
       }
     }
 
@@ -2286,22 +2289,32 @@ function App() {
     }
   }
 
-  async function addSongFromClipboard() {
+  async function addSongFromClipboard(options = {}) {
+    const automatic = Boolean(options?.automatic);
+    if (automatic && externalClipboardAutoAddInFlightRef.current) return;
     if (!navigator.clipboard?.readText) {
-      setExternalClipboardMessage("iPhone blocked clipboard access. Paste the copied link below, then tap Add Link.");
+      if (!automatic) setExternalClipboardMessage("iPhone blocked clipboard access. Paste the copied link below, then tap Add Link.");
       return;
     }
 
+    if (automatic) externalClipboardAutoAddInFlightRef.current = true;
     setExternalClipboardChecking(true);
-    setExternalClipboardMessage("Checking clipboard...");
+    setExternalClipboardMessage(automatic ? "Checking copied link..." : "Checking clipboard...");
     try {
       const clipboardText = (await navigator.clipboard.readText()).trim();
       const shareUrl = extractYouTubeShareUrl(clipboardText);
       const playlistId = extractYouTubePlaylistId(shareUrl);
       if (shouldImportYouTubePlaylist(shareUrl)) {
+        const playlistKey = `playlist:${playlistId}`;
+        if (automatic && playlistKey === lastClipboardVideoIdRef.current) return;
+        lastClipboardVideoIdRef.current = playlistKey;
         setYoutubeLink(shareUrl);
         setExternalClipboardMessage("Importing playlist...");
         const imported = await importYouTubePlaylist(playlistId);
+        externalClipboardCheckPendingRef.current = false;
+        externalSearchLeftAppRef.current = false;
+        externalSearchOpenedAtRef.current = 0;
+        externalSearchLeftAtRef.current = 0;
         if (imported) {
           await clearClipboardAfterExternalSearch();
           resetExternalClipboardPrompt();
@@ -2314,13 +2327,23 @@ function App() {
       const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(shareUrl));
       if (!videoId) {
         setYoutubeLink(clipboardText);
-        setExternalClipboardMessage("No playable YouTube song link was found. Paste the link below, then tap Add Link.");
+        if (!automatic) {
+          setExternalClipboardMessage("No playable YouTube song link was found. Paste the link below, then tap Add Link.");
+        } else {
+          setExternalClipboardMessage("No copied YouTube link found yet. If it does not auto-add, tap Add from Clipboard.");
+        }
         return;
       }
+      if (automatic && videoId === lastClipboardVideoIdRef.current) return;
+      lastClipboardVideoIdRef.current = videoId;
       setYoutubeLink(shareUrl);
       setExternalClipboardMessage("Adding song...");
       const selectedVideo = await fetchYouTubeLinkDetails(videoId);
       const added = await addSong(null, selectedVideo);
+      externalClipboardCheckPendingRef.current = false;
+      externalSearchLeftAppRef.current = false;
+      externalSearchOpenedAtRef.current = 0;
+      externalSearchLeftAtRef.current = 0;
       if (added) {
         await clearClipboardAfterExternalSearch();
         resetExternalClipboardPrompt();
@@ -2329,9 +2352,14 @@ function App() {
         setExternalClipboardMessage("Could not add this link. Try Add Link below, or copy a different YouTube song link.");
       }
     } catch {
-      setExternalClipboardMessage("iPhone could not read the clipboard. Paste the copied link below, then tap Add Link.");
+      if (automatic) {
+        setExternalClipboardMessage("Clipboard access was blocked. Tap Add from Clipboard to add the copied link.");
+      } else {
+        setExternalClipboardMessage("iPhone could not read the clipboard. Paste the copied link below, then tap Add Link.");
+      }
     } finally {
       setExternalClipboardChecking(false);
+      externalClipboardAutoAddInFlightRef.current = false;
     }
   }
 
@@ -5017,7 +5045,7 @@ function App() {
                       <>
                         <div>
                           <strong>{externalClipboardChecking ? "Checking clipboard" : "Add copied song link"}</strong>
-                          <span>{externalClipboardMessage || "Tap Add from Clipboard to add the copied YouTube or YouTube Music link."}</span>
+                          <span>{externalClipboardMessage || "Return to PartyBeats after copying a YouTube or YouTube Music link. If it does not auto-add, tap Add from Clipboard."}</span>
                         </div>
                         <button className="primary-action clipboard-check-action" onClick={addSongFromClipboard} disabled={externalClipboardChecking || Boolean(addingSongKey)} type="button">
                           <Plus aria-hidden="true" />
@@ -6257,7 +6285,7 @@ function ExternalSearchTutorial({ onClose }) {
           <div className="tutorial-step step-4">4. Tap Share</div>
           <div className="tutorial-step step-5">5. Tap Copy Link</div>
           <div className="tutorial-step step-6">6. Go back to PartyBeats</div>
-          <div className="tutorial-step step-7">7. Tap Add from Clipboard</div>
+          <div className="tutorial-step step-7">7. Return to PartyBeats</div>
         </div>
 
         <button className="primary-action tutorial-done" onClick={onClose} type="button">
