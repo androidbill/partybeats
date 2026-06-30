@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.12";
+const APP_VERSION = "2026.06.29.13";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -809,7 +809,7 @@ function App() {
   const [appInstalled, setAppInstalled] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
-  }, [activeRoomId, user?.uid, room?.id, songs.length, members.length, roomLoading, songsLoading, membersLoading]);
+  });
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia?.("(max-width: 759px)")?.matches ?? false;
@@ -4195,6 +4195,28 @@ function App() {
           </div>
         )}
 
+        {toast && (
+          <button className="toast" onClick={() => setToast("")} type="button">
+            {toast}
+          </button>
+        )}
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"} ${isIos ? "is-ios" : ""}`}>
+        <section className="room-restore-screen">
+          <div className="brand-dot">
+            <AppIcon />
+          </div>
+          <div>
+            <p className="eyebrow">BP PartyBeats</p>
+            <h1>Opening room {activeRoomId}</h1>
+            <p>Restoring your session so the shared song can be added.</p>
+          </div>
+        </section>
         {toast && (
           <button className="toast" onClick={() => setToast("")} type="button">
             {toast}
