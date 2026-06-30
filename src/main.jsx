@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.09";
+const APP_VERSION = "2026.06.29.10";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -2482,7 +2482,7 @@ function App() {
     } catch {
       if (automatic) {
         stopExternalClipboardAutoAdd();
-        setExternalClipboardMessage("Clipboard access was blocked. Tap Add from Clipboard to add the copied link.");
+        setExternalClipboardMessage("Your browser blocked automatic clipboard access. Tap Add Copied Song to finish.");
       } else {
         setExternalClipboardMessage("iPhone could not read the clipboard. Paste the copied link below, then tap Add Link.");
       }
@@ -5179,11 +5179,11 @@ function App() {
                       <>
                         <div>
                           <strong>{externalClipboardChecking ? "Checking clipboard" : "Add copied song link"}</strong>
-                          <span>{externalClipboardMessage || "Return to PartyBeats after copying a YouTube or YouTube Music link. If it does not auto-add, tap Add from Clipboard."}</span>
+                          <span>{externalClipboardMessage || "Return to PartyBeats after copying a YouTube or YouTube Music link. If your browser asks for a tap, tap Add Copied Song."}</span>
                         </div>
                         <button className="primary-action clipboard-check-action" onClick={addSongFromClipboard} disabled={externalClipboardChecking || Boolean(addingSongKey)} type="button">
                           <Plus aria-hidden="true" />
-                          {externalClipboardChecking || addingSongKey ? "Adding..." : "Add from Clipboard"}
+                          {externalClipboardChecking || addingSongKey ? "Adding..." : "Add Copied Song"}
                         </button>
                         <form className="youtube-link-form compact-link-form" onSubmit={addSongFromLink}>
                           <input
