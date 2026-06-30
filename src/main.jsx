@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.07";
+const APP_VERSION = "2026.06.29.08";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -867,6 +867,7 @@ function App() {
   const externalSearchLeftAtRef = useRef(0);
   const externalClipboardCheckTimerRef = useRef(null);
   const externalClipboardAutoAddInFlightRef = useRef(false);
+  const externalClipboardAutoAddRetryRef = useRef(0);
   const pendingSharedLinkInFlightRef = useRef(false);
   const lastClipboardVideoIdRef = useRef("");
   const unavailableHandlingRef = useRef("");
@@ -906,6 +907,15 @@ function App() {
       externalClipboardCheckTimerRef.current = null;
       addSongFromClipboard({ automatic: true });
     }, delayMs);
+  }
+
+  function stopExternalClipboardAutoAdd() {
+    clearExternalClipboardCheckTimer();
+    externalClipboardCheckPendingRef.current = false;
+    externalSearchLeftAppRef.current = false;
+    externalSearchOpenedAtRef.current = 0;
+    externalSearchLeftAtRef.current = 0;
+    externalClipboardAutoAddRetryRef.current = 0;
   }
 
   useEffect(() => {
@@ -2391,6 +2401,16 @@ function App() {
   async function addSongFromClipboard(options = {}) {
     const automatic = Boolean(options?.automatic);
     if (automatic && externalClipboardAutoAddInFlightRef.current) return;
+    if (automatic && (!activeRoomId || !user || roomLoading || songsLoading || membersLoading)) {
+      if (externalClipboardAutoAddRetryRef.current < 5) {
+        externalClipboardAutoAddRetryRef.current += 1;
+        setExternalClipboardMessage("Waiting for the room, then adding your copied link...");
+        scheduleExternalClipboardAutoAdd(850);
+      } else {
+        setExternalClipboardMessage("PartyBeats is still syncing. Tap Add from Clipboard when the room finishes loading.");
+      }
+      return;
+    }
     if (!navigator.clipboard?.readText) {
       if (!automatic) setExternalClipboardMessage("iPhone blocked clipboard access. Paste the copied link below, then tap Add Link.");
       return;
@@ -2406,19 +2426,23 @@ function App() {
       if (shouldImportYouTubePlaylist(shareUrl)) {
         const playlistKey = `playlist:${playlistId}`;
         if (automatic && playlistKey === lastClipboardVideoIdRef.current) return;
-        lastClipboardVideoIdRef.current = playlistKey;
         setYoutubeLink(shareUrl);
         setExternalClipboardMessage("Importing playlist...");
         const imported = await importYouTubePlaylist(playlistId);
-        externalClipboardCheckPendingRef.current = false;
-        externalSearchLeftAppRef.current = false;
-        externalSearchOpenedAtRef.current = 0;
-        externalSearchLeftAtRef.current = 0;
         if (imported) {
+          lastClipboardVideoIdRef.current = playlistKey;
+          stopExternalClipboardAutoAdd();
           await clearClipboardAfterExternalSearch();
           resetExternalClipboardPrompt();
           setExternalSearchStep("search");
         } else {
+          if (automatic && externalClipboardAutoAddRetryRef.current < 2) {
+            externalClipboardAutoAddRetryRef.current += 1;
+            setExternalClipboardMessage("Trying the copied playlist again...");
+            scheduleExternalClipboardAutoAdd(1100);
+            return;
+          }
+          stopExternalClipboardAutoAdd();
           setExternalClipboardMessage("Playlist link found. Try again or paste a different link below.");
         }
         return;
@@ -2434,24 +2458,29 @@ function App() {
         return;
       }
       if (automatic && videoId === lastClipboardVideoIdRef.current) return;
-      lastClipboardVideoIdRef.current = videoId;
       setYoutubeLink(shareUrl);
       setExternalClipboardMessage("Adding song...");
       const selectedVideo = await fetchYouTubeLinkDetails(videoId);
       const added = await addSong(null, selectedVideo);
-      externalClipboardCheckPendingRef.current = false;
-      externalSearchLeftAppRef.current = false;
-      externalSearchOpenedAtRef.current = 0;
-      externalSearchLeftAtRef.current = 0;
       if (added) {
+        lastClipboardVideoIdRef.current = videoId;
+        stopExternalClipboardAutoAdd();
         await clearClipboardAfterExternalSearch();
         resetExternalClipboardPrompt();
         setExternalSearchStep("search");
       } else {
+        if (automatic && externalClipboardAutoAddRetryRef.current < 2) {
+          externalClipboardAutoAddRetryRef.current += 1;
+          setExternalClipboardMessage("Trying the copied song again...");
+          scheduleExternalClipboardAutoAdd(1100);
+          return;
+        }
+        stopExternalClipboardAutoAdd();
         setExternalClipboardMessage("Could not add this link. Try Add Link below, or copy a different YouTube song link.");
       }
     } catch {
       if (automatic) {
+        stopExternalClipboardAutoAdd();
         setExternalClipboardMessage("Clipboard access was blocked. Tap Add from Clipboard to add the copied link.");
       } else {
         setExternalClipboardMessage("iPhone could not read the clipboard. Paste the copied link below, then tap Add Link.");
