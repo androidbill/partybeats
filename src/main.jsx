@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.08";
+const APP_VERSION = "2026.06.29.09";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -399,7 +399,7 @@ function decodeHtmlEntities(value) {
       return Number.isFinite(code) ? String.fromCodePoint(code) : match;
     }
     return named[key] || match;
-  });
+  }, []);
 }
 
 function playlistTrackDisplay(song) {
@@ -808,7 +808,7 @@ function App() {
   const [appInstalled, setAppInstalled] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
-  });
+  }, [activeRoomId, user?.uid, room?.id, songs.length, members.length, roomLoading, songsLoading, membersLoading]);
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia?.("(max-width: 759px)")?.matches ?? false;
@@ -973,7 +973,7 @@ function App() {
       document.removeEventListener("visibilitychange", handleExternalSearchReturn);
       clearExternalClipboardCheckTimer();
     };
-  }, []);
+  }, [activeRoomId, user?.uid, room?.id, songs.length, members.length, roomLoading, songsLoading, membersLoading]);
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -2401,7 +2401,8 @@ function App() {
   async function addSongFromClipboard(options = {}) {
     const automatic = Boolean(options?.automatic);
     if (automatic && externalClipboardAutoAddInFlightRef.current) return;
-    if (automatic && (!activeRoomId || !user || roomLoading || songsLoading || membersLoading)) {
+    const roomReadyForClipboardAdd = Boolean(activeRoomId && user && (room?.id === activeRoomId || songs.length > 0 || members.length > 0));
+    if (automatic && !roomReadyForClipboardAdd) {
       if (externalClipboardAutoAddRetryRef.current < 5) {
         externalClipboardAutoAddRetryRef.current += 1;
         setExternalClipboardMessage("Waiting for the room, then adding your copied link...");
