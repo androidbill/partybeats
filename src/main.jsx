@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.02";
+const APP_VERSION = "2026.06.30.03";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -780,7 +780,6 @@ function App() {
   const [externalClipboardCandidate, setExternalClipboardCandidate] = useState(null);
   const [externalClipboardChecking, setExternalClipboardChecking] = useState(false);
   const [externalClipboardMessage, setExternalClipboardMessage] = useState("");
-  const [clipboardPasteMode, setClipboardPasteMode] = useState(false);
   const [pendingSharedLink, setPendingSharedLink] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -857,7 +856,6 @@ function App() {
   const emojiBarRef = useRef(null);
   const roomShoutBackdropRef = useRef(null);
   const roomShoutTextareaRef = useRef(null);
-  const clipboardPasteInputRef = useRef(null);
   const nicknameBackdropRef = useRef(null);
   const nicknameInputRef = useRef(null);
   const playerCardRef = useRef(null);
@@ -2313,14 +2311,14 @@ function App() {
           setExternalSearchStep("search");
           window.history.replaceState({}, "", `${window.location.pathname}?room=${activeRoomId}`);
         } else {
-          setExternalClipboardMessage("Could not import the shared playlist. Try Add Link below.");
+          setExternalClipboardMessage("Could not import the shared playlist. Copy a different YouTube link and try again.");
         }
         return imported;
       }
 
       const videoId = cleanYouTubeVideoId(extractYouTubeVideoId(shareUrl));
       if (!videoId) {
-        setExternalClipboardMessage("That share did not include a playable YouTube link. Paste the link below, then tap Add Link.");
+        setExternalClipboardMessage("That share did not include a playable YouTube link.");
         return false;
       }
       const selectedVideo = await fetchYouTubeLinkDetails(videoId);
@@ -2331,25 +2329,13 @@ function App() {
         setExternalSearchStep("search");
         window.history.replaceState({}, "", `${window.location.pathname}?room=${activeRoomId}`);
       } else {
-        setExternalClipboardMessage("Could not add the shared song. Try Add Link below, or copy a different YouTube link.");
+        setExternalClipboardMessage("Could not add the shared song. Copy a different YouTube link and try again.");
       }
       return added;
     } finally {
       pendingSharedLinkInFlightRef.current = false;
       setExternalClipboardChecking(false);
     }
-  }
-
-  async function addPastedSongLink(event) {
-    const pastedText = event.clipboardData?.getData("text") || "";
-    const shareUrl = extractYouTubeShareUrl(pastedText);
-    if (!shareUrl) {
-      setExternalClipboardMessage("That paste did not include a YouTube or YouTube Music link.");
-      return;
-    }
-    event.preventDefault();
-    setYoutubeLink(shareUrl);
-    await addIncomingSharedLink(shareUrl);
   }
 
   async function addCopiedSongFromButton() {
@@ -2360,16 +2346,7 @@ function App() {
     setExternalClipboardCandidate(null);
     setExternalClipboardMessage("");
     setExternalClipboardChecking(false);
-    setClipboardPasteMode(false);
     lastClipboardVideoIdRef.current = "";
-  }
-
-  function requestClipboardPaste(message = "Tap the field below, paste the copied link, and PartyBeats will add it.") {
-    setClipboardPasteMode(true);
-    setExternalClipboardMessage(message);
-    window.setTimeout(() => {
-      clipboardPasteInputRef.current?.focus();
-    }, 80);
   }
 
   async function clearClipboardAfterExternalSearch() {
@@ -2442,7 +2419,7 @@ function App() {
       return;
     }
     if (!navigator.clipboard?.readText) {
-      if (!automatic) requestClipboardPaste("Your browser needs the native Paste action. Paste the copied link below.");
+      if (!automatic) setExternalClipboardMessage("Your browser could not read the copied link. Copy the YouTube link again, then tap Add Copied Song.");
       return;
     }
 
@@ -2481,7 +2458,7 @@ function App() {
       if (!videoId) {
         setYoutubeLink(clipboardText);
         if (!automatic) {
-          setExternalClipboardMessage("No playable YouTube song link was found. Paste the link below, then tap Add Link.");
+          setExternalClipboardMessage("No playable YouTube song link was found. Copy the YouTube link again, then tap Add Copied Song.");
         } else {
           setExternalClipboardMessage("No copied YouTube link found yet. If it does not auto-add, tap Add Copied Song.");
         }
@@ -2506,14 +2483,14 @@ function App() {
           return;
         }
         stopExternalClipboardAutoAdd();
-        setExternalClipboardMessage("Could not add this link. Try Add Link below, or copy a different YouTube song link.");
+        setExternalClipboardMessage("Could not add this link. Copy a different YouTube song link and try again.");
       }
     } catch {
       if (automatic) {
         stopExternalClipboardAutoAdd();
-        requestClipboardPaste("Your browser blocked automatic clipboard access. Tap Add Copied Song, or paste the copied link below.");
+        setExternalClipboardMessage("Your browser blocked automatic clipboard access. Tap Add Copied Song to finish.");
       } else {
-        requestClipboardPaste("Your browser needs the native Paste action. Paste the copied link below.");
+        setExternalClipboardMessage("Your browser could not read the copied link. Copy the YouTube link again, then tap Add Copied Song.");
       }
     } finally {
       setExternalClipboardChecking(false);
@@ -5206,32 +5183,6 @@ function App() {
                           <Plus aria-hidden="true" />
                           {externalClipboardChecking || addingSongKey ? "Adding..." : "Add Copied Song"}
                         </button>
-                        {clipboardPasteMode && (
-                          <label className="clipboard-paste-target">
-                            <span>Paste copied link</span>
-                            <input
-                              ref={clipboardPasteInputRef}
-                              value={youtubeLink}
-                              onChange={(event) => setYoutubeLink(event.target.value)}
-                              onPaste={addPastedSongLink}
-                              placeholder="Tap here, then Paste"
-                              inputMode="url"
-                              autoCapitalize="none"
-                              autoCorrect="off"
-                            />
-                          </label>
-                        )}
-                        <form className="youtube-link-form compact-link-form" onSubmit={addSongFromLink}>
-                          <input
-                            value={youtubeLink}
-                            onChange={(event) => setYoutubeLink(event.target.value)}
-                            placeholder="Paste song, album, or playlist link"
-                          />
-                          <button className="primary-action" disabled={!canAddSong || !youtubeLink.trim() || Boolean(addingSongKey)} type="submit">
-                            <Plus aria-hidden="true" />
-                            {addingSongKey ? "Adding..." : "Add Link"}
-                          </button>
-                        </form>
                         <button className="mini-action" onClick={cancelExternalPasteStep} type="button">
                           <X aria-hidden="true" />
                           Cancel
