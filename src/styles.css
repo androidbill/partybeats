@@ -5525,9 +5525,9 @@ input:focus {
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  opacity: 0.94;
+  opacity: 1;
   pointer-events: none;
-  --motion-energy: 1.65;
+  --motion-energy: 2.2;
 }
 
 .embedded-party-motion .pulse-waves {
@@ -5535,17 +5535,17 @@ input:focus {
 }
 
 .embedded-party-motion .orbit-sparks i {
-  animation-duration: 4.2s;
+  animation-duration: 2.7s;
 }
 
 .embedded-party-motion .chasing-lights span {
-  animation-duration: 7.2s;
+  animation-duration: 4.6s;
 }
 
 .embedded-party-motion .laser-sweep span {
   height: 2px;
-  opacity: 0.34;
-  animation-duration: 10.5s;
+  opacity: 0.44;
+  animation-duration: 7.2s;
 }
 
 .embedded-party-motion .electric-grid {
@@ -7712,7 +7712,7 @@ input,
     linear-gradient(115deg, color-mix(in srgb, var(--pb-accent) 14%, transparent), transparent 34%, color-mix(in srgb, var(--pb-accent-2) 12%, transparent) 70%),
     #05070d !important;
   background-size: 140% 140%, 130% 130%, 220% 220%, 100% 100%;
-  animation: fullscreenMotionWash 7s ease-in-out infinite;
+  animation: fullscreenMotionWash 4.2s ease-in-out infinite;
 }
 
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer,
@@ -7742,10 +7742,10 @@ input,
     linear-gradient(90deg, color-mix(in srgb, var(--pb-accent) 26%, transparent) 1px, transparent 1px),
     linear-gradient(0deg, color-mix(in srgb, var(--pb-accent-2) 24%, transparent) 1px, transparent 1px),
     linear-gradient(115deg, transparent, color-mix(in srgb, var(--pb-highlight) 34%, transparent), transparent 42%);
-  background-size: 76px 76px, 76px 76px, 220% 220%;
-  opacity: 0.54;
+  background-size: 58px 58px, 58px 58px, 180% 180%;
+  opacity: 0.62;
   transform: rotate(-9deg);
-  animation: fullscreenVisualizerGrid 6s linear infinite;
+  animation: fullscreenVisualizerGrid 3.8s linear infinite;
 }
 
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .music-visualizer::after,
@@ -7756,8 +7756,8 @@ input,
     radial-gradient(circle at 76% 72%, color-mix(in srgb, var(--pb-accent) 24%, transparent), transparent 30%);
   background-size: 140% 140%, 130% 130%;
   mix-blend-mode: screen;
-  opacity: 0.36;
-  animation: fullscreenVisualizerSweep 14s ease-in-out infinite;
+  opacity: 0.44;
+  animation: fullscreenVisualizerSweep 8s ease-in-out infinite;
 }
 
 .now-playing-card.is-fullscreen-player.has-fullscreen-motion .visualizer-glow-a,

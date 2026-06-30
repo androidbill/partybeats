@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.29.13";
+const APP_VERSION = "2026.06.29.14";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -631,13 +631,13 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
     let width = 1;
     let height = 1;
     let dpr = 1;
-    const particles = Array.from({ length: embedded ? 48 : 72 }, (_, index) => ({
+    const particles = Array.from({ length: embedded ? 86 : 118 }, (_, index) => ({
       seed: index * 91.7,
       x: Math.random(),
       y: Math.random(),
-      radius: 1.6 + Math.random() * (embedded ? 3.2 : 4.6),
-      speed: 0.16 + Math.random() * 0.64,
-      drift: -0.48 + Math.random() * 0.96
+      radius: 1.4 + Math.random() * (embedded ? 4.2 : 5.2),
+      speed: 0.34 + Math.random() * 1.18,
+      drift: -0.72 + Math.random() * 1.44
     }));
 
     const themeColor = (name, fallback) => {
@@ -668,7 +668,8 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
 
     const render = (timestamp = 0) => {
       const t = timestamp / 1000;
-      const energy = embedded ? 1.18 : 1;
+      const energy = embedded ? 2.65 : 1.85;
+      const pulse = 1 + Math.sin(t * (embedded ? 2.8 : 2.15)) * (embedded ? 0.16 : 0.11);
       const accent = themeColor("--pb-accent", "#38bdf8");
       const accent2 = themeColor("--pb-accent-2", "#6366f1");
       const highlight = themeColor("--pb-highlight", "#7dd3fc");
@@ -683,14 +684,14 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
       ctx.fillRect(0, 0, width, height);
 
       ctx.globalCompositeOperation = "screen";
-      glow(width * (0.24 + Math.sin(t * 0.16) * 0.08), height * 0.28, Math.min(width, height) * (0.78 + energy * 0.12), accent2, "68");
-      glow(width * (0.78 + Math.cos(t * 0.14) * 0.08), height * 0.74, Math.min(width, height) * (0.66 + energy * 0.1), accent, "5c");
-      glow(width * 0.5, height * (0.56 + Math.sin(t * 0.18) * 0.08), Math.min(width, height) * 0.56, highlight, "38");
+      glow(width * (0.24 + Math.sin(t * 0.46) * 0.12), height * (0.28 + Math.cos(t * 0.34) * 0.08), Math.min(width, height) * (0.7 + energy * 0.08) * pulse, accent2, embedded ? "86" : "74");
+      glow(width * (0.78 + Math.cos(t * 0.4) * 0.13), height * (0.72 + Math.sin(t * 0.36) * 0.09), Math.min(width, height) * (0.58 + energy * 0.08) * pulse, accent, embedded ? "78" : "66");
+      glow(width * (0.5 + Math.sin(t * 0.52) * 0.08), height * (0.56 + Math.sin(t * 0.58) * 0.1), Math.min(width, height) * 0.56 * pulse, highlight, embedded ? "56" : "46");
 
       ctx.globalAlpha = embedded ? 0.34 : 0.24;
       ctx.lineWidth = 1;
-      const grid = embedded ? 56 : 78;
-      const gridOffset = reducedMotion ? 0 : (t * 18 * energy) % grid;
+      const grid = embedded ? 46 : 64;
+      const gridOffset = reducedMotion ? 0 : (t * 42 * energy) % grid;
       ctx.strokeStyle = accent;
       for (let x = -grid + gridOffset; x < width + grid; x += grid) {
         ctx.beginPath();
@@ -709,8 +710,8 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
       ctx.globalAlpha = 1;
       particles.forEach((particle, index) => {
         const speed = reducedMotion ? 0.035 : particle.speed * energy;
-        const y = height - (((t * speed * 90 + particle.seed) % (height + 80)) - 40);
-        const x = width * particle.x + Math.sin(t * 0.82 + particle.seed) * 28 * particle.drift;
+        const y = height - (((t * speed * 112 + particle.seed) % (height + 120)) - 60);
+        const x = width * particle.x + Math.sin(t * 1.55 + particle.seed) * 42 * particle.drift;
         const color = index % 3 === 0 ? highlight : index % 2 === 0 ? accent : accent2;
         ctx.fillStyle = `${color}${embedded ? "ba" : "9c"}`;
         ctx.beginPath();
@@ -719,9 +720,9 @@ function PartyMotionCanvas({ className = "", embedded = false }) {
       });
 
       if (!reducedMotion) {
-        const sweepCount = embedded ? 4 : 3;
+        const sweepCount = embedded ? 7 : 5;
         for (let index = 0; index < sweepCount; index += 1) {
-          const progress = (t * (0.075 + index * 0.014) * energy + index * 0.29) % 1;
+          const progress = (t * (0.14 + index * 0.022) * energy + index * 0.21) % 1;
           const y = height * (0.16 + index * 0.18);
           const x = -width * 0.34 + progress * width * 1.62;
           const laser = ctx.createLinearGradient(x, y, x + width * 0.34, y + height * 0.08);
