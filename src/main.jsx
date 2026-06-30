@@ -161,7 +161,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.01";
+const APP_VERSION = "2026.06.30.02";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1272,10 +1272,8 @@ function App() {
     }
     if (roomParam) {
       const normalized = normalizeRoomId(roomParam);
-      setRoomId(normalized);
       setRestoreRoomId(normalized);
     } else if (sharedLink && /^[A-Z]{4}\d{3}$/.test(rememberedRoomId)) {
-      setRoomId(rememberedRoomId);
       setActiveRoomId(rememberedRoomId);
       setRoom({ id: rememberedRoomId, roomId: rememberedRoomId, latestAppVersion: APP_VERSION, isRestoringShareTarget: true });
       setRoomLoading(true);
