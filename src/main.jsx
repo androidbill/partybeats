@@ -53,6 +53,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -171,7 +172,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.09";
+const APP_VERSION = "2026.06.30.10";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1336,6 +1337,7 @@ function App() {
   const internalSearchEnabled = room?.internalSearchEnabled === true;
   const floatingReactionsEnabled = room?.floatingReactionsEnabled !== false;
   const roomShoutsEnabled = room?.roomShoutsEnabled !== false;
+  const votingEnabled = room?.votingEnabled !== false;
   const internalSearchAvailable = internalSearchEnabled || isActiveDjPhone;
   const visualizerEnabled = room?.visualizerEnabled === true;
   const roomPartyMotionEnabled = room?.partyMotionEnabled !== false;
@@ -1447,7 +1449,7 @@ function App() {
   const googleMemberCount = members.filter((member) => member.isAnonymous === false).length;
   const guestMemberCount = Math.max(0, members.length - googleMemberCount);
   const activeVotes = votes.filter((vote) => vote.status === "open" && songs.some((song) => song.id === vote.songId));
-  const votePrompt = activeVotes.find((vote) => !vote.votesByUser?.[user?.uid]) || null;
+  const votePrompt = votingEnabled ? activeVotes.find((vote) => !vote.votesByUser?.[user?.uid]) || null : null;
   const voteThreshold = Math.max(1, Math.floor(members.length / 2) + 1);
   const voteActionLabel = (action) => {
     if (action === "playNext") return "Play Next";
@@ -1993,6 +1995,7 @@ function App() {
             internalSearchEnabled: false,
             floatingReactionsEnabled: true,
             roomShoutsEnabled: true,
+            votingEnabled: true,
             visualizerEnabled: false,
             partyMotionEnabled: true,
             tagline: "",
@@ -2753,34 +2756,49 @@ function App() {
 
   async function startSongVote(song, action) {
     if (!user || !activeRoomId || !song?.id) return;
+    if (!votingEnabled) {
+      setToast("Voting is turned off for this room.");
+      return;
+    }
     if (action === "removeSong" && song.addedByUid === user.uid && !isAdmin) {
       await removeOwnSong(song);
       return;
     }
-    const existingVote = activeVotes.find((vote) => vote.songId === song.id && vote.action === action);
-    if (existingVote) {
-      await castSongVote(existingVote, "yes");
-      setToast(`You voted yes to ${voteActionLabel(action).toLowerCase()}.`);
-      return;
-    }
     const display = playlistTrackDisplay(song);
     const starterName = (memberRecord?.name || activeNickname || nicknameFor(user, "Guest")).slice(0, 30) || "Guest";
+    const voteRef = doc(db, "rooms", activeRoomId, "votes", `${song.id}_${action}`);
     try {
-      await setDoc(doc(collection(db, "rooms", activeRoomId, "votes")), {
-        songId: song.id,
-        songTitle: display.title || song.title || "Untitled",
-        songArtist: display.artist || song.artist || "",
-        action,
-        startedByUid: user.uid,
-        startedByName: starterName,
-        votesByUser: { [user.uid]: "yes" },
-        status: "open",
-        at: Date.now(),
-        createdAt: serverTimestamp()
+      const voteResult = await runTransaction(db, async (transaction) => {
+        const voteSnap = await transaction.get(voteRef);
+        if (voteSnap.exists()) {
+          const voteData = voteSnap.data();
+          if (voteData?.status === "open") {
+            transaction.update(voteRef, { [`votesByUser.${user.uid}`]: "yes" });
+            return "cast";
+          }
+          return "closed";
+        }
+        transaction.set(voteRef, {
+          songId: song.id,
+          songTitle: display.title || song.title || "Untitled",
+          songArtist: display.artist || song.artist || "",
+          action,
+          startedByUid: user.uid,
+          startedByName: starterName,
+          votesByUser: { [user.uid]: "yes" },
+          status: "open",
+          at: Date.now(),
+          createdAt: serverTimestamp()
+        });
+        return "created";
       });
       touchRoomActivity().catch(() => undefined);
       setSelectedSongId("");
-      setToast(`Vote started: ${voteActionLabel(action)}.`);
+      setToast(voteResult === "cast"
+        ? `You voted yes to ${voteActionLabel(action).toLowerCase()}.`
+        : voteResult === "closed"
+          ? "That vote already finished."
+          : `Vote started: ${voteActionLabel(action)}.`);
     } catch {
       setToast("Could not start that vote. Try again.");
     }
@@ -2788,6 +2806,10 @@ function App() {
 
   async function castSongVote(vote, choice) {
     if (!user || !activeRoomId || !vote?.id || !["yes", "no"].includes(choice)) return;
+    if (!votingEnabled) {
+      setToast("Voting is turned off for this room.");
+      return;
+    }
     try {
       await updateDoc(doc(db, "rooms", activeRoomId, "votes", vote.id), {
         [`votesByUser.${user.uid}`]: choice
@@ -2853,7 +2875,7 @@ function App() {
   }
 
   useEffect(() => {
-    if (!isAdmin || !activeRoomId || !user || members.length === 0) return;
+    if (!votingEnabled || !isAdmin || !activeRoomId || !user || members.length === 0) return;
 
     activeVotes.forEach((vote) => {
       const counts = voteCounts(vote);
@@ -2917,7 +2939,7 @@ function App() {
         }
       })();
     });
-  }, [activeRoomId, activeVotes, isAdmin, members.length, room?.nowPlayingId, songs, user, voteThreshold]);
+  }, [activeRoomId, activeVotes, isAdmin, members.length, room?.nowPlayingId, songs, user, voteThreshold, votingEnabled]);
 
   async function syncPlaybackState({ songId, seconds, state }) {
     if (!isActiveDj || !activeRoomId || !user || !songId || songId !== room?.nowPlayingId) return;
@@ -3625,6 +3647,11 @@ function App() {
   async function updateRoomShoutsEnabled(enabled) {
     if (!isAdmin || !activeRoomId) return;
     await updateDoc(doc(db, "rooms", activeRoomId), { roomShoutsEnabled: enabled, ...roomActivityUpdate() });
+  }
+
+  async function updateVotingEnabled(enabled) {
+    if (!isAdmin || !activeRoomId) return;
+    await updateDoc(doc(db, "rooms", activeRoomId), { votingEnabled: enabled, ...roomActivityUpdate() });
   }
 
   async function updatePartyMotionEnabled(enabled) {
@@ -4665,22 +4692,24 @@ function App() {
                       >
                         <Smile aria-hidden="true" />
                       </button>
-                      <button
-                        className="song-reaction-button vote-track-button"
-                        type="button"
-                        aria-label="Start a vote"
-                        title={openVoteForSong ? `Vote open: ${voteActionLabel(openVoteForSong.action)}` : "Start a vote"}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onPointerUp={(event) => event.stopPropagation()}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setVoteMenuSongId((current) => current === song.id ? "" : song.id);
-                        }}
-                      >
-                        <Vote aria-hidden="true" />
-                      </button>
-                      {isVoteMenuOpen && (
+                      {votingEnabled && (
+                        <button
+                          className="song-reaction-button vote-track-button"
+                          type="button"
+                          aria-label="Start a vote"
+                          title={openVoteForSong ? `Vote open: ${voteActionLabel(openVoteForSong.action)}` : "Start a vote"}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onPointerUp={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setVoteMenuSongId((current) => current === song.id ? "" : song.id);
+                          }}
+                        >
+                          <Vote aria-hidden="true" />
+                        </button>
+                      )}
+                      {votingEnabled && isVoteMenuOpen && (
                         <div
                           className="track-vote-menu"
                           role="menu"
@@ -5538,6 +5567,20 @@ function App() {
                     type="button"
                   >
                     {roomShoutsEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div>
+                    <strong>Voting</strong>
+                    <span>{votingEnabled ? "Guests can vote to play next or remove songs" : "Track voting is off"}</span>
+                  </div>
+                  <button
+                    className={votingEnabled ? "toggle-button is-on" : "toggle-button"}
+                    onClick={() => updateVotingEnabled(!votingEnabled)}
+                    disabled={!isAdmin}
+                    type="button"
+                  >
+                    {votingEnabled ? "On" : "Off"}
                   </button>
                 </div>
                 {!isAdmin && <p className="muted">Only admins can change room settings.</p>}
