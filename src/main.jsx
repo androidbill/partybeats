@@ -198,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.08";
+const APP_VERSION = "2026.07.01.09";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -5984,12 +5984,9 @@ const SongRow = React.memo(function SongRow({
           <strong>{trackDisplay.title}</strong>
           {trackDisplay.artist && <b>{trackDisplay.artist}</b>}
         </span>
-        <span className="uploaded-by">
-          Uploaded by <AvatarIdentity member={uploader} avatarId={getAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
-        </span>
       </button>
 
-      <div className="reaction-strip">
+      <div className="song-info-row">
         <span className="row-uploader">
           <AvatarBadge member={uploader} avatarId={getAvatarId(song.addedByUid)} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
         </span>
@@ -6002,72 +5999,71 @@ const SongRow = React.memo(function SongRow({
           )}
           {isUpNextSong && <em>Up next</em>}
         </span>
-        {emojiCounts.length > 0 && (
-          <span className="emoji-summary">
-            {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
-          </span>
-        )}
-        {messages.slice(-2).map((item, messageIndex) => (
-          <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
-            <b><AvatarIdentity member={memberById(item.uid)} avatarId={getAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
-          </span>
-        ))}
+        <div className="song-row-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+          {!isAdmin ? (
+            <>
+              <button
+                className="song-reaction-button song-smiley-button"
+                type="button"
+                aria-label="React to song"
+                title="React to song"
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onEmojiPicker(song, "choose");
+                }}
+              >
+                <Smile aria-hidden="true" />
+              </button>
+              <button
+                className={isCommenting ? "song-reaction-button song-comment-button is-active" : "song-reaction-button song-comment-button"}
+                type="button"
+                aria-label="Comment on song"
+                title="Comment on song"
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onCommentIconClick();
+                }}
+              >
+                <MessageCircle aria-hidden="true" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="icon-button" onClick={onMoveUp} title="Move up" disabled={index <= 0} type="button">
+                <ArrowUp aria-hidden="true" />
+              </button>
+              <button className="icon-button" onClick={onMoveDown} title="Move down" disabled={index >= queueLength - 1} type="button">
+                <ArrowDown aria-hidden="true" />
+              </button>
+              <button className="icon-button" onClick={onPlay} title="Play" type="button">
+                <Play aria-hidden="true" />
+              </button>
+              <button className="icon-button danger" onClick={onRemove} title="Remove song" type="button">
+                <Trash2 aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {isAdmin && isSelected && (
-        <div className="admin-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-          <button className="icon-button" onClick={onMoveUp} title="Move up" disabled={index <= 0} type="button">
-            <ArrowUp aria-hidden="true" />
-          </button>
-          <button className="icon-button" onClick={onMoveDown} title="Move down" disabled={index >= queueLength - 1} type="button">
-            <ArrowDown aria-hidden="true" />
-          </button>
-          <button className="icon-button" onClick={onPlay} title="Play" type="button">
-            <Play aria-hidden="true" />
-          </button>
-          <button className="icon-button danger" onClick={onRemove} title="Remove song" type="button">
-            <Trash2 aria-hidden="true" />
-          </button>
-        </div>
-      )}
-
-      {!isAdmin && isSelected && (
-        <div
-          className="song-reaction-actions"
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-          onPointerUp={(event) => event.stopPropagation()}
-        >
-          <button
-            className="song-reaction-button song-smiley-button"
-            type="button"
-            aria-label="Choose reaction emoji"
-            title="Choose reaction emoji"
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onEmojiPicker(song, "choose");
-            }}
-          >
-            <Smile aria-hidden="true" />
-          </button>
-          <button
-            className={isCommenting ? "song-reaction-button song-comment-button is-active" : "song-reaction-button song-comment-button"}
-            type="button"
-            aria-label="Add a comment"
-            title="Add a comment"
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onCommentIconClick();
-            }}
-          >
-            <MessageCircle aria-hidden="true" />
-          </button>
+      {(emojiCounts.length > 0 || messages.length > 0) && (
+        <div className="song-reactions-row">
+          {emojiCounts.map(({ emoji, count }) => (
+            <span className="song-emoji-pill" key={emoji}>
+              {emoji}{count > 1 && <span>{count}</span>}
+            </span>
+          ))}
+          {messages.slice(-2).map((item, messageIndex) => (
+            <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
+              <b><AvatarIdentity member={memberById(item.uid)} avatarId={getAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
+            </span>
+          ))}
         </div>
       )}
     </article>

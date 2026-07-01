@@ -2747,10 +2747,9 @@ input {
 
 .song-row {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   min-height: 46px;
   padding: 6px;
   scroll-margin-top: 10px;
@@ -8409,12 +8408,69 @@ input,
 }
 
 .room-app .song-main {
-  grid-column: 1 / -1;
   grid-template-columns: 25px minmax(0, 1fr);
   column-gap: 8px;
   row-gap: 1px;
   min-height: 34px;
+  align-items: start;
+}
+
+.room-app .song-info-row {
+  display: flex;
   align-items: center;
+  gap: 5px;
+  padding-left: 33px;
+  min-width: 0;
+}
+
+.room-app .song-info-row .row-uploader {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-app .song-info-row .track-badges {
+  flex: 0 0 auto;
+}
+
+.room-app .song-row-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.room-app .song-reactions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-left: 33px;
+  gap: 2px;
+}
+
+.room-app .song-emoji-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-left: -4px;
+}
+
+.room-app .song-emoji-pill:first-child {
+  margin-left: 0;
+}
+
+.room-app .song-emoji-pill span {
+  font-size: 0.6rem;
+  font-weight: 700;
+  opacity: 0.8;
 }
 
 .room-app .song-index {
@@ -8519,44 +8575,20 @@ input,
   }
 }
 
-/* Selected queue row actions: social left, admin right. */
-.room-app .song-row .song-reaction-actions {
-  grid-column: 1;
-  grid-row: 3;
-  justify-self: start;
-  align-self: end;
-  padding-left: 31px;
-  margin-top: 1px;
-}
-
-.room-app .song-row .admin-actions {
-  grid-column: 2;
-  grid-row: 3;
-  justify-self: end;
-  align-self: end;
-  margin-top: 1px;
-}
-
-@media (max-width: 520px) {
-  .room-app .song-row .song-reaction-actions {
-    padding-left: 31px;
-  }
-}
-
-.room-app .song-row .admin-actions .icon-button {
-  width: 30px;
-  height: 30px;
+.room-app .song-row-actions .icon-button {
+  width: 28px;
+  height: 28px;
 }
 
 .room-app .song-row .song-reaction-button {
-  width: 32px;
-  height: 32px;
-  font-size: 1rem;
+  width: 28px;
+  height: 28px;
+  font-size: 0.88rem;
 }
 
 .room-app .song-row .song-reaction-button svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .room-app .song-row .track-line em {
@@ -8566,10 +8598,10 @@ input,
 }
 
 @media (max-width: 520px) {
-  .room-app .song-row .admin-actions .icon-button,
+  .room-app .song-row-actions .icon-button,
   .room-app .song-row .song-reaction-button {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
   }
 }
 
@@ -8948,40 +8980,13 @@ input,
   font-weight: 850;
 }
 
-.room-app .uploaded-by,
-.room-app.light-mode .uploaded-by,
-.room-app.has-party-motion .uploaded-by {
-  grid-column: 2;
-  grid-row: 2;
-  display: none;
-}
-
-.room-app .reaction-strip {
-  min-width: 0;
-}
-
-.room-app .reaction-strip {
-  grid-column: 1;
-  grid-row: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px 5px;
-  align-items: center;
-  min-width: 0;
-  min-height: 22px;
-  height: auto;
-  padding-left: 38px;
-  overflow: visible;
-}
-
 .room-app .row-uploader {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   align-items: center;
   gap: 4px;
-  max-width: 42%;
   min-width: 0;
-  min-height: 30px;
+  min-height: 26px;
   padding: 2px 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.09);
@@ -9006,7 +9011,6 @@ input,
   flex: 0 0 auto;
 }
 
-.room-app .emoji-summary,
 .room-app .song-message {
   flex: 0 1 auto;
   max-width: 100%;
@@ -9038,26 +9042,10 @@ input,
   max-width: 54px;
 }
 
-.room-app .song-row .song-reaction-actions,
-.room-app .song-row .admin-actions {
-  grid-row: 1 / 3;
-  align-self: center;
-  margin-top: 0;
-}
-
-.room-app .song-row .song-reaction-actions {
-  grid-column: 2;
-  justify-self: end;
-  padding-left: 8px;
-  z-index: 2;
-}
-
 .room-app .song-row .song-reaction-button {
-  width: 38px;
-  height: 38px;
   box-shadow:
-    0 8px 22px color-mix(in srgb, var(--pb-highlight) 24%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    0 4px 10px color-mix(in srgb, var(--pb-highlight) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .room-app .own-song-delete-action {
@@ -9103,12 +9091,14 @@ input,
 }
 
 .room-app .song-row .song-main,
-.room-app .song-row .reaction-strip {
+.room-app .song-row .song-info-row,
+.room-app .song-row .song-reactions-row {
   transition: transform 170ms ease;
 }
 
 .room-app .song-row.is-delete-revealed .song-main,
-.room-app .song-row.is-delete-revealed .reaction-strip {
+.room-app .song-row.is-delete-revealed .song-info-row,
+.room-app .song-row.is-delete-revealed .song-reactions-row {
   transform: translateX(42px);
 }
 
@@ -9120,10 +9110,8 @@ input,
   .room-app.has-party-motion.dark-mode .song-row,
   .room-app.is-ios.has-party-motion .song-row,
   .room-app.is-ios.has-party-motion.dark-mode .song-row {
-    min-height: 80px;
     height: auto;
     max-height: none;
-    grid-template-rows: auto auto;
     padding: 7px 13px;
   }
 
@@ -9137,19 +9125,16 @@ input,
     max-height: none;
   }
 
-  .room-app .reaction-strip {
-    min-height: 22px;
-    height: auto;
-    padding-left: 36px;
+  .room-app .song-info-row {
+    padding-left: 34px;
   }
 
-  .room-app .emoji-summary,
+  .room-app .song-reactions-row {
+    padding-left: 34px;
+  }
+
   .room-app .song-message {
     max-width: 100%;
-  }
-
-  .room-app .row-uploader {
-    max-width: 42%;
   }
 
   .room-app .own-song-delete-action {
@@ -9163,93 +9148,9 @@ input,
   }
 
   .room-app .song-row.is-delete-revealed .song-main,
-  .room-app .song-row.is-delete-revealed .reaction-strip {
+  .room-app .song-row.is-delete-revealed .song-info-row,
+  .room-app .song-row.is-delete-revealed .song-reactions-row {
     transform: translateX(40px);
-  }
-}
-
-/* Selected rows keep the same pill shape; actions sit on the right edge. */
-.room-app .song-row.is-selected {
-  grid-template-rows: auto auto;
-  min-height: 82px;
-  height: auto;
-  max-height: none;
-  overflow: visible;
-}
-
-.room-app .song-row.is-selected .reaction-strip {
-  grid-column: 1;
-  grid-row: 2;
-  padding-right: 0;
-}
-
-.room-app .song-row.is-selected .song-reaction-actions {
-  grid-column: 2;
-  grid-row: 1 / 3;
-  justify-self: end;
-  align-self: center;
-  padding-left: 8px;
-  margin-top: 0;
-  z-index: 2;
-}
-
-.room-app .song-row.is-selected .admin-actions {
-  grid-column: 2;
-  grid-row: 1 / 3;
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 4px;
-  justify-self: end;
-  align-self: center;
-  transform: none;
-  margin-top: 0;
-  z-index: 2;
-}
-
-.room-app .song-row.is-selected .admin-actions .icon-button {
-  width: 28px;
-  height: 28px;
-}
-
-.room-app .song-row.is-admin-selected .emoji-summary,
-.room-app .song-row.is-admin-selected .song-message {
-  display: none;
-}
-
-@media (max-width: 520px) {
-  .room-app .song-row.is-selected {
-    grid-template-rows: auto auto;
-    min-height: 80px;
-    height: auto;
-    max-height: none;
-  }
-
-  .room-app .song-row.is-selected .song-reaction-actions {
-    padding-left: 8px;
-  }
-
-  .room-app .song-row.is-selected .admin-actions {
-    gap: 3px;
-    transform: none;
-  }
-
-  .room-app .song-row.is-admin-selected .reaction-strip {
-    flex-wrap: nowrap;
-    overflow: hidden;
-  }
-
-  .room-app .song-row.is-admin-selected .row-uploader {
-    max-width: 100%;
-  }
-
-  .room-app .song-row.is-selected .admin-actions .icon-button {
-    width: 26px;
-    height: 26px;
-  }
-
-  .room-app .song-row.is-selected .admin-actions .icon-button svg {
-    width: 14px;
-    height: 14px;
   }
 }
 
