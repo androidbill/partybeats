@@ -197,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.23";
+const APP_VERSION = "2026.06.30.24";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1213,7 +1213,7 @@ function App() {
     const roomRef = doc(db, "rooms", activeRoomId);
     const songsRef = query(collection(db, "rooms", activeRoomId, "songs"), orderBy("position", "asc"));
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
-    const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"));
+    const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"), limitToLast(100));
     const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"), limitToLast(50));
     const shoutsRef = query(collection(db, "rooms", activeRoomId, "shouts"), orderBy("createdAt", "asc"), limitToLast(50));
     const momentsRef = query(collection(db, "rooms", activeRoomId, "moments"), orderBy("createdAt", "asc"));
@@ -1456,11 +1456,11 @@ function App() {
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
 
   useEffect(() => {
-    if (!activeRoomId || !nowPlayingSong) return undefined;
+    if (!activeRoomId || !nowPlayingSong || playbackState.state !== "playing") return undefined;
     setPlaybackClock(Date.now());
     const timer = window.setInterval(() => setPlaybackClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [activeRoomId, nowPlayingSong?.id]);
+  }, [activeRoomId, nowPlayingSong?.id, playbackState.state]);
 
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
@@ -1497,7 +1497,16 @@ function App() {
     ? `${formatDuration(displayPlaybackSeconds) || "0:00"} / ${formatDuration(nowPlayingDurationSeconds) || "--:--"}`
     : "";
   const activeNickname = (memberRecord?.name || nickname).trim() || nicknameFor(user, "Guest");
-  const memberById = (uid) => members.find((member) => member.id === uid);
+  const memberByIdMap = useMemo(
+    () => new Map(members.map((m) => [m.id, m])),
+    [members]
+  );
+  const memberById = (uid) => memberByIdMap.get(uid);
+  const memberAvatarMap = useMemo(
+    () => new Map(members.map((m) => [m.id, avatarIdForMember(m, m.id)])),
+    [members]
+  );
+  const getAvatarId = (uid) => memberAvatarMap.get(uid) || fallbackAvatarId(uid);
   const momentText = (moment) => {
     if (moment.type === "song") return `added ${moment.songTitle || "a song"}`;
     if (moment.type === "songReaction") return `reacted to ${moment.songTitle || "a track"}`;
@@ -4757,13 +4766,13 @@ function App() {
                       {visibleTrackDisplay.artist && <b>{visibleTrackDisplay.artist}</b>}
                     </span>
                     <span className="uploaded-by">
-                      Uploaded by <AvatarIdentity member={uploader} avatarId={fallbackAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                      Uploaded by <AvatarIdentity member={uploader} avatarId={getAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
                     </span>
                   </button>
 
                   <div className="reaction-strip">
                     <span className="row-uploader">
-                      <AvatarIdentity member={uploader} avatarId={fallbackAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                      <AvatarIdentity member={uploader} avatarId={getAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
                     </span>
                     <span className="track-badges">
                       {isCurrentSong && (
@@ -4781,7 +4790,7 @@ function App() {
                     )}
                     {((song?.messages || []).concat(songMessagesMap.get(song.id) || [])).slice(-2).map((item, messageIndex) => (
                       <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
-                        <b><AvatarIdentity member={memberById(item.uid)} avatarId={fallbackAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
+                        <b><AvatarIdentity member={memberById(item.uid)} avatarId={getAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
                       </span>
                     ))}
                   </div>
@@ -5934,7 +5943,7 @@ function App() {
               }}
             >
               {reaction.uid && (
-                <AvatarIdentity member={memberById(reaction.uid)} avatarId={fallbackAvatarId(reaction.uid)} name={memberById(reaction.uid)?.name || "Guest"} size="md" />
+                <AvatarIdentity member={memberById(reaction.uid)} avatarId={getAvatarId(reaction.uid)} name={memberById(reaction.uid)?.name || "Guest"} size="md" />
               )}
               {reaction.emoji}
             </span>
@@ -5947,7 +5956,7 @@ function App() {
           {themeEffects.map((effect) => (
             <span className={`theme-effect theme-effect-${effect.effect || "sparkle"}`} key={effect.id}>
               {effect.uid && (
-                <AvatarIdentity member={memberById(effect.uid)} avatarId={fallbackAvatarId(effect.uid)} name={memberById(effect.uid)?.name || "Guest"} size="md" />
+                <AvatarIdentity member={memberById(effect.uid)} avatarId={getAvatarId(effect.uid)} name={memberById(effect.uid)?.name || "Guest"} size="md" />
               )}
               {Array.from({ length: 10 }, (_, index) => (
                 <i key={index} style={{ "--effect-index": index }}>{effect.emoji || "✨"}</i>
@@ -5967,7 +5976,7 @@ function App() {
               onPointerUp={(event) => finishRoomShoutSwipe(event, shout.id)}
               onPointerCancel={() => { roomShoutSwipeStartRef.current = null; }}
             >
-              <AvatarIdentity member={memberById(shout.uid)} avatarId={fallbackAvatarId(shout.uid)} name={shout.name} size="md" />
+              <AvatarIdentity member={memberById(shout.uid)} avatarId={getAvatarId(shout.uid)} name={shout.name} size="md" />
               <div className="room-shout-copy">
                 <strong>{shout.name}</strong>
                 <p>{shout.text}</p>
@@ -5998,7 +6007,7 @@ function App() {
         <section className="room-moments-panel" aria-label="Room moments">
           {roomMoments.slice(0, 20).map((moment) => (
             <div className={`room-moment room-moment-${moment.type || "note"}`} key={moment.id}>
-              <AvatarIdentity member={memberById(moment.uid)} avatarId={fallbackAvatarId(moment.uid)} name={moment.name || "Guest"} />
+              <AvatarIdentity member={memberById(moment.uid)} avatarId={getAvatarId(moment.uid)} name={moment.name || "Guest"} />
               <span className="room-moment-emoji">{moment.emoji || "✨"}</span>
               <span className="room-moment-copy">{momentText(moment)}</span>
             </div>
