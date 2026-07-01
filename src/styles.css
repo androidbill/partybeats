@@ -1476,6 +1476,83 @@ input:focus {
   text-transform: uppercase;
 }
 
+.room-moments-feed {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  width: min(100%, 1180px);
+  margin: 0 auto 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  color: #ffffff;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent),
+    rgba(16, 19, 28, 0.66);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+
+.room-moments-title {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--pb-accent);
+  font-size: 0.72rem;
+  font-weight: 950;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.room-moments-title svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.7;
+}
+
+.room-moments-list {
+  display: flex;
+  gap: 7px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.room-moments-list::-webkit-scrollbar {
+  display: none;
+}
+
+.room-moment {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  align-items: center;
+  max-width: min(360px, 78vw);
+  min-height: 38px;
+  padding: 4px 9px 4px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.room-moment-emoji {
+  font-size: 1rem;
+}
+
+.room-moment-copy {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .room-app.dark-mode .topbar-user-button {
   border-color: rgba(255, 255, 255, 0.12);
   color: #f6f7fb;
@@ -1996,6 +2073,70 @@ input:focus {
   align-items: end;
   gap: 8px;
   transform: translateX(var(--reaction-offset-x));
+}
+
+.theme-reaction-control {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.theme-reaction-button {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--pb-link), var(--pb-accent-2));
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--pb-link) 38%, transparent);
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.theme-reaction-button svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.65;
+}
+
+.theme-reaction-button:active {
+  transform: scale(0.94);
+}
+
+.theme-reaction-picker {
+  position: relative;
+  z-index: 25;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: min(260px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(18, 19, 26, 0.92);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
+}
+
+.theme-reaction-picker button {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 9px;
+  border-radius: 12px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.theme-reaction-picker button span {
+  font-size: 1.05rem;
 }
 
 .floating-reaction-control {
@@ -7275,6 +7416,17 @@ input,
   animation: floatingReactionRise 2.6s cubic-bezier(0.18, 0.78, 0.22, 1) forwards;
 }
 
+.floating-reaction::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  z-index: -1;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pb-accent) 34%, transparent), transparent 64%);
+  opacity: 0;
+  animation: reactionHalo 2.2s ease forwards;
+}
+
 .floating-reaction .avatar-identity {
   margin-right: 2px;
 }
@@ -7309,6 +7461,160 @@ input,
     transform:
       translate(calc(-50% + var(--float-drift, 0px)), -58vh)
       scale(calc(var(--float-scale, 1) * 1.18));
+  }
+}
+
+@keyframes reactionHalo {
+  12% {
+    opacity: 0.9;
+    transform: scale(0.8);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+.theme-effect-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 630;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.theme-effect {
+  position: absolute;
+  inset: 0;
+}
+
+.theme-effect > .avatar-identity {
+  position: absolute;
+  left: 50%;
+  bottom: max(88px, calc(env(safe-area-inset-bottom) + 78px));
+  transform: translateX(-50%);
+  animation: themeActorPop 2.2s ease forwards;
+}
+
+.theme-effect i {
+  position: absolute;
+  left: calc(8% + (var(--effect-index) * 9%));
+  bottom: -48px;
+  font-style: normal;
+  font-size: clamp(1.6rem, 6vw, 3.8rem);
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.34));
+  opacity: 0;
+  animation: themeEffectRise 2.75s cubic-bezier(0.15, 0.72, 0.28, 1) calc(var(--effect-index) * 45ms) forwards;
+}
+
+.theme-effect-laser i {
+  left: -12vw;
+  bottom: calc(8% + (var(--effect-index) * 8%));
+  width: 124vw;
+  height: 4px;
+  border-radius: 999px;
+  color: transparent;
+  background: linear-gradient(90deg, transparent, var(--pb-accent), var(--pb-link), transparent);
+  animation: themeLaserSweep 1.9s ease calc(var(--effect-index) * 50ms) forwards;
+}
+
+.theme-effect-bass {
+  background: radial-gradient(circle at 50% 72%, color-mix(in srgb, var(--pb-accent) 30%, transparent), transparent 42%);
+  animation: themeBassPulse 2.45s ease forwards;
+}
+
+.theme-effect-bass i,
+.theme-effect-glow i,
+.theme-effect-fire i {
+  animation-duration: 2.35s;
+}
+
+.theme-effect-glow {
+  background:
+    radial-gradient(circle at 22% 22%, color-mix(in srgb, var(--pb-accent-2) 36%, transparent), transparent 28%),
+    radial-gradient(circle at 82% 72%, color-mix(in srgb, var(--pb-link) 34%, transparent), transparent 32%);
+  animation: themeGlowWash 2.6s ease forwards;
+}
+
+@keyframes themeActorPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 14px) scale(0.76);
+  }
+
+  18%,
+  72% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -24px) scale(0.9);
+  }
+}
+
+@keyframes themeEffectRise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.62) rotate(-8deg);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  82% {
+    opacity: 0.95;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-76vh) scale(1.22) rotate(16deg);
+  }
+}
+
+@keyframes themeLaserSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-12vw) rotate(-12deg);
+  }
+
+  22%,
+  72% {
+    opacity: 0.72;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(22vw) rotate(-12deg);
+  }
+}
+
+@keyframes themeBassPulse {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  25%,
+  68% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes themeGlowWash {
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  22%,
+  76% {
+    opacity: 0.9;
   }
 }
 
@@ -7579,6 +7885,9 @@ input,
   .now-playing-card::before,
   .add-song-fab,
   .floating-reaction,
+  .theme-effect,
+  .theme-effect i,
+  .theme-effect > .avatar-identity,
   .equalizer i,
   .visualizer-glow,
   .visualizer-ring,

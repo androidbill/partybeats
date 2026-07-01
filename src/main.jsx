@@ -138,6 +138,14 @@ const EMOJIS = [
   "🤯",
   "😭"
 ];
+const THEME_REACTIONS = [
+  { id: "sparkle", label: "Sparkle", emoji: "✨" },
+  { id: "laser", label: "Laser", emoji: "💥" },
+  { id: "confetti", label: "Confetti", emoji: "🎉" },
+  { id: "bass", label: "Bass Pulse", emoji: "🔊" },
+  { id: "glow", label: "Glow", emoji: "🌈" },
+  { id: "fire", label: "Fire", emoji: "🔥" }
+];
 const AVATAR_OPTIONS = [
   { id: "premium-neon-dj", name: "Neon DJ", image: `${import.meta.env.BASE_URL}avatars/premium-neon-dj.png`, colors: ["#00e5ff", "#ff2ebd"] },
   { id: "premium-disco-smile", name: "Disco Smile", image: `${import.meta.env.BASE_URL}avatars/premium-disco-smile.png`, colors: ["#ff5edb", "#6ee7ff"] },
@@ -196,7 +204,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.14";
+const APP_VERSION = "2026.06.30.15";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -886,6 +894,9 @@ function App() {
   const [roomShouts, setRoomShouts] = useState([]);
   const [roomShoutOpen, setRoomShoutOpen] = useState(false);
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
+  const [roomMoments, setRoomMoments] = useState([]);
+  const [themeReactionPickerOpen, setThemeReactionPickerOpen] = useState(false);
+  const [themeEffects, setThemeEffects] = useState([]);
   const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
@@ -935,6 +946,8 @@ function App() {
   const reactionSeenIdsRef = useRef(new Set());
   const shoutBaselineReadyRef = useRef(false);
   const shoutSeenIdsRef = useRef(new Set());
+  const momentsBaselineReadyRef = useRef(false);
+  const momentsSeenIdsRef = useRef(new Set());
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
   const baseTheme = selectedColorTheme.base || "dark";
@@ -1161,6 +1174,7 @@ function App() {
       setSongs([]);
       setMembers([]);
       setSongMessages([]);
+      setRoomMoments([]);
       setRoomLoading(false);
       setSongsLoading(false);
       setMembersLoading(false);
@@ -1184,6 +1198,7 @@ function App() {
     const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"));
     const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"));
     const shoutsRef = query(collection(db, "rooms", activeRoomId, "shouts"), orderBy("createdAt", "asc"));
+    const momentsRef = query(collection(db, "rooms", activeRoomId, "moments"), orderBy("createdAt", "asc"));
 
     const handleRoomAccessLost = (error) => {
       setToast(error ? roomListenerErrorMessage(error) : "You were removed from this room.");
@@ -1257,6 +1272,24 @@ function App() {
         });
       });
     }, handleRoomAccessLost);
+    const unsubMoments = onSnapshot(momentsRef, (snap) => {
+      if (!active) return;
+      const nextMoments = snap.docs.map((item) => ({ id: item.id, ...item.data() })).slice(-24).reverse();
+      setRoomMoments(nextMoments);
+      if (!momentsBaselineReadyRef.current) {
+        momentsSeenIdsRef.current = new Set(snap.docs.map((item) => item.id));
+        momentsBaselineReadyRef.current = true;
+        return;
+      }
+      snap.docs.forEach((item) => {
+        if (momentsSeenIdsRef.current.has(item.id)) return;
+        momentsSeenIdsRef.current.add(item.id);
+        const data = item.data();
+        if (data.type === "theme") {
+          spawnThemeEffect(data.effect, data.emoji, data.uid);
+        }
+      });
+    }, handleRoomAccessLost);
     return () => {
       active = false;
       unsubRoom();
@@ -1265,6 +1298,7 @@ function App() {
       unsubMessages();
       unsubReactions();
       unsubShouts();
+      unsubMoments();
     };
   }, [activeRoomId, user?.uid]);
 
@@ -1442,6 +1476,15 @@ function App() {
     : "";
   const activeNickname = (memberRecord?.name || nickname).trim() || nicknameFor(user, "Guest");
   const memberById = (uid) => members.find((member) => member.id === uid);
+  const momentText = (moment) => {
+    if (moment.type === "song") return `added ${moment.songTitle || "a song"}`;
+    if (moment.type === "songReaction") return `reacted to ${moment.songTitle || "a track"}`;
+    if (moment.type === "songMessage") return `commented: ${moment.text || ""}`;
+    if (moment.type === "reaction") return `sent ${moment.emoji || "a reaction"}`;
+    if (moment.type === "theme") return moment.text || "lit up the room";
+    if (moment.type === "shout") return `shouted: ${moment.text || ""}`;
+    return moment.text || "joined the moment";
+  };
   const activeDjStatus = isActiveDj
     ? "This device is the player"
     : isActiveDjAccount
@@ -2211,6 +2254,13 @@ function App() {
     window.setTimeout(() => {
       setRecentlyAddedSongId((current) => current === songRef.id ? "" : current);
     }, 2600);
+    createRoomMoment({
+      type: "song",
+      emoji: "➕",
+      songId: songRef.id,
+      songTitle: playlistTrackDisplay({ title, artist: channelTitle }).title || title,
+      text: "added a song"
+    });
     setToast(!nowPlayingSong ? `Now playing: ${title}` : `Added to queue: ${title}`);
     setAddingSongKey("");
     setSearchResults([]);
@@ -3238,6 +3288,43 @@ function App() {
     }, 2600);
   }
 
+  function spawnThemeEffect(effect = "sparkle", emoji = "✨", uid = "") {
+    const nextEffect = {
+      id: `theme-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      effect,
+      emoji,
+      uid
+    };
+    setThemeEffects((current) => [...current.slice(-5), nextEffect]);
+    if (effect === "confetti") {
+      setConfettiKey((key) => key + 1);
+    }
+    window.setTimeout(() => {
+      setThemeEffects((current) => current.filter((item) => item.id !== nextEffect.id));
+    }, 2800);
+  }
+
+  async function createRoomMoment(moment) {
+    if (!user || !activeRoomId) return;
+    try {
+      await setDoc(doc(collection(db, "rooms", activeRoomId, "moments")), {
+        type: moment.type || "note",
+        uid: user.uid,
+        name: activeNickname.slice(0, 30) || "Guest",
+        isAnonymous: user.isAnonymous,
+        emoji: moment.emoji || "",
+        effect: moment.effect || "",
+        text: String(moment.text || "").slice(0, 160),
+        songId: moment.songId || "",
+        songTitle: String(moment.songTitle || "").slice(0, 160),
+        at: Date.now(),
+        createdAt: serverTimestamp()
+      });
+    } catch {
+      // Moments are decorative; core party actions should not fail because of the feed.
+    }
+  }
+
   function spawnRoomShout(shout) {
     const nextShout = {
       id: shout.id || `shout-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -3287,9 +3374,26 @@ function App() {
         at: Date.now(),
         createdAt: serverTimestamp()
       });
+      createRoomMoment({
+        type: "reaction",
+        emoji,
+        text: `reacted ${emoji}`
+      });
     } catch {
       spawnFloatingReaction(emoji);
     }
+  }
+
+  async function sendThemeReaction(reaction) {
+    if (!reaction) return;
+    setThemeReactionPickerOpen(false);
+    if (!user || !activeRoomId) return;
+    await createRoomMoment({
+      type: "theme",
+      emoji: reaction.emoji,
+      effect: reaction.id,
+      text: `${reaction.label} the room`
+    });
   }
 
   async function sendRoomShout(event) {
@@ -3312,6 +3416,11 @@ function App() {
         text,
         at: Date.now(),
         createdAt: serverTimestamp()
+      });
+      createRoomMoment({
+        type: "shout",
+        emoji: "💬",
+        text
       });
       await touchRoomActivity();
       setRoomShoutDraft("");
@@ -3405,6 +3514,13 @@ function App() {
       }
       await updateDoc(songRef, { [path]: emoji });
       spawnEmojiBurst(song, emoji);
+      createRoomMoment({
+        type: "songReaction",
+        emoji,
+        songId: song.id,
+        songTitle: playlistTrackDisplay(song).title || song.title || "this track",
+        text: `reacted to ${playlistTrackDisplay(song).title || "a track"}`
+      });
       await touchRoomActivity();
     } catch {
       setToast("Could not save that reaction. Try again.");
@@ -3428,6 +3544,13 @@ function App() {
         text,
         at: Date.now(),
         createdAt: serverTimestamp()
+      });
+      createRoomMoment({
+        type: "songMessage",
+        emoji: "💬",
+        songId: song.id,
+        songTitle: playlistTrackDisplay(song).title || song.title || "this track",
+        text: text
       });
       await touchRoomActivity();
       setMessageDraft("");
@@ -3457,6 +3580,8 @@ function App() {
     setSongs([]);
     setMembers([]);
     setSongMessages([]);
+    setRoomMoments([]);
+    setThemeEffects([]);
     setPlayerChoicePrompt(null);
     setDismissedPlayerPromptKey("");
     setDismissedVersionPrompt("");
@@ -3490,6 +3615,8 @@ function App() {
     previousMemberIds.current = undefined;
     reactionBaselineReadyRef.current = false;
     shoutBaselineReadyRef.current = false;
+    momentsBaselineReadyRef.current = false;
+    momentsSeenIdsRef.current = new Set();
     previousNowPlayingId.current = undefined;
     noticeRoomId.current = "";
     setNoticeBaselineReady(false);
@@ -4214,6 +4341,24 @@ function App() {
         </div>
       </header>
 
+      {roomMoments.length > 0 && (
+        <section className="room-moments-feed" aria-label="Room moments">
+          <div className="room-moments-title">
+            <Wand2 aria-hidden="true" />
+            <span>Moments</span>
+          </div>
+          <div className="room-moments-list">
+            {roomMoments.slice(0, 5).map((moment) => (
+              <div className={`room-moment room-moment-${moment.type || "note"}`} key={moment.id}>
+                <AvatarIdentity member={memberById(moment.uid)} avatarId={fallbackAvatarId(moment.uid)} name={moment.name || "Guest"} />
+                <span className="room-moment-emoji">{moment.emoji || "✨"}</span>
+                <span className="room-moment-copy">{momentText(moment)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {appNeedsRefresh && dismissedVersionPrompt !== latestRoomVersion && (
         <div className="version-refresh-banner" role="alert">
           <Info aria-hidden="true" />
@@ -4592,8 +4737,40 @@ function App() {
         Add Song
       </button>
 
-      {(floatingReactionsEnabled || roomShoutsEnabled) && (
-        <div className="floating-main-controls">
+      <div className="floating-main-controls">
+          <div className={themeReactionPickerOpen ? "theme-reaction-control is-picker-open" : "theme-reaction-control"}>
+            {themeReactionPickerOpen && (
+              <>
+                <button
+                  className="tap-away-layer theme-reaction-tap-away"
+                  aria-label="Close theme reaction picker"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setThemeReactionPickerOpen(false);
+                  }}
+                  type="button"
+                />
+                <div className="theme-reaction-picker" role="menu" aria-label="Theme reactions">
+                  {THEME_REACTIONS.map((reaction) => (
+                    <button key={reaction.id} onClick={() => sendThemeReaction(reaction)} type="button">
+                      <span>{reaction.emoji}</span>
+                      {reaction.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <button
+              className="theme-reaction-button"
+              type="button"
+              aria-label="Send a theme reaction"
+              title="Send a theme reaction"
+              onClick={() => setThemeReactionPickerOpen((open) => !open)}
+            >
+              <Wand2 aria-hidden="true" />
+            </button>
+          </div>
           {floatingReactionsEnabled && (
             <div className={reactionPickerOpen ? "floating-reaction-control is-picker-open" : "floating-reaction-control"}>
               {reactionPickerOpen && (
@@ -4657,7 +4834,6 @@ function App() {
             </button>
           )}
         </div>
-      )}
 
       {roomShoutOpen && (
         <div ref={roomShoutBackdropRef} className="modal-backdrop room-shout-backdrop" onClick={() => setRoomShoutOpen(false)}>
@@ -5692,6 +5868,21 @@ function App() {
                 <AvatarIdentity member={memberById(reaction.uid)} avatarId={fallbackAvatarId(reaction.uid)} name={memberById(reaction.uid)?.name || "Guest"} size="md" />
               )}
               {reaction.emoji}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {themeEffects.length > 0 && (
+        <div className="theme-effect-layer" aria-hidden="true">
+          {themeEffects.map((effect) => (
+            <span className={`theme-effect theme-effect-${effect.effect || "sparkle"}`} key={effect.id}>
+              {effect.uid && (
+                <AvatarIdentity member={memberById(effect.uid)} avatarId={fallbackAvatarId(effect.uid)} name={memberById(effect.uid)?.name || "Guest"} size="md" />
+              )}
+              {Array.from({ length: 10 }, (_, index) => (
+                <i key={index} style={{ "--effect-index": index }}>{effect.emoji || "✨"}</i>
+              ))}
             </span>
           ))}
         </div>
