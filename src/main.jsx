@@ -197,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.29";
+const APP_VERSION = "2026.06.30.30";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -944,7 +944,9 @@ function App() {
   const volumeDebounceRef = useRef(null);
   const dragSongIdRef = useRef("");
   const djShortcutsRef = useRef({});
+  const fullscreenSettleTimerRef = useRef(0);
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
+  const [fullscreenSettling, setFullscreenSettling] = useState(false);
   const [pendingVolume, setPendingVolume] = useState(null);
   const [dragSongId, setDragSongId] = useState("");
   const [dragOverSongId, setDragOverSongId] = useState("");
@@ -1141,10 +1143,29 @@ function App() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setPlayerFullscreen(document.fullscreenElement === playerCardRef.current);
+      const isPlayerFullscreen = document.fullscreenElement === playerCardRef.current;
+      window.clearTimeout(fullscreenSettleTimerRef.current);
+      setPlayerFullscreen(isPlayerFullscreen);
+
+      if (isPlayerFullscreen) {
+        setFullscreenSettling(false);
+        return;
+      }
+
+      setFullscreenSettling(true);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          fullscreenSettleTimerRef.current = window.setTimeout(() => {
+            setFullscreenSettling(false);
+          }, 260);
+        });
+      });
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      window.clearTimeout(fullscreenSettleTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -4358,7 +4379,7 @@ function App() {
   return (
     <main
       ref={roomAppRef}
-      className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"} ${partyMotionEnabled ? "has-party-motion" : ""} ${isIos ? "is-ios" : ""}`}
+      className={`app-shell room-app ${isDarkTheme ? "dark-mode" : "light-mode"} ${partyMotionEnabled ? "has-party-motion" : ""} ${fullscreenSettling ? "is-fullscreen-settling" : ""} ${isIos ? "is-ios" : ""}`}
       style={{ "--desktop-player-split": `${desktopPlayerSplit}%` }}
     >
       {partyMotionEnabled && (

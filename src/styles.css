@@ -946,6 +946,30 @@ input {
   background: transparent !important;
 }
 
+.room-app.is-fullscreen-settling {
+  background: var(--pb-bg, #070a12);
+  contain: paint;
+}
+
+.room-app.is-fullscreen-settling .party-motion-bg,
+.room-app.is-fullscreen-settling .theme-effect-layer,
+.room-app.is-fullscreen-settling .floating-reaction-layer,
+.room-app.is-fullscreen-settling .emoji-burst-layer,
+.room-app.is-fullscreen-settling .confetti-layer {
+  opacity: 0;
+  visibility: hidden;
+  animation: none !important;
+  transition: none !important;
+}
+
+.room-app.is-fullscreen-settling .app-topbar,
+.room-app.is-fullscreen-settling .app-grid,
+.room-app.is-fullscreen-settling .now-playing-card,
+.room-app.is-fullscreen-settling .queue-panel {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 .party-motion-bg.is-awake {
   --motion-energy: 1.36;
 }
