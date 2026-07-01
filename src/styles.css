@@ -8408,6 +8408,7 @@ input,
 }
 
 .room-app .song-main {
+  width: 100%;
   grid-template-columns: 25px minmax(0, 1fr);
   column-gap: 8px;
   row-gap: 1px;
@@ -8877,7 +8878,7 @@ input,
   }
 }
 
-/* Comfortable queue rows: compact pills that grow when text needs room. */
+/* Comfortable queue rows: flex-column pills. */
 .room-app .song-list {
   gap: 8px;
 }
@@ -8893,11 +8894,9 @@ input,
 .room-app.dark-mode .song-row.is-playing,
 .room-app .song-row.is-up-next:not(.is-playing),
 .room-app.dark-mode .song-row.is-up-next:not(.is-playing) {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  align-items: center;
-  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   height: auto;
   max-height: none;
   padding: 7px 14px;
@@ -8908,8 +8907,7 @@ input,
 .room-app .song-main,
 .room-app.is-ios.has-party-motion .song-main,
 .room-app.is-ios.has-party-motion.dark-mode .song-main {
-  grid-column: 1;
-  grid-row: 1;
+  width: 100%;
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   grid-template-rows: auto;
@@ -8928,11 +8926,9 @@ input,
 
 .room-app .track-line {
   grid-column: 2;
-  grid-row: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 1px;
-  align-items: center;
   min-width: 0;
   max-height: none;
   overflow: visible;
