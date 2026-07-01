@@ -182,7 +182,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.15";
+const APP_VERSION = "2026.07.01.16";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1288,7 +1288,7 @@ function App() {
         if (reactionSeenIdsRef.current.has(item.id)) return;
         reactionSeenIdsRef.current.add(item.id);
         const data = item.data();
-        if (!EMOJIS.includes(data.emoji)) return;
+        if (!data.emoji) return;
         spawnFloatingReaction(data.emoji, data.uid);
       });
     }, handleRoomAccessLost);
@@ -3451,7 +3451,7 @@ function App() {
   }
 
   async function sendFloatingReaction(emoji = floatingReactionEmoji) {
-    if (!user || !activeRoomId || !EMOJIS.includes(emoji)) {
+    if (!user || !activeRoomId) {
       spawnFloatingReaction(emoji);
       return;
     }
