@@ -1542,27 +1542,27 @@ input {
 .room-moment {
   display: inline-flex;
   gap: 6px;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
   min-height: 38px;
-  padding: 4px 9px 4px 5px;
+  padding: 6px 9px 6px 5px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.08);
 }
 
 .room-moment-emoji {
-  font-size: 1rem;
+  flex-shrink: 0;
+  padding-top: 1px;
 }
 
 .room-moment-copy {
   min-width: 0;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   color: rgba(255, 255, 255, 0.88);
   font-size: 0.74rem;
   font-weight: 850;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .room-moment-shout,
