@@ -198,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.04";
+const APP_VERSION = "2026.07.01.05";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -891,6 +891,9 @@ function App() {
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
   const [roomMoments, setRoomMoments] = useState([]);
   const [roomMomentsOpen, setRoomMomentsOpen] = useState(false);
+  const [newMomentsCount, setNewMomentsCount] = useState(0);
+  const [commentSongId, setCommentSongId] = useState("");
+  const [commentDraft, setCommentDraft] = useState("");
   const [themeEffects, setThemeEffects] = useState([]);
   const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
@@ -1344,6 +1347,9 @@ function App() {
         if (data.type === "theme") {
           spawnThemeEffect(data.effect, data.emoji, data.uid);
         }
+        if (data.type === "shout" || data.type === "songComment") {
+          setNewMomentsCount((n) => n + 1);
+        }
       });
     }, handleRoomAccessLost);
     return () => {
@@ -1537,10 +1543,15 @@ function App() {
     [members]
   );
   const getAvatarId = (uid) => memberAvatarMap.get(uid) || fallbackAvatarId(uid);
+  useEffect(() => {
+    if (roomMomentsOpen) setNewMomentsCount(0);
+  }, [roomMomentsOpen]);
+
   const momentText = (moment) => {
     if (moment.type === "song") return `added ${moment.songTitle || "a song"}`;
     if (moment.type === "songReaction") return `reacted to ${moment.songTitle || "a track"}`;
     if (moment.type === "songMessage") return `commented: ${moment.text || ""}`;
+    if (moment.type === "songComment") return `commented on ${moment.songTitle || "a track"}: ${moment.text || ""}`;
     if (moment.type === "reaction") return `sent ${moment.emoji || "a reaction"}`;
     if (moment.type === "theme") return moment.text || "lit up the room";
     if (moment.type === "shout") return `shouted: ${moment.text || ""}`;
@@ -3669,6 +3680,24 @@ function App() {
     }
   }
 
+  async function sendSongComment(song) {
+    const text = commentDraft.trim().slice(0, 50);
+    if (!user || !activeRoomId || !text) return;
+    if (hasProfanity(text)) {
+      setToast("Comment blocked for profanity.");
+      return;
+    }
+    createRoomMoment({
+      type: "songComment",
+      emoji: "💬",
+      songId: song.id,
+      songTitle: playlistTrackDisplay(song).title || song.title || "this track",
+      text
+    });
+    setCommentDraft("");
+    setCommentSongId("");
+  }
+
   async function sendSongMessage(song) {
     const text = messageDraft.trim().slice(0, 90);
     if (!user || !activeRoomId || !text) return;
@@ -3745,6 +3774,9 @@ function App() {
     setEmojiPickerMode("react");
     setMessageSongId("");
     setMessageDraft("");
+    setCommentSongId("");
+    setCommentDraft("");
+    setNewMomentsCount(0);
     setFloatingReactions([]);
     setRoomShouts([]);
     setRoomShoutOpen(false);
@@ -4522,6 +4554,7 @@ function App() {
         playerCollapsed={playerCollapsed}
         playbackState={playbackState}
         momentsCount={roomMoments.length}
+        hasNewMoments={newMomentsCount > 0}
         roomMomentsOpen={roomMomentsOpen}
         nowPlayingDisplay={nowPlayingDisplay}
         nowPlayingSyncing={nowPlayingSyncing}
@@ -4671,6 +4704,11 @@ function App() {
                   onPlay={() => setNowPlaying(song.id)}
                   onRemove={() => removeSong(song.id)}
                   onEmojiPicker={openSongEmojiPicker}
+                  isCommenting={commentSongId === song.id}
+                  commentDraft={commentSongId === song.id ? commentDraft : ""}
+                  onCommentIconClick={() => { setCommentSongId(song.id); setCommentDraft(""); }}
+                  onCommentChange={setCommentDraft}
+                  onCommentSubmit={() => sendSongComment(song)}
                   songSwipeRevealedRef={songSwipeRevealedRef}
                   memberById={memberById}
                   getAvatarId={getAvatarId}
@@ -5870,6 +5908,7 @@ const SongRow = React.memo(function SongRow({
   onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
   onSelect, onDeleteReveal, onPointerDown, onPointerMove, onPointerUp, onPointerCancel,
   onContextMenu, onDeleteOwn, onMoveUp, onMoveDown, onPlay, onRemove, onEmojiPicker,
+  isCommenting, commentDraft, onCommentIconClick, onCommentChange, onCommentSubmit,
   songSwipeRevealedRef, memberById, getAvatarId
 }) {
   return (
@@ -5991,7 +6030,7 @@ const SongRow = React.memo(function SongRow({
 
       {!isAdmin && isSelected && (
         <div
-          className="song-reaction-actions"
+          className={isCommenting ? "song-reaction-actions is-commenting" : "song-reaction-actions"}
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
           onPointerUp={(event) => event.stopPropagation()}
@@ -6011,6 +6050,40 @@ const SongRow = React.memo(function SongRow({
           >
             <Smile aria-hidden="true" />
           </button>
+          <button
+            className={isCommenting ? "song-reaction-button song-comment-button is-active" : "song-reaction-button song-comment-button"}
+            type="button"
+            aria-label="Add a comment"
+            title="Add a comment"
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerUp={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onCommentIconClick();
+            }}
+          >
+            <MessageCircle aria-hidden="true" />
+          </button>
+          {isCommenting && (
+            <form
+              className="song-comment-form"
+              onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); onCommentSubmit(); }}
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              <input
+                value={commentDraft}
+                onChange={(event) => onCommentChange(event.target.value.slice(0, 50))}
+                placeholder="Comment… (50 chars)"
+                maxLength={50}
+                autoFocus
+              />
+              <button className="mini-action" type="submit" disabled={!commentDraft.trim()}>
+                Post
+              </button>
+            </form>
+          )}
         </div>
       )}
     </article>
@@ -6030,6 +6103,8 @@ const SongRow = React.memo(function SongRow({
   prev.isDragOverTop === next.isDragOverTop &&
   prev.isDragOverBottom === next.isDragOverBottom &&
   prev.isReacting === next.isReacting &&
+  prev.isCommenting === next.isCommenting &&
+  prev.commentDraft === next.commentDraft &&
   prev.playbackIsPlaying === next.playbackIsPlaying
 ));
 
@@ -6045,6 +6120,7 @@ const NowPlayingCard = React.memo(function NowPlayingCard({
   playerCollapsed,
   playbackState,
   momentsCount,
+  hasNewMoments,
   roomMomentsOpen,
   nowPlayingDisplay,
   nowPlayingSyncing,
@@ -6102,7 +6178,11 @@ const NowPlayingCard = React.memo(function NowPlayingCard({
           {momentsCount > 0 && (
             <div className="now-playing-moments">
               <button
-                className={roomMomentsOpen ? "moments-corner-button is-open" : "moments-corner-button"}
+                className={[
+                  "moments-corner-button",
+                  roomMomentsOpen ? "is-open" : "",
+                  !roomMomentsOpen && hasNewMoments ? "has-new" : ""
+                ].filter(Boolean).join(" ")}
                 onClick={() => setRoomMomentsOpen((open) => !open)}
                 type="button"
                 aria-expanded={roomMomentsOpen}
@@ -6110,6 +6190,7 @@ const NowPlayingCard = React.memo(function NowPlayingCard({
                 <Wand2 aria-hidden="true" />
                 Moments
                 <span>{momentsCount}</span>
+                {!roomMomentsOpen && hasNewMoments && <em className="moments-new-dot" aria-label="New activity" />}
               </button>
             </div>
           )}
@@ -6272,6 +6353,7 @@ const NowPlayingCard = React.memo(function NowPlayingCard({
   prev.playerCollapsed === next.playerCollapsed &&
   prev.playbackState === next.playbackState &&
   prev.momentsCount === next.momentsCount &&
+  prev.hasNewMoments === next.hasNewMoments &&
   prev.roomMomentsOpen === next.roomMomentsOpen &&
   prev.nowPlayingSyncing === next.nowPlayingSyncing &&
   prev.roomTagline === next.roomTagline &&
