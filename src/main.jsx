@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
@@ -197,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.33";
+const APP_VERSION = "2026.06.30.34";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -945,6 +946,7 @@ function App() {
   const dragSongIdRef = useRef("");
   const djShortcutsRef = useRef({});
   const fullscreenSettleTimerRef = useRef(0);
+  const latestSongsRef = useRef([]);
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const [fullscreenSettling, setFullscreenSettling] = useState(false);
   const [pendingVolume, setPendingVolume] = useState(null);
@@ -1145,14 +1147,18 @@ function App() {
     const handleFullscreenChange = () => {
       const isPlayerFullscreen = document.fullscreenElement === playerCardRef.current;
       window.clearTimeout(fullscreenSettleTimerRef.current);
-      setPlayerFullscreen(isPlayerFullscreen);
 
       if (isPlayerFullscreen) {
+        setPlayerFullscreen(true);
         setFullscreenSettling(false);
         return;
       }
 
-      setFullscreenSettling(true);
+      flushSync(() => {
+        setSongs([...latestSongsRef.current]);
+        setPlayerFullscreen(false);
+        setFullscreenSettling(true);
+      });
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           fullscreenSettleTimerRef.current = window.setTimeout(() => {
@@ -1210,6 +1216,7 @@ function App() {
   useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
       setRoom(null);
+      latestSongsRef.current = [];
       setSongs([]);
       setMembers([]);
       setSongMessages([]);
@@ -1264,7 +1271,9 @@ function App() {
 
     const unsubSongs = onSnapshot(songsRef, (snap) => {
       if (!active) return;
-      setSongs(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
+      const nextSongs = snap.docs.map((item) => ({ id: item.id, ...item.data() }));
+      latestSongsRef.current = nextSongs;
+      setSongs(nextSongs);
       setSongsLoading(false);
     }, handleRoomAccessLost);
     const unsubMembers = onSnapshot(membersRef, (snap) => {
@@ -3701,6 +3710,7 @@ function App() {
     setActiveRoomId("");
     setRoom(null);
     setPlaybackDoc(null);
+    latestSongsRef.current = [];
     setSongs([]);
     setMembers([]);
     setSongMessages([]);
