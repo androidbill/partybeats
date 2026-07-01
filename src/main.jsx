@@ -198,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.11";
+const APP_VERSION = "2026.07.01.12";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -6052,20 +6052,6 @@ const SongRow = React.memo(function SongRow({
         </div>
       </div>
 
-      {(emojiCounts.length > 0 || messages.length > 0) && (
-        <div className="song-reactions-row">
-          {emojiCounts.map(({ emoji, count }) => (
-            <span className="song-emoji-pill" key={emoji}>
-              {emoji}{count > 1 && <span>{count}</span>}
-            </span>
-          ))}
-          {messages.slice(-2).map((item, messageIndex) => (
-            <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
-              <b><AvatarIdentity member={memberById(item.uid)} avatarId={getAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
-            </span>
-          ))}
-        </div>
-      )}
     </article>
   );
 }, (prev, next) => (
