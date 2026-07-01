@@ -197,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.25";
+const APP_VERSION = "2026.06.30.26";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4675,7 +4675,6 @@ function App() {
             </div>
           ) : (
             songs.map((song, index) => {
-              const queueIndex = songs.findIndex((item) => item.id === song.id);
               const trackDisplay = trackDisplayMap.get(song.id) || playlistTrackDisplay(song);
               const isCurrentSong = song.id === room.nowPlayingId;
               const isPlayedSong = nowPlayingIndex >= 0 && index < nowPlayingIndex;
@@ -4684,159 +4683,63 @@ function App() {
               const isSelectedSong = selectedSongId === song.id;
               const canDeleteOwnSong = Boolean(user && song.addedByUid === user.uid && !isAdmin);
               const isDeleteRevealed = deleteRevealSongId === song.id;
-              const visibleTrackDisplay = trackDisplay;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
               const emojiCounts = EMOJIS.map((emoji) => ({
                 emoji,
                 count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
               })).filter((item) => item.count > 0);
+              const songMsgs = songMessagesMap.get(song.id) || [];
+              const songVersion = `${song.id}|${song.title}|${song.position}|${song.unavailable ? 1 : 0}|${JSON.stringify(song.emojiByUser || {})}|${(song.messages?.length || 0) + songMsgs.length}`;
               return (
-                <article
-                  className={[
-                    "song-row",
-                    isCurrentSong ? "is-playing" : "",
-                    isPlayedSong ? "is-played" : "",
-                    isUpNextSong ? "is-up-next" : "",
-                    isRecentlyAddedSong ? "is-recently-added" : "",
-                    isSelectedSong ? "is-selected" : "",
-                    isDeleteRevealed ? "is-delete-revealed" : "",
-                    isAdmin && isSelectedSong ? "is-admin-selected" : "",
-                    emojiSongId === song.id ? "is-reacting" : "",
-                    song.unavailable ? "is-unavailable" : "",
-                    isAdmin && dragSongId === song.id ? "is-dragging" : "",
-                    isAdmin && dragOverSongId === song.id && dragOverHalf === "top" ? "is-drag-over-top" : "",
-                    isAdmin && dragOverSongId === song.id && dragOverHalf === "bottom" ? "is-drag-over-bottom" : ""
-                  ].filter(Boolean).join(" ")}
-                  draggable={isAdmin && !isCurrentSong && !isMobileViewport}
-                  data-song-id={song.id}
+                <SongRow
                   key={song.id}
-                  onDragStart={isAdmin && !isMobileViewport ? (e) => handleSongDragStart(e, song) : undefined}
-                  onDragOver={isAdmin && !isMobileViewport ? (e) => handleSongDragOver(e, song) : undefined}
-                  onDragLeave={isAdmin && !isMobileViewport ? () => handleSongDragLeave(song) : undefined}
-                  onDrop={isAdmin && !isMobileViewport ? (e) => handleSongDrop(e, song) : undefined}
-                  onDragEnd={isAdmin && !isMobileViewport ? handleSongDragEnd : undefined}
-                  onClick={() => {
-                    if (songSwipeRevealedRef.current) {
-                      songSwipeRevealedRef.current = false;
-                      return;
-                    }
-                    if (isDeleteRevealed) {
-                      setDeleteRevealSongId("");
-                      return;
-                    }
-                    setSelectedSongId((current) => {
-                      const next = current === song.id ? "" : song.id;
-                      return next;
-                    });
-                  }}
-                  onPointerDown={(event) => startSongDeleteSwipe(event, song, canDeleteOwnSong)}
-                  onPointerMove={(event) => moveSongDeleteSwipe(event, song, canDeleteOwnSong)}
-                  onPointerUp={(event) => finishSongDeleteSwipe(event, song, canDeleteOwnSong)}
+                  songVersion={songVersion}
+                  song={song}
+                  index={index}
+                  queueLength={songs.length}
+                  trackDisplay={trackDisplay}
+                  uploader={uploader}
+                  uploaderIsGoogle={uploaderIsGoogle}
+                  messages={(song?.messages || []).concat(songMsgs)}
+                  emojiCounts={emojiCounts}
+                  isCurrentSong={isCurrentSong}
+                  isPlayedSong={isPlayedSong}
+                  isUpNextSong={isUpNextSong}
+                  isRecentlyAdded={isRecentlyAddedSong}
+                  isSelected={isSelectedSong}
+                  isDeleteRevealed={isDeleteRevealed}
+                  isAdmin={isAdmin}
+                  isDragging={isAdmin && dragSongId === song.id}
+                  isDragOverTop={isAdmin && dragOverSongId === song.id && dragOverHalf === "top"}
+                  isDragOverBottom={isAdmin && dragOverSongId === song.id && dragOverHalf === "bottom"}
+                  isReacting={emojiSongId === song.id}
+                  isUnavailable={song.unavailable}
+                  isDraggable={isAdmin && !isCurrentSong && !isMobileViewport}
+                  canDeleteOwn={canDeleteOwnSong}
+                  playbackIsPlaying={playbackState.state === "playing"}
+                  onDragStart={handleSongDragStart}
+                  onDragOver={handleSongDragOver}
+                  onDragLeave={handleSongDragLeave}
+                  onDrop={handleSongDrop}
+                  onDragEnd={handleSongDragEnd}
+                  onSelect={setSelectedSongId}
+                  onDeleteReveal={setDeleteRevealSongId}
+                  onPointerDown={startSongDeleteSwipe}
+                  onPointerMove={moveSongDeleteSwipe}
+                  onPointerUp={finishSongDeleteSwipe}
                   onPointerCancel={cancelSongDeleteSwipe}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    if (isAdmin) {
-                      openSongEmojiPicker(song);
-                    } else {
-                      setSelectedSongId(song.id);
-                    }
-                  }}
-                >
-                  {canDeleteOwnSong && isDeleteRevealed && (
-                    <button
-                      className="own-song-delete-action"
-                      type="button"
-                      title="Remove song"
-                      aria-label="Remove song"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setDeleteRevealSongId("");
-                        removeOwnSong(song);
-                      }}
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </button>
-                  )}
-                  <button className="song-main" type="button">
-                    <span className="song-index">{index + 1}</span>
-                    <span className="track-line">
-                      <strong>{visibleTrackDisplay.title}</strong>
-                      {visibleTrackDisplay.artist && <b>{visibleTrackDisplay.artist}</b>}
-                    </span>
-                    <span className="uploaded-by">
-                      Uploaded by <AvatarIdentity member={uploader} avatarId={getAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
-                    </span>
-                  </button>
-
-                  <div className="reaction-strip">
-                    <span className="row-uploader">
-                      <AvatarIdentity member={uploader} avatarId={getAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
-                    </span>
-                    <span className="track-badges">
-                      {isCurrentSong && (
-                        <em className="now-tag">
-                          <Equalizer paused={playbackState.state !== "playing"} />
-                          Now
-                        </em>
-                      )}
-                      {isUpNextSong && <em>Up next</em>}
-                    </span>
-                    {emojiCounts.length > 0 && (
-                      <span className="emoji-summary">
-                        {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
-                      </span>
-                    )}
-                    {((song?.messages || []).concat(songMessagesMap.get(song.id) || [])).slice(-2).map((item, messageIndex) => (
-                      <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
-                        <b><AvatarIdentity member={memberById(item.uid)} avatarId={getAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
-                      </span>
-                    ))}
-                  </div>
-
-                  {isAdmin && isSelectedSong && (
-                    <div className="admin-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-                      <button className="icon-button" onClick={() => moveSong(song, -1)} title="Move up" disabled={queueIndex <= 0} type="button">
-                        <ArrowUp aria-hidden="true" />
-                      </button>
-                      <button className="icon-button" onClick={() => moveSong(song, 1)} title="Move down" disabled={queueIndex < 0 || queueIndex === songs.length - 1} type="button">
-                        <ArrowDown aria-hidden="true" />
-                      </button>
-                      <button className="icon-button" onClick={() => setNowPlaying(song.id)} title="Play" type="button">
-                        <Play aria-hidden="true" />
-                      </button>
-                      <button className="icon-button danger" onClick={() => removeSong(song.id)} title="Remove song" type="button">
-                        <Trash2 aria-hidden="true" />
-                      </button>
-                    </div>
-                  )}
-
-                  {!isAdmin && isSelectedSong && (
-                    <div
-                      className="song-reaction-actions"
-                      onClick={(event) => event.stopPropagation()}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onPointerUp={(event) => event.stopPropagation()}
-                    >
-                      <button
-                        className="song-reaction-button song-smiley-button"
-                        type="button"
-                        aria-label="Choose reaction emoji"
-                        title="Choose reaction emoji"
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onPointerUp={(event) => event.stopPropagation()}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          openSongEmojiPicker(song, "choose");
-                        }}
-                      >
-                        <Smile aria-hidden="true" />
-                      </button>
-                    </div>
-                  )}
-                </article>
+                  onContextMenu={openSongEmojiPicker}
+                  onDeleteOwn={removeOwnSong}
+                  onMoveUp={() => moveSong(song, -1)}
+                  onMoveDown={() => moveSong(song, 1)}
+                  onPlay={() => setNowPlaying(song.id)}
+                  onRemove={() => removeSong(song.id)}
+                  onEmojiPicker={openSongEmojiPicker}
+                  songSwipeRevealedRef={songSwipeRevealedRef}
+                  memberById={memberById}
+                  getAvatarId={getAvatarId}
+                />
               );
             })
           )}
@@ -6023,6 +5926,177 @@ function App() {
     </main>
   );
 }
+
+const SongRow = React.memo(function SongRow({
+  song, index, queueLength, trackDisplay, uploader, uploaderIsGoogle, messages, emojiCounts,
+  isCurrentSong, isPlayedSong, isUpNextSong, isRecentlyAdded, isSelected, isDeleteRevealed,
+  isAdmin, isDragging, isDragOverTop, isDragOverBottom, isReacting, isUnavailable,
+  isDraggable, canDeleteOwn, playbackIsPlaying,
+  onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
+  onSelect, onDeleteReveal, onPointerDown, onPointerMove, onPointerUp, onPointerCancel,
+  onContextMenu, onDeleteOwn, onMoveUp, onMoveDown, onPlay, onRemove, onEmojiPicker,
+  songSwipeRevealedRef, memberById, getAvatarId
+}) {
+  return (
+    <article
+      className={[
+        "song-row",
+        isCurrentSong ? "is-playing" : "",
+        isPlayedSong ? "is-played" : "",
+        isUpNextSong ? "is-up-next" : "",
+        isRecentlyAdded ? "is-recently-added" : "",
+        isSelected ? "is-selected" : "",
+        isDeleteRevealed ? "is-delete-revealed" : "",
+        isAdmin && isSelected ? "is-admin-selected" : "",
+        isReacting ? "is-reacting" : "",
+        isUnavailable ? "is-unavailable" : "",
+        isDragging ? "is-dragging" : "",
+        isDragOverTop ? "is-drag-over-top" : "",
+        isDragOverBottom ? "is-drag-over-bottom" : ""
+      ].filter(Boolean).join(" ")}
+      draggable={isDraggable}
+      data-song-id={song.id}
+      onDragStart={isDraggable ? (e) => onDragStart(e, song) : undefined}
+      onDragOver={isDraggable ? (e) => onDragOver(e, song) : undefined}
+      onDragLeave={isDraggable ? () => onDragLeave(song) : undefined}
+      onDrop={isDraggable ? (e) => onDrop(e, song) : undefined}
+      onDragEnd={isDraggable ? onDragEnd : undefined}
+      onClick={() => {
+        if (songSwipeRevealedRef.current) {
+          songSwipeRevealedRef.current = false;
+          return;
+        }
+        if (isDeleteRevealed) {
+          onDeleteReveal("");
+          return;
+        }
+        onSelect((current) => current === song.id ? "" : song.id);
+      }}
+      onPointerDown={(event) => onPointerDown(event, song, canDeleteOwn)}
+      onPointerMove={(event) => onPointerMove(event, song, canDeleteOwn)}
+      onPointerUp={(event) => onPointerUp(event, song, canDeleteOwn)}
+      onPointerCancel={onPointerCancel}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        if (isAdmin) {
+          onContextMenu(song);
+        } else {
+          onSelect(song.id);
+        }
+      }}
+    >
+      {canDeleteOwn && isDeleteRevealed && (
+        <button
+          className="own-song-delete-action"
+          type="button"
+          title="Remove song"
+          aria-label="Remove song"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onDeleteReveal("");
+            onDeleteOwn(song);
+          }}
+        >
+          <Trash2 aria-hidden="true" />
+        </button>
+      )}
+      <button className="song-main" type="button">
+        <span className="song-index">{index + 1}</span>
+        <span className="track-line">
+          <strong>{trackDisplay.title}</strong>
+          {trackDisplay.artist && <b>{trackDisplay.artist}</b>}
+        </span>
+        <span className="uploaded-by">
+          Uploaded by <AvatarIdentity member={uploader} avatarId={getAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+        </span>
+      </button>
+
+      <div className="reaction-strip">
+        <span className="row-uploader">
+          <AvatarIdentity member={uploader} avatarId={getAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+        </span>
+        <span className="track-badges">
+          {isCurrentSong && (
+            <em className="now-tag">
+              <Equalizer paused={!playbackIsPlaying} />
+              Now
+            </em>
+          )}
+          {isUpNextSong && <em>Up next</em>}
+        </span>
+        {emojiCounts.length > 0 && (
+          <span className="emoji-summary">
+            {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
+          </span>
+        )}
+        {messages.slice(-2).map((item, messageIndex) => (
+          <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
+            <b><AvatarIdentity member={memberById(item.uid)} avatarId={getAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
+          </span>
+        ))}
+      </div>
+
+      {isAdmin && isSelected && (
+        <div className="admin-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+          <button className="icon-button" onClick={onMoveUp} title="Move up" disabled={index <= 0} type="button">
+            <ArrowUp aria-hidden="true" />
+          </button>
+          <button className="icon-button" onClick={onMoveDown} title="Move down" disabled={index >= queueLength - 1} type="button">
+            <ArrowDown aria-hidden="true" />
+          </button>
+          <button className="icon-button" onClick={onPlay} title="Play" type="button">
+            <Play aria-hidden="true" />
+          </button>
+          <button className="icon-button danger" onClick={onRemove} title="Remove song" type="button">
+            <Trash2 aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      {!isAdmin && isSelected && (
+        <div
+          className="song-reaction-actions"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+        >
+          <button
+            className="song-reaction-button song-smiley-button"
+            type="button"
+            aria-label="Choose reaction emoji"
+            title="Choose reaction emoji"
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerUp={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onEmojiPicker(song, "choose");
+            }}
+          >
+            <Smile aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </article>
+  );
+}, (prev, next) => (
+  prev.songVersion === next.songVersion &&
+  prev.index === next.index &&
+  prev.queueLength === next.queueLength &&
+  prev.isCurrentSong === next.isCurrentSong &&
+  prev.isPlayedSong === next.isPlayedSong &&
+  prev.isUpNextSong === next.isUpNextSong &&
+  prev.isRecentlyAdded === next.isRecentlyAdded &&
+  prev.isSelected === next.isSelected &&
+  prev.isDeleteRevealed === next.isDeleteRevealed &&
+  prev.isAdmin === next.isAdmin &&
+  prev.isDragging === next.isDragging &&
+  prev.isDragOverTop === next.isDragOverTop &&
+  prev.isDragOverBottom === next.isDragOverBottom &&
+  prev.isReacting === next.isReacting &&
+  prev.playbackIsPlaying === next.playbackIsPlaying
+));
 
 function Equalizer({ paused = false }) {
   return (
