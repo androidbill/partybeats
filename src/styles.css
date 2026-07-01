@@ -9088,10 +9088,10 @@ input,
 }
 
 .room-app .own-song-delete-action {
-  grid-column: 1;
-  grid-row: 1 / 3;
-  justify-self: start;
-  align-self: center;
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   display: grid;
   place-items: center;
   width: 38px;
