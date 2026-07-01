@@ -2741,7 +2741,6 @@ input {
     box-shadow 220ms ease,
     opacity 220ms ease,
     transform 220ms ease;
-  animation: songRowIn 220ms ease both;
 }
 
 .song-row,
