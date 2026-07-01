@@ -115,30 +115,14 @@ const ROOM_WORDS = [
 ].filter((word) => word.length === 4);
 
 const EMOJIS = [
-  "🔥",
-  "❤️",
-  "😍",
-  "😮",
-  "😂",
-  "🙌",
-  "👏",
-  "💃",
-  "🕺",
-  "🤘",
-  "🎸",
-  "🥁",
-  "🎤",
-  "🎶",
-  "🚀",
-  "⚡",
-  "💯",
-  "⭐",
-  "👑",
-  "🍻",
-  "🥳",
-  "😎",
-  "🤯",
-  "😭"
+  "🔥", "❤️", "😍", "😮", "😂", "🙌", "👏", "💃", "🕺", "🤘",
+  "🎸", "🥁", "🎤", "🎶", "🚀", "⚡", "💯", "⭐", "👑", "🍻",
+  "🥳", "😎", "🤯", "😭", "😆", "🤣", "😜", "🥰", "😘", "🤩",
+  "😤", "🫡", "🤙", "✌️", "👆", "🫶", "💪", "🙏", "👍", "🫰",
+  "💥", "✨", "🌟", "💫", "🎉", "🎊", "🎵", "🎧", "🎼", "🪩",
+  "🏆", "🥇", "💎", "💜", "🧡", "💛", "💚", "💙", "🖤", "🤍",
+  "🐐", "🦋", "🌊", "🌈", "🌙", "☀️", "❄️", "🍕", "🌮", "🫂",
+  "😴", "💀", "👻", "🤖", "👽", "🫠", "🥹", "😇", "🤑", "😈",
 ];
 const AVATAR_OPTIONS = [
   { id: "premium-neon-dj", name: "Neon DJ", image: `${import.meta.env.BASE_URL}avatars/premium-neon-dj.png`, colors: ["#00e5ff", "#ff2ebd"] },
@@ -198,7 +182,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.12";
+const APP_VERSION = "2026.07.01.13";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4878,6 +4862,39 @@ function App() {
               {emoji}
             </button>
           ))}
+          {emojiPickerMode !== "comment" && (
+            <input
+              className="emoji-custom-input"
+              type="text"
+              inputMode="text"
+              placeholder="✦ any emoji…"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onInput={(event) => {
+                event.stopPropagation();
+                const val = event.target.value;
+                if (!val) return;
+                let picked = null;
+                try {
+                  const segs = [...new Intl.Segmenter().segment(val)].map((s) => s.segment);
+                  picked = segs.find((s) => /\p{Emoji_Presentation}/u.test(s) || (/\p{Emoji}/u.test(s) && !/^[0-9#*]$/.test(s)));
+                } catch {
+                  picked = val[0];
+                }
+                if (picked) {
+                  event.target.value = "";
+                  setSongReactionEmojiBySong((c) => ({ ...c, [reactionSong.id]: picked }));
+                  reactToSong(reactionSong, picked);
+                  closeEmojiPopoverSoon();
+                } else {
+                  event.target.value = "";
+                }
+              }}
+            />
+          )}
           {emojiPickerMode !== "comment" && (
             <button
               className={messageSongId === reactionSong.id ? "selected" : ""}

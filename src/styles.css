@@ -3157,6 +3157,7 @@ input {
   gap: 6px;
   justify-content: center;
   width: min(calc(100vw - 24px), 340px);
+  max-height: min(60dvh, 360px);
   padding: 12px 14px;
   border: 1px solid rgba(23, 24, 31, 0.12);
   border-radius: 16px;
@@ -3166,7 +3167,7 @@ input {
   transform-origin: 50% 100%;
   pointer-events: auto;
   touch-action: manipulation;
-  overflow: auto;
+  overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   animation: emojiPopoverIn 150ms ease both;
@@ -3210,6 +3211,35 @@ input {
     opacity: 1;
     transform: translateX(-50%) translateY(0) scale(1);
   }
+}
+
+.emoji-popover .emoji-custom-input {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 7px 12px;
+  border: 1px solid rgba(23, 24, 31, 0.15);
+  border-radius: 999px;
+  background: rgba(23, 24, 31, 0.06);
+  font-size: 1rem;
+  color: inherit;
+  text-align: center;
+  outline: none;
+  caret-color: transparent;
+}
+
+.emoji-popover .emoji-custom-input::placeholder {
+  color: rgba(23, 24, 31, 0.38);
+  font-size: 0.82rem;
+}
+
+.room-app.dark-mode .emoji-popover .emoji-custom-input {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f6f7fb;
+}
+
+.room-app.dark-mode .emoji-popover .emoji-custom-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .emoji-dismiss-layer {
