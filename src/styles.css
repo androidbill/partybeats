@@ -2280,6 +2280,64 @@ input:focus {
   font-size: 1.75rem;
 }
 
+.avatar-identity {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  min-width: 28px;
+  padding-bottom: 10px;
+  vertical-align: middle;
+}
+
+.avatar-identity .avatar-badge {
+  position: relative;
+  z-index: 1;
+}
+
+.avatar-name-chip {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 2;
+  max-width: 62px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: #111827;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.24);
+  font-size: 0.48rem;
+  font-weight: 950;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  transform: translateX(-50%);
+}
+
+.avatar-identity-md {
+  min-width: 42px;
+  padding-bottom: 13px;
+}
+
+.avatar-identity-md .avatar-name-chip {
+  max-width: 78px;
+  padding: 2px 6px;
+  font-size: 0.54rem;
+}
+
+.avatar-identity-lg {
+  min-width: 58px;
+  padding-bottom: 14px;
+}
+
+.avatar-identity-lg .avatar-name-chip {
+  max-width: 96px;
+  padding: 2px 7px;
+  font-size: 0.6rem;
+}
+
 .avatar-picker {
   display: grid;
   gap: 12px;
@@ -7209,10 +7267,19 @@ input,
   animation: floatingReactionRise 2.6s cubic-bezier(0.18, 0.78, 0.22, 1) forwards;
 }
 
+.floating-reaction .avatar-identity {
+  margin-right: 2px;
+}
+
 .floating-reaction .avatar-badge {
   width: clamp(20px, 5vw, 30px);
   height: clamp(20px, 5vw, 30px);
   font-size: clamp(0.72rem, 2.5vw, 1rem);
+}
+
+.floating-reaction .avatar-name-chip {
+  max-width: 74px;
+  font-size: clamp(0.44rem, 1.6vw, 0.56rem);
 }
 
 @keyframes floatingReactionRise {
@@ -7267,6 +7334,10 @@ input,
   touch-action: pan-y;
   user-select: none;
   animation: roomShoutIn 220ms ease both, roomShoutOut 360ms ease 4.62s forwards;
+}
+
+.room-shout-bubble > .avatar-identity {
+  margin-top: -2px;
 }
 
 .room-shout-copy {
@@ -8612,7 +8683,7 @@ input,
   gap: 4px;
   max-width: 42%;
   min-width: 0;
-  min-height: 18px;
+  min-height: 30px;
   padding: 2px 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.09);
@@ -8652,7 +8723,21 @@ input,
 }
 
 .room-app .song-message b {
-  display: inline;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.room-app .uploaded-by .avatar-identity,
+.room-app .row-uploader .avatar-identity,
+.room-app .song-message .avatar-identity {
+  margin-right: 1px;
+}
+
+.room-app .uploaded-by .avatar-name-chip,
+.room-app .row-uploader .avatar-name-chip,
+.room-app .song-message .avatar-name-chip {
+  max-width: 54px;
 }
 
 .room-app .song-row .song-reaction-actions,

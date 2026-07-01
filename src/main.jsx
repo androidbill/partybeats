@@ -184,7 +184,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.12";
+const APP_VERSION = "2026.06.30.13";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4498,13 +4498,13 @@ function App() {
                       {visibleTrackDisplay.artist && <b>{visibleTrackDisplay.artist}</b>}
                     </span>
                     <span className="uploaded-by">
-                      Uploaded by <AvatarBadge member={uploader} avatarId={fallbackAvatarId(song.addedByUid)} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                      Uploaded by <AvatarIdentity member={uploader} avatarId={fallbackAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
                     </span>
                   </button>
 
                   <div className="reaction-strip">
                     <span className="row-uploader">
-                      <AvatarBadge member={uploader} avatarId={fallbackAvatarId(song.addedByUid)} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                      <AvatarIdentity member={uploader} avatarId={fallbackAvatarId(song.addedByUid)} name={uploader?.name || song.addedByName || "Guest"} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
                     </span>
                     <span className="track-badges">
                       {isCurrentSong && (
@@ -4522,7 +4522,7 @@ function App() {
                     )}
                     {messagesForSong(song).slice(-2).map((item, messageIndex) => (
                       <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
-                        <b><AvatarBadge member={memberById(item.uid)} avatarId={fallbackAvatarId(item.uid)} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
+                        <b><AvatarIdentity member={memberById(item.uid)} avatarId={fallbackAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
                       </span>
                     ))}
                   </div>
@@ -5677,7 +5677,7 @@ function App() {
               }}
             >
               {reaction.uid && (
-                <AvatarBadge member={memberById(reaction.uid)} avatarId={fallbackAvatarId(reaction.uid)} />
+                <AvatarIdentity member={memberById(reaction.uid)} avatarId={fallbackAvatarId(reaction.uid)} name={memberById(reaction.uid)?.name || "Guest"} size="md" />
               )}
               {reaction.emoji}
             </span>
@@ -5695,7 +5695,7 @@ function App() {
               onPointerUp={(event) => finishRoomShoutSwipe(event, shout.id)}
               onPointerCancel={() => { roomShoutSwipeStartRef.current = null; }}
             >
-              <AvatarBadge member={memberById(shout.uid)} avatarId={fallbackAvatarId(shout.uid)} size="md" />
+              <AvatarIdentity member={memberById(shout.uid)} avatarId={fallbackAvatarId(shout.uid)} name={shout.name} size="md" />
               <div className="room-shout-copy">
                 <strong>{shout.name}</strong>
                 <p>{shout.text}</p>
@@ -6338,6 +6338,16 @@ function SignedIn({ user, nickname, setNickname, onSignOut }) {
         <LogOut aria-hidden="true" />
       </button>
     </div>
+  );
+}
+
+function AvatarIdentity({ avatarId, member, name, size = "sm" }) {
+  const label = String(name || member?.name || "Guest").slice(0, 18);
+  return (
+    <span className={`avatar-identity avatar-identity-${size}`}>
+      <AvatarBadge member={member} avatarId={avatarId} size={size} />
+      <span className="avatar-name-chip">{label}</span>
+    </span>
   );
 }
 
