@@ -197,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.27";
+const APP_VERSION = "2026.06.30.28";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -903,7 +903,6 @@ function App() {
   const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
   const [taglineDraft, setTaglineDraft] = useState("");
   const [cooldownNow, setCooldownNow] = useState(Date.now());
-  const [playbackClock, setPlaybackClock] = useState(Date.now());
   const [playerCollapsed, setPlayerCollapsed] = useState(false);
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
@@ -1217,7 +1216,7 @@ function App() {
     const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"), limitToLast(100));
     const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"), limitToLast(50));
     const shoutsRef = query(collection(db, "rooms", activeRoomId, "shouts"), orderBy("createdAt", "asc"), limitToLast(50));
-    const momentsRef = query(collection(db, "rooms", activeRoomId, "moments"), orderBy("createdAt", "asc"));
+    const momentsRef = query(collection(db, "rooms", activeRoomId, "moments"), orderBy("createdAt", "asc"), limitToLast(100));
 
     const handleRoomAccessLost = (error) => {
       setToast(error ? roomListenerErrorMessage(error) : "You were removed from this room.");
@@ -1463,13 +1462,6 @@ function App() {
   const cooldownCountdown = formatCountdown(cooldownRemaining);
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
 
-  useEffect(() => {
-    const pbState = playbackDoc?.playbackState ?? room?.playbackState;
-    if (!activeRoomId || !nowPlayingSong || pbState !== "playing") return undefined;
-    setPlaybackClock(Date.now());
-    const timer = window.setInterval(() => setPlaybackClock(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [activeRoomId, nowPlayingSong?.id, playbackDoc?.playbackState, room?.playbackState]);
 
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
@@ -1496,16 +1488,6 @@ function App() {
   const roomVolume = Math.min(100, Math.max(0, Number(room?.roomVolume ?? 80)));
   const displayVolume = pendingVolume ?? roomVolume;
   const roomTagline = String(room?.tagline || "").trim();
-  const livePlaybackSeconds = playbackState.state === "playing" && playbackState.updatedAt
-    ? playbackState.seconds + Math.max(0, (playbackClock - playbackState.updatedAt) / 1000)
-    : playbackState.seconds;
-  const nowPlayingDurationSeconds = Math.max(0, Number(nowPlayingSong?.durationSeconds) || 0);
-  const displayPlaybackSeconds = nowPlayingDurationSeconds > 0
-    ? Math.min(livePlaybackSeconds, nowPlayingDurationSeconds)
-    : livePlaybackSeconds;
-  const playbackTimeLabel = nowPlayingSong
-    ? `${formatDuration(displayPlaybackSeconds) || "0:00"} / ${formatDuration(nowPlayingDurationSeconds) || "--:--"}`
-    : "";
   const activeNickname = (memberRecord?.name || nickname).trim() || nicknameFor(user, "Guest");
   const memberByIdMap = useMemo(
     () => new Map(members.map((m) => [m.id, m])),
@@ -3182,7 +3164,9 @@ function App() {
       updateDoc(doc(db, "rooms", activeRoomId), roomActivityUpdate()),
       setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
         playbackSongId: nowPlayingSong.id,
-        playbackSeconds: Math.max(0, livePlaybackSeconds),
+        playbackSeconds: Math.max(0, playbackState.state === "playing" && playbackState.updatedAt
+          ? playbackState.seconds + Math.max(0, (Date.now() - playbackState.updatedAt) / 1000)
+          : playbackState.seconds),
         playbackState: nextState,
         playbackCommand: nextState === "playing" ? "play" : "pause",
         playbackCommandId: `${deviceId}-${Date.now()}`,
@@ -4521,10 +4505,13 @@ function App() {
         {(nowPlayingSong || isAdmin) && (
           <div className="now-playing-corner-actions">
             <div className="now-playing-corner-row">
-              {playbackTimeLabel && (
-                <span className="playback-time-label" aria-label="Playback time">
-                  {playbackTimeLabel}
-                </span>
+              {nowPlayingSong && (
+                <PlaybackProgress
+                  state={playbackState.state}
+                  seconds={playbackState.seconds}
+                  updatedAt={playbackState.updatedAt}
+                  durationSeconds={Math.max(0, Number(nowPlayingSong.durationSeconds) || 0)}
+                />
               )}
               {nowPlayingSong && !isActiveDjPhone ? (
                 <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
@@ -6142,6 +6129,34 @@ const SongRow = React.memo(function SongRow({
   prev.isReacting === next.isReacting &&
   prev.playbackIsPlaying === next.playbackIsPlaying
 ));
+
+const PlaybackProgress = React.memo(function PlaybackProgress({
+  state,
+  seconds,
+  updatedAt,
+  durationSeconds,
+}) {
+  const [clock, setClock] = useState(Date.now);
+
+  useEffect(() => {
+    if (state !== "playing") return undefined;
+    setClock(Date.now());
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [state, seconds, updatedAt]);
+
+  const live = state === "playing" && updatedAt
+    ? seconds + Math.max(0, (clock - updatedAt) / 1000)
+    : seconds;
+  const capped = durationSeconds > 0 ? Math.min(live, durationSeconds) : live;
+  const label = `${formatDuration(capped) || "0:00"} / ${formatDuration(durationSeconds) || "--:--"}`;
+
+  return (
+    <span className="playback-time-label" aria-label="Playback time">
+      {label}
+    </span>
+  );
+});
 
 function Equalizer({ paused = false }) {
   return (
