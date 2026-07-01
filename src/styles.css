@@ -2735,12 +2735,12 @@ input {
   scroll-margin-top: 10px;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  contain: layout style;
   transition:
     background 220ms ease,
     border-color 220ms ease,
     box-shadow 220ms ease,
-    opacity 220ms ease,
-    transform 220ms ease;
+    opacity 220ms ease;
 }
 
 .song-row,

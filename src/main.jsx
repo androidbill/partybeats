@@ -198,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.01";
+const APP_VERSION = "2026.07.01.02";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1502,9 +1502,11 @@ function App() {
   const roomNeedsFirstTrack = !songsLoading && songs.length === 0 && !room?.nowPlayingId;
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
   const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
-  const replaySong = nowPlayingIndex > 0
-    ? [...songs.slice(0, nowPlayingIndex)].reverse().find((song) => !song.unavailable) || null
-    : songs.find((song) => song.id === lastPlayedSongId.current && !song.unavailable) || null;
+  const replaySong = useMemo(() => (
+    nowPlayingIndex > 0
+      ? [...songs.slice(0, nowPlayingIndex)].reverse().find((song) => !song.unavailable) || null
+      : songs.find((song) => song.id === lastPlayedSongId.current && !song.unavailable) || null
+  ), [songs, nowPlayingIndex]);
   const pb = playbackDoc || room;
   const playbackState = useMemo(() => ({
     songId: pb?.playbackSongId || room?.nowPlayingId || null,
@@ -4597,12 +4599,13 @@ function App() {
                 </button>
               )}
             </div>
-          ) : (
-            songs.map((song, index) => {
+          ) : (() => {
+            const nextSongId = nextQueuedSong(songs, room.nowPlayingId)?.id || "";
+            return songs.map((song, index) => {
               const trackDisplay = trackDisplayMap.get(song.id) || playlistTrackDisplay(song);
               const isCurrentSong = song.id === room.nowPlayingId;
               const isPlayedSong = nowPlayingIndex >= 0 && index < nowPlayingIndex;
-              const isUpNextSong = song.id === nextQueuedSong(songs, room.nowPlayingId)?.id;
+              const isUpNextSong = song.id === nextSongId;
               const isRecentlyAddedSong = recentlyAddedSongId === song.id;
               const isSelectedSong = selectedSongId === song.id;
               const canDeleteOwnSong = Boolean(user && song.addedByUid === user.uid && !isAdmin);
@@ -4665,8 +4668,8 @@ function App() {
                   getAvatarId={getAvatarId}
                 />
               );
-            })
-          )}
+            });
+          })()}
         </div>
       </section>
 
