@@ -1510,6 +1510,8 @@ input {
   box-shadow: 0 20px 58px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(20px);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .room-moment {
