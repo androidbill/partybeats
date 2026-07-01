@@ -2784,6 +2784,22 @@ input {
   transform: translateY(-1px) scale(1.005);
 }
 
+.song-row[draggable="true"] {
+  cursor: grab;
+}
+
+.song-row.is-dragging {
+  opacity: 0.38;
+}
+
+.song-row.is-drag-over-top {
+  box-shadow: 0 -3px 0 var(--pb-accent), inset 0 0 0 1px color-mix(in srgb, var(--pb-accent) 28%, transparent);
+}
+
+.song-row.is-drag-over-bottom {
+  box-shadow: 0 3px 0 var(--pb-accent), inset 0 0 0 1px color-mix(in srgb, var(--pb-accent) 28%, transparent);
+}
+
 .room-app.dark-mode .song-row {
   border-color: rgba(255, 255, 255, 0.1);
   background: #171b25;

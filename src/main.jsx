@@ -196,7 +196,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.17";
+const APP_VERSION = "2026.06.30.18";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -940,7 +940,14 @@ function App() {
   const shoutSeenIdsRef = useRef(new Set());
   const momentsBaselineReadyRef = useRef(false);
   const momentsSeenIdsRef = useRef(new Set());
+  const volumeDebounceRef = useRef(null);
+  const dragSongIdRef = useRef("");
+  const djShortcutsRef = useRef({});
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
+  const [pendingVolume, setPendingVolume] = useState(null);
+  const [dragSongId, setDragSongId] = useState("");
+  const [dragOverSongId, setDragOverSongId] = useState("");
+  const [dragOverHalf, setDragOverHalf] = useState("top");
   const selectedColorTheme = COLOR_THEMES.find((option) => option.id === colorTheme) || COLOR_THEMES[0];
   const baseTheme = selectedColorTheme.base || "dark";
   const isDarkTheme = baseTheme === "dark";
@@ -1137,6 +1144,25 @@ function App() {
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  djShortcutsRef.current = { isActiveDj, activeRoomId, togglePlayback, playNextSong };
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      const { isActiveDj: djActive, activeRoomId: roomId } = djShortcutsRef.current;
+      if (!djActive || !roomId) return;
+      const tag = document.activeElement?.tagName;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag) || document.activeElement?.isContentEditable) return;
+      if (event.key === " ") {
+        event.preventDefault();
+        djShortcutsRef.current.togglePlayback();
+      } else if (event.key === "n" || event.key === "N") {
+        event.preventDefault();
+        djShortcutsRef.current.playNextSong();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -1455,6 +1481,7 @@ function App() {
     commandAt: room?.playbackCommandAt?.toMillis?.() || 0
   };
   const roomVolume = Math.min(100, Math.max(0, Number(room?.roomVolume ?? 80)));
+  const displayVolume = pendingVolume ?? roomVolume;
   const roomTagline = String(room?.tagline || "").trim();
   const livePlaybackSeconds = playbackState.state === "playing" && playbackState.updatedAt
     ? playbackState.seconds + Math.max(0, (playbackClock - playbackState.updatedAt) / 1000)
@@ -3177,15 +3204,20 @@ function App() {
     setToast(`Replaying: ${decodeHtmlEntities(replaySong.title || "track")}`);
   }
 
-  async function updateRoomVolume(value) {
+  function updateRoomVolume(value) {
     if (!isAdmin || !activeRoomId || !user) return;
     const nextVolume = Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      roomVolume: nextVolume,
-      roomVolumeUpdatedAt: serverTimestamp(),
-      roomVolumeUpdatedBy: user.uid,
-      ...roomActivityUpdate()
-    });
+    setPendingVolume(nextVolume);
+    window.clearTimeout(volumeDebounceRef.current);
+    volumeDebounceRef.current = window.setTimeout(async () => {
+      await updateDoc(doc(db, "rooms", activeRoomId), {
+        roomVolume: nextVolume,
+        roomVolumeUpdatedAt: serverTimestamp(),
+        roomVolumeUpdatedBy: user.uid,
+        ...roomActivityUpdate()
+      }).catch(() => undefined);
+      setPendingVolume(null);
+    }, 300);
   }
 
   async function updateVisualizerEnabled(enabled) {
@@ -3213,7 +3245,7 @@ function App() {
         <button
           className="mini-action volume-toggle"
           type="button"
-          aria-label={`Volume ${roomVolume}%`}
+          aria-label={`Volume ${displayVolume}%`}
           aria-expanded={volumeControlOpen}
           onClick={() => setVolumeControlOpen((isOpen) => !isOpen)}
         >
@@ -3236,13 +3268,13 @@ function App() {
         <label className="volume-popover volume-overlay-popover">
           <span>
             Volume
-            <strong>{roomVolume}%</strong>
+            <strong>{displayVolume}%</strong>
           </span>
           <input
             type="range"
             min="0"
             max="100"
-            value={roomVolume}
+            value={displayVolume}
             onChange={(event) => updateRoomVolume(event.target.value)}
           />
         </label>
@@ -3481,6 +3513,58 @@ function App() {
 
   function cancelSongDeleteSwipe() {
     songSwipeStartRef.current = null;
+  }
+
+  function handleSongDragStart(event, song) {
+    dragSongIdRef.current = song.id;
+    setDragSongId(song.id);
+    event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleSongDragOver(event, song) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDragOverHalf(event.clientY < rect.top + rect.height / 2 ? "top" : "bottom");
+    setDragOverSongId(song.id);
+  }
+
+  function handleSongDragLeave(song) {
+    setDragOverSongId((current) => current === song.id ? "" : current);
+  }
+
+  async function handleSongDrop(event, targetSong) {
+    event.preventDefault();
+    const sourceSongId = dragSongIdRef.current;
+    setDragSongId("");
+    setDragOverSongId("");
+    dragSongIdRef.current = "";
+    if (!sourceSongId || sourceSongId === targetSong.id || !isAdmin) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const isTop = event.clientY < rect.top + rect.height / 2;
+    const remaining = songs.filter((s) => s.id !== sourceSongId);
+    const targetIndexInRemaining = remaining.findIndex((s) => s.id === targetSong.id);
+    const insertIndex = isTop ? targetIndexInRemaining : targetIndexInRemaining + 1;
+    const prev = remaining[insertIndex - 1];
+    const next = remaining[insertIndex];
+    let newPosition;
+    if (prev && next) {
+      newPosition = (Number(prev.position) + Number(next.position)) / 2;
+    } else if (prev) {
+      newPosition = Number(prev.position) + 1;
+    } else if (next) {
+      newPosition = Number(next.position) - 1;
+    } else {
+      return;
+    }
+    await updateDoc(doc(db, "rooms", activeRoomId, "songs", sourceSongId), { position: newPosition });
+    await touchRoomActivity();
+  }
+
+  function handleSongDragEnd() {
+    dragSongIdRef.current = "";
+    setDragSongId("");
+    setDragOverSongId("");
   }
 
   async function reactToSong(song, emoji) {
@@ -4578,10 +4662,19 @@ function App() {
                     isDeleteRevealed ? "is-delete-revealed" : "",
                     isAdmin && isSelectedSong ? "is-admin-selected" : "",
                     emojiSongId === song.id ? "is-reacting" : "",
-                    song.unavailable ? "is-unavailable" : ""
+                    song.unavailable ? "is-unavailable" : "",
+                    isAdmin && dragSongId === song.id ? "is-dragging" : "",
+                    isAdmin && dragOverSongId === song.id && dragOverHalf === "top" ? "is-drag-over-top" : "",
+                    isAdmin && dragOverSongId === song.id && dragOverHalf === "bottom" ? "is-drag-over-bottom" : ""
                   ].filter(Boolean).join(" ")}
+                  draggable={isAdmin && !isCurrentSong}
                   data-song-id={song.id}
                   key={song.id}
+                  onDragStart={isAdmin ? (e) => handleSongDragStart(e, song) : undefined}
+                  onDragOver={isAdmin ? (e) => handleSongDragOver(e, song) : undefined}
+                  onDragLeave={isAdmin ? () => handleSongDragLeave(song) : undefined}
+                  onDrop={isAdmin ? (e) => handleSongDrop(e, song) : undefined}
+                  onDragEnd={isAdmin ? handleSongDragEnd : undefined}
                   onClick={() => {
                     if (songSwipeRevealedRef.current) {
                       songSwipeRevealedRef.current = false;
