@@ -198,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.05";
+const APP_VERSION = "2026.07.01.06";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4554,7 +4554,7 @@ function App() {
         playerCollapsed={playerCollapsed}
         playbackState={playbackState}
         momentsCount={roomMoments.length}
-        hasNewMoments={newMomentsCount > 0}
+        newMomentsCount={newMomentsCount}
         roomMomentsOpen={roomMomentsOpen}
         nowPlayingDisplay={nowPlayingDisplay}
         nowPlayingSyncing={nowPlayingSyncing}
@@ -6120,7 +6120,7 @@ const NowPlayingCard = React.memo(function NowPlayingCard({
   playerCollapsed,
   playbackState,
   momentsCount,
-  hasNewMoments,
+  newMomentsCount,
   roomMomentsOpen,
   nowPlayingDisplay,
   nowPlayingSyncing,
@@ -6181,7 +6181,7 @@ const NowPlayingCard = React.memo(function NowPlayingCard({
                 className={[
                   "moments-corner-button",
                   roomMomentsOpen ? "is-open" : "",
-                  !roomMomentsOpen && hasNewMoments ? "has-new" : ""
+                  !roomMomentsOpen && newMomentsCount > 0 ? "has-new" : ""
                 ].filter(Boolean).join(" ")}
                 onClick={() => setRoomMomentsOpen((open) => !open)}
                 type="button"
@@ -6189,8 +6189,7 @@ const NowPlayingCard = React.memo(function NowPlayingCard({
               >
                 <Wand2 aria-hidden="true" />
                 Moments
-                <span>{momentsCount}</span>
-                {!roomMomentsOpen && hasNewMoments && <em className="moments-new-dot" aria-label="New activity" />}
+                {!roomMomentsOpen && newMomentsCount > 0 && <span>{newMomentsCount}</span>}
               </button>
             </div>
           )}
@@ -6353,7 +6352,7 @@ const NowPlayingCard = React.memo(function NowPlayingCard({
   prev.playerCollapsed === next.playerCollapsed &&
   prev.playbackState === next.playbackState &&
   prev.momentsCount === next.momentsCount &&
-  prev.hasNewMoments === next.hasNewMoments &&
+  prev.newMomentsCount === next.newMomentsCount &&
   prev.roomMomentsOpen === next.roomMomentsOpen &&
   prev.nowPlayingSyncing === next.nowPlayingSyncing &&
   prev.roomTagline === next.roomTagline &&
