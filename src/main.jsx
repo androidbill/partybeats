@@ -139,6 +139,18 @@ const EMOJIS = [
   "😭"
 ];
 const AVATAR_OPTIONS = [
+  { id: "premium-neon-dj", name: "Neon DJ", image: `${import.meta.env.BASE_URL}avatars/premium-neon-dj.png`, colors: ["#00e5ff", "#ff2ebd"] },
+  { id: "premium-disco-smile", name: "Disco Smile", image: `${import.meta.env.BASE_URL}avatars/premium-disco-smile.png`, colors: ["#ff5edb", "#6ee7ff"] },
+  { id: "premium-cassette-kid", name: "Cassette Kid", image: `${import.meta.env.BASE_URL}avatars/premium-cassette-kid.png`, colors: ["#ff4f9f", "#22d3ee"] },
+  { id: "premium-lightning", name: "Lightning", image: `${import.meta.env.BASE_URL}avatars/premium-lightning.png`, colors: ["#ffe45c", "#ff2ebd"] },
+  { id: "premium-vinyl-vibe", name: "Vinyl Vibe", image: `${import.meta.env.BASE_URL}avatars/premium-vinyl-vibe.png`, colors: ["#111827", "#38f8c6"] },
+  { id: "premium-mic-drop", name: "Mic Drop", image: `${import.meta.env.BASE_URL}avatars/premium-mic-drop.png`, colors: ["#fb7185", "#7c3aed"] },
+  { id: "premium-shades-on", name: "Shades On", image: `${import.meta.env.BASE_URL}avatars/premium-shades-on.png`, colors: ["#0ea5e9", "#ec4899"] },
+  { id: "premium-alien-dj", name: "Alien DJ", image: `${import.meta.env.BASE_URL}avatars/premium-alien-dj.png`, colors: ["#84cc16", "#06b6d4"] },
+  { id: "premium-superstar", name: "Superstar", image: `${import.meta.env.BASE_URL}avatars/premium-superstar.png`, colors: ["#facc15", "#f43f5e"] },
+  { id: "premium-bass-speaker", name: "Bass Speaker", image: `${import.meta.env.BASE_URL}avatars/premium-bass-speaker.png`, colors: ["#6366f1", "#14b8a6"] },
+  { id: "premium-fire-vibe", name: "Fire Vibe", image: `${import.meta.env.BASE_URL}avatars/premium-fire-vibe.png`, colors: ["#ef4444", "#f59e0b"] },
+  { id: "premium-robot-beat", name: "Robot Beat", image: `${import.meta.env.BASE_URL}avatars/premium-robot-beat.png`, colors: ["#64748b", "#22d3ee"] },
   { id: "neon-dj", name: "Neon DJ", icon: "🎧", colors: ["#00e5ff", "#ff2ebd"] },
   { id: "disco-smile", name: "Disco Smile", icon: "🙂", colors: ["#ffd84d", "#ff4fd8"] },
   { id: "cassette", name: "Cassette Kid", icon: "📼", colors: ["#8b5cf6", "#22d3ee"] },
@@ -184,7 +196,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.13";
+const APP_VERSION = "2026.06.30.14";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -6363,7 +6375,7 @@ function AvatarBadge({ avatarId, member, size = "sm" }) {
       aria-label={avatar.name}
       title={avatar.name}
     >
-      {avatar.icon}
+      {avatar.image ? <img src={avatar.image} alt="" /> : avatar.icon}
     </span>
   );
 }
