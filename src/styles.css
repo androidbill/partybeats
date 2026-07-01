@@ -2062,69 +2062,6 @@ input {
   transform: translateX(var(--reaction-offset-x));
 }
 
-.theme-reaction-control {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-}
-
-.theme-reaction-button {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--pb-link), var(--pb-accent-2));
-  box-shadow: 0 14px 36px color-mix(in srgb, var(--pb-link) 38%, transparent);
-  touch-action: manipulation;
-  user-select: none;
-}
-
-.theme-reaction-button svg {
-  width: 24px;
-  height: 24px;
-  stroke-width: 2.65;
-}
-
-.theme-reaction-button:active {
-  transform: scale(0.94);
-}
-
-.theme-reaction-picker {
-  position: relative;
-  z-index: 25;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  width: min(260px, calc(100vw - 24px));
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 18px;
-  background: rgba(18, 19, 26, 0.92);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(18px);
-}
-
-.theme-reaction-picker button {
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  padding: 0 9px;
-  border-radius: 12px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 0.76rem;
-  font-weight: 950;
-}
-
-.theme-reaction-picker button span {
-  font-size: 1.05rem;
-}
 
 .floating-reaction-control {
   position: relative;

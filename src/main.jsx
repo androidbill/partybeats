@@ -138,14 +138,6 @@ const EMOJIS = [
   "🤯",
   "😭"
 ];
-const THEME_REACTIONS = [
-  { id: "sparkle", label: "Sparkle", emoji: "✨" },
-  { id: "laser", label: "Laser", emoji: "💥" },
-  { id: "confetti", label: "Confetti", emoji: "🎉" },
-  { id: "bass", label: "Bass Pulse", emoji: "🔊" },
-  { id: "glow", label: "Glow", emoji: "🌈" },
-  { id: "fire", label: "Fire", emoji: "🔥" }
-];
 const AVATAR_OPTIONS = [
   { id: "premium-neon-dj", name: "Neon DJ", image: `${import.meta.env.BASE_URL}avatars/premium-neon-dj.png`, colors: ["#00e5ff", "#ff2ebd"] },
   { id: "premium-disco-smile", name: "Disco Smile", image: `${import.meta.env.BASE_URL}avatars/premium-disco-smile.png`, colors: ["#ff5edb", "#6ee7ff"] },
@@ -204,7 +196,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.16";
+const APP_VERSION = "2026.06.30.17";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -896,7 +888,6 @@ function App() {
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
   const [roomMoments, setRoomMoments] = useState([]);
   const [roomMomentsOpen, setRoomMomentsOpen] = useState(false);
-  const [themeReactionPickerOpen, setThemeReactionPickerOpen] = useState(false);
   const [themeEffects, setThemeEffects] = useState([]);
   const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
@@ -3385,17 +3376,6 @@ function App() {
     }
   }
 
-  async function sendThemeReaction(reaction) {
-    if (!reaction) return;
-    setThemeReactionPickerOpen(false);
-    if (!user || !activeRoomId) return;
-    await createRoomMoment({
-      type: "theme",
-      emoji: reaction.emoji,
-      effect: reaction.id,
-      text: `${reaction.label} the room`
-    });
-  }
 
   async function sendRoomShout(event) {
     event?.preventDefault();
@@ -4735,39 +4715,6 @@ function App() {
       </button>
 
       <div className="floating-main-controls">
-          <div className={themeReactionPickerOpen ? "theme-reaction-control is-picker-open" : "theme-reaction-control"}>
-            {themeReactionPickerOpen && (
-              <>
-                <button
-                  className="tap-away-layer theme-reaction-tap-away"
-                  aria-label="Close theme reaction picker"
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setThemeReactionPickerOpen(false);
-                  }}
-                  type="button"
-                />
-                <div className="theme-reaction-picker" role="menu" aria-label="Theme reactions">
-                  {THEME_REACTIONS.map((reaction) => (
-                    <button key={reaction.id} onClick={() => sendThemeReaction(reaction)} type="button">
-                      <span>{reaction.emoji}</span>
-                      {reaction.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-            <button
-              className="theme-reaction-button"
-              type="button"
-              aria-label="Send a theme reaction"
-              title="Send a theme reaction"
-              onClick={() => setThemeReactionPickerOpen((open) => !open)}
-            >
-              <Wand2 aria-hidden="true" />
-            </button>
-          </div>
           {floatingReactionsEnabled && (
             <div className={reactionPickerOpen ? "floating-reaction-control is-picker-open" : "floating-reaction-control"}>
               {reactionPickerOpen && (
