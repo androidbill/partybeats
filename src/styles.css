@@ -8409,6 +8409,7 @@ input,
 }
 
 .room-app .song-main {
+  grid-column: 1 / -1;
   grid-template-columns: 25px minmax(0, 1fr);
   column-gap: 8px;
   row-gap: 1px;
