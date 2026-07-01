@@ -33,7 +33,7 @@ import {
   Wand2,
   X
 } from "lucide-react";
-import QRCode from "qrcode";
+
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -49,6 +49,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limitToLast,
   onSnapshot,
   orderBy,
   query,
@@ -196,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.19";
+const APP_VERSION = "2026.06.30.20";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1213,8 +1214,8 @@ function App() {
     const songsRef = query(collection(db, "rooms", activeRoomId, "songs"), orderBy("position", "asc"));
     const membersRef = query(collection(db, "rooms", activeRoomId, "members"), orderBy("joinedAt", "asc"));
     const messagesRef = query(collection(db, "rooms", activeRoomId, "messages"), orderBy("createdAt", "asc"));
-    const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"));
-    const shoutsRef = query(collection(db, "rooms", activeRoomId, "shouts"), orderBy("createdAt", "asc"));
+    const reactionsRef = query(collection(db, "rooms", activeRoomId, "reactions"), orderBy("createdAt", "asc"), limitToLast(50));
+    const shoutsRef = query(collection(db, "rooms", activeRoomId, "shouts"), orderBy("createdAt", "asc"), limitToLast(50));
     const momentsRef = query(collection(db, "rooms", activeRoomId, "moments"), orderBy("createdAt", "asc"));
 
     const handleRoomAccessLost = (error) => {
@@ -1325,7 +1326,9 @@ function App() {
       return;
     }
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${activeRoomId}`;
-    QRCode.toDataURL(shareUrl, { margin: 1, width: 180 }).then(setQrDataUrl).catch(() => setQrDataUrl(""));
+    import("qrcode").then(({ default: QR }) =>
+      QR.toDataURL(shareUrl, { margin: 1, width: 180 }).then(setQrDataUrl).catch(() => setQrDataUrl(""))
+    ).catch(() => setQrDataUrl(""));
   }, [activeRoomId]);
 
   useEffect(() => {
@@ -1534,55 +1537,84 @@ function App() {
       playerName: activeDjName
     });
   }, [activeRoomId, activeDjName, activePlayerDeviceId, deviceId, dismissedPlayerPromptKey, isActiveDjAccount, isAdmin, room, user]);
-  const totalReactions = songs.reduce((total, song) => total + Object.keys(song.emojiByUser || {}).length, 0);
+  const trackDisplayMap = useMemo(
+    () => new Map(songs.map((s) => [s.id, playlistTrackDisplay(s)])),
+    [songs]
+  );
+  const totalReactions = useMemo(
+    () => songs.reduce((total, song) => total + Object.keys(song.emojiByUser || {}).length, 0),
+    [songs]
+  );
+  const songMessagesMap = useMemo(() => {
+    const map = new Map();
+    for (const msg of songMessages) {
+      const arr = map.get(msg.songId) || [];
+      arr.push(msg);
+      map.set(msg.songId, arr);
+    }
+    return map;
+  }, [songMessages]);
   const messagesForSong = (song) => [
     ...(song?.messages || []),
-    ...songMessages.filter((message) => message.songId === song?.id)
+    ...(songMessagesMap.get(song?.id) || [])
   ];
-  const totalMessages = songs.reduce((total, song) => total + messagesForSong(song).length, 0);
+  const totalMessages = useMemo(
+    () => songs.reduce((total, song) =>
+      total + (song?.messages?.length || 0) + (songMessagesMap.get(song.id)?.length || 0), 0),
+    [songs, songMessagesMap]
+  );
   const googleMemberCount = members.filter((member) => member.isAnonymous === false).length;
   const guestMemberCount = Math.max(0, members.length - googleMemberCount);
-  const analyticsPeople = members
-    .map((member) => {
-      const added = songs.filter((song) => song.addedByUid === member.id).length;
-      const reactions = songs.reduce((total, song) => total + (song.emojiByUser?.[member.id] ? 1 : 0), 0);
-      const messages = songs.reduce((total, song) => (
-        total + messagesForSong(song).filter((message) => message.uid === member.id).length
-      ), 0);
-      return { ...member, added, reactions, messages, total: added + reactions + messages };
-    })
-    .sort((a, b) => b.total - a.total || b.added - a.added || (a.name || "").localeCompare(b.name || ""));
-  const mostReactedSongs = songs
-    .map((song) => ({
-      ...song,
-      display: playlistTrackDisplay(song),
-      reactionCount: Object.keys(song.emojiByUser || {}).length,
-      messageCount: messagesForSong(song).length
-    }))
-    .filter((song) => song.reactionCount > 0 || song.messageCount > 0)
-    .sort((a, b) => (b.reactionCount + b.messageCount) - (a.reactionCount + a.messageCount))
-    .slice(0, 5);
+  const analyticsPeople = useMemo(() =>
+    members
+      .map((member) => {
+        const added = songs.filter((song) => song.addedByUid === member.id).length;
+        const reactions = songs.reduce((total, song) => total + (song.emojiByUser?.[member.id] ? 1 : 0), 0);
+        const messages = songs.reduce((total, song) =>
+          total + ((song?.messages || []).concat(songMessagesMap.get(song.id) || [])).filter((m) => m.uid === member.id).length, 0);
+        return { ...member, added, reactions, messages, total: added + reactions + messages };
+      })
+      .sort((a, b) => b.total - a.total || b.added - a.added || (a.name || "").localeCompare(b.name || "")),
+    [members, songs, songMessagesMap]
+  );
+  const mostReactedSongs = useMemo(() =>
+    songs
+      .map((song) => ({
+        ...song,
+        display: trackDisplayMap.get(song.id) || playlistTrackDisplay(song),
+        reactionCount: Object.keys(song.emojiByUser || {}).length,
+        messageCount: (song?.messages?.length || 0) + (songMessagesMap.get(song.id)?.length || 0)
+      }))
+      .filter((song) => song.reactionCount > 0 || song.messageCount > 0)
+      .sort((a, b) => (b.reactionCount + b.messageCount) - (a.reactionCount + a.messageCount))
+      .slice(0, 5),
+    [songs, songMessagesMap, trackDisplayMap]
+  );
   const crowdFavoriteSongId = mostReactedSongs[0]?.id || "";
-  const mostMessagedSongId = [...songs]
-    .map((song) => ({ id: song.id, count: messagesForSong(song).length }))
-    .sort((a, b) => b.count - a.count)[0]?.count > 0
-      ? [...songs].map((song) => ({ id: song.id, count: messagesForSong(song).length })).sort((a, b) => b.count - a.count)[0].id
-      : "";
-  const activeReactionStreak = members
-    .map((member) => {
-      let streak = 0;
-      let best = 0;
-      songs.forEach((song) => {
-        if (song.emojiByUser?.[member.id]) {
-          streak += 1;
-          best = Math.max(best, streak);
-        } else {
-          streak = 0;
-        }
-      });
-      return { ...member, streak: best };
-    })
-    .sort((a, b) => b.streak - a.streak)[0];
+  const mostMessagedSongId = useMemo(() => {
+    const sorted = [...songs]
+      .map((song) => ({ id: song.id, count: (song?.messages?.length || 0) + (songMessagesMap.get(song.id)?.length || 0) }))
+      .sort((a, b) => b.count - a.count);
+    return sorted[0]?.count > 0 ? sorted[0].id : "";
+  }, [songs, songMessagesMap]);
+  const activeReactionStreak = useMemo(() =>
+    members
+      .map((member) => {
+        let streak = 0;
+        let best = 0;
+        songs.forEach((song) => {
+          if (song.emojiByUser?.[member.id]) {
+            streak += 1;
+            best = Math.max(best, streak);
+          } else {
+            streak = 0;
+          }
+        });
+        return { ...member, streak: best };
+      })
+      .sort((a, b) => b.streak - a.streak)[0],
+    [members, songs]
+  );
 
   async function touchRoomActivity(roomOverride = activeRoomId) {
     if (!roomOverride || !user) return;
@@ -4635,7 +4667,7 @@ function App() {
           ) : (
             songs.map((song, index) => {
               const queueIndex = songs.findIndex((item) => item.id === song.id);
-              const trackDisplay = playlistTrackDisplay(song);
+              const trackDisplay = trackDisplayMap.get(song.id) || playlistTrackDisplay(song);
               const isCurrentSong = song.id === room.nowPlayingId;
               const isPlayedSong = nowPlayingIndex >= 0 && index < nowPlayingIndex;
               const isUpNextSong = song.id === nextQueuedSong(songs, room.nowPlayingId)?.id;
@@ -4747,7 +4779,7 @@ function App() {
                         {emojiCounts.map(({ emoji, count }) => `${emoji}${count}`).join(" ")}
                       </span>
                     )}
-                    {messagesForSong(song).slice(-2).map((item, messageIndex) => (
+                    {((song?.messages || []).concat(songMessagesMap.get(song.id) || [])).slice(-2).map((item, messageIndex) => (
                       <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
                         <b><AvatarIdentity member={memberById(item.uid)} avatarId={fallbackAvatarId(item.uid)} name={item.name || "Guest"} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
                       </span>
