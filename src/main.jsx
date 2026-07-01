@@ -4396,6 +4396,14 @@ function App() {
                   <span>{roomMoments.length}</span>
                 </button>
                 {roomMomentsOpen && (
+                  <button
+                    className="tap-away-layer"
+                    aria-label="Close moments"
+                    onClick={() => setRoomMomentsOpen(false)}
+                    type="button"
+                  />
+                )}
+                {roomMomentsOpen && (
                   <section className="room-moments-panel" aria-label="Room moments">
                     {roomMoments.slice(0, 20).map((moment) => (
                       <div className={`room-moment room-moment-${moment.type || "note"}`} key={moment.id}>

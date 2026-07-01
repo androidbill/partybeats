@@ -49,7 +49,6 @@ button:disabled {
 }
 
 a {
-  color: #8b3ffc;
   font-weight: 700;
   text-decoration: none;
 }
@@ -212,10 +211,6 @@ input {
   outline: none;
 }
 
-input:focus {
-  border-color: #8b3ffc;
-  box-shadow: 0 0 0 4px rgba(139, 63, 252, 0.12);
-}
 
 .primary-action,
 .nickname-row button,
@@ -586,7 +581,6 @@ input:focus {
   border: 0;
   background: transparent;
   box-shadow: none;
-  accent-color: #f7c948;
 }
 
 .volume-tap-away {
@@ -623,7 +617,6 @@ input:focus {
   gap: 16px;
   align-items: start;
   justify-content: space-between;
-  margin-bottom: 18px;
 }
 
 .song-form {
@@ -697,23 +690,6 @@ input:focus {
 
 .song-list {
   display: grid;
-  gap: 12px;
-}
-
-.song-row {
-  display: grid;
-  grid-template-columns: 44px 96px minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: start;
-  padding: 14px;
-  border: 1px solid rgba(23, 24, 31, 0.1);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.song-row.is-playing {
-  border-color: #39c6a3;
-  box-shadow: inset 4px 0 0 #39c6a3;
 }
 
 .song-position {
@@ -727,9 +703,6 @@ input:focus {
   font-weight: 900;
 }
 
-.song-main {
-  min-width: 0;
-}
 
 .song-title-line {
   display: flex;
@@ -783,9 +756,6 @@ input:focus {
   font-size: 0.8rem;
 }
 
-.admin-actions {
-  justify-content: flex-end;
-}
 
 .empty-state {
   display: grid;
@@ -1521,14 +1491,16 @@ input:focus {
 }
 
 .room-moments-panel {
-  position: absolute;
-  top: calc(100% + 7px);
-  right: 0;
-  z-index: 8;
+  position: fixed;
+  top: max(60px, env(safe-area-inset-top) + 56px);
+  right: max(10px, env(safe-area-inset-right));
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 40;
   display: grid;
   gap: 7px;
-  width: min(360px, calc(100vw - 30px));
-  max-height: min(44dvh, 360px);
+  max-width: 480px;
+  max-height: min(60dvh, 480px);
+  margin: 0 auto;
   padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 16px;
@@ -4274,18 +4246,14 @@ input:focus {
   }
 
   .now-playing-card {
-    align-self: start;
-    gap: 8px;
-    padding: 10px;
-  }
-
-  .now-playing-card {
     grid-column: 1;
-    grid-row: 2 / 4;
+    grid-row: 2 / 3;
     align-self: stretch;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
     grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px;
   }
 
   .now-playing-card .player-frame,
@@ -4307,11 +4275,6 @@ input:focus {
   .now-playing-card .youtube-target,
   .now-playing-card .youtube-frame iframe {
     display: block;
-  }
-
-  .now-playing-card {
-    grid-row: 2 / 3;
-    overflow: visible;
   }
 
   .queue-panel {
