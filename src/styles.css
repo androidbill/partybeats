@@ -2706,6 +2706,7 @@ input {
 .song-list {
   gap: 7px;
   padding-bottom: 74px;
+  transform: translateZ(0);
 }
 
 .song-row {

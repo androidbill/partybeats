@@ -197,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.21";
+const APP_VERSION = "2026.06.30.23";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -4699,14 +4699,14 @@ function App() {
                     isAdmin && dragOverSongId === song.id && dragOverHalf === "top" ? "is-drag-over-top" : "",
                     isAdmin && dragOverSongId === song.id && dragOverHalf === "bottom" ? "is-drag-over-bottom" : ""
                   ].filter(Boolean).join(" ")}
-                  draggable={isAdmin && !isCurrentSong}
+                  draggable={isAdmin && !isCurrentSong && !isMobileViewport}
                   data-song-id={song.id}
                   key={song.id}
-                  onDragStart={isAdmin ? (e) => handleSongDragStart(e, song) : undefined}
-                  onDragOver={isAdmin ? (e) => handleSongDragOver(e, song) : undefined}
-                  onDragLeave={isAdmin ? () => handleSongDragLeave(song) : undefined}
-                  onDrop={isAdmin ? (e) => handleSongDrop(e, song) : undefined}
-                  onDragEnd={isAdmin ? handleSongDragEnd : undefined}
+                  onDragStart={isAdmin && !isMobileViewport ? (e) => handleSongDragStart(e, song) : undefined}
+                  onDragOver={isAdmin && !isMobileViewport ? (e) => handleSongDragOver(e, song) : undefined}
+                  onDragLeave={isAdmin && !isMobileViewport ? () => handleSongDragLeave(song) : undefined}
+                  onDrop={isAdmin && !isMobileViewport ? (e) => handleSongDrop(e, song) : undefined}
+                  onDragEnd={isAdmin && !isMobileViewport ? handleSongDragEnd : undefined}
                   onClick={() => {
                     if (songSwipeRevealedRef.current) {
                       songSwipeRevealedRef.current = false;
