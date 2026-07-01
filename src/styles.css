@@ -948,7 +948,6 @@ input {
 
 .room-app.is-fullscreen-settling {
   background: var(--pb-bg, #070a12);
-  contain: paint;
 }
 
 .room-app.is-fullscreen-settling .party-motion-bg,
@@ -960,14 +959,6 @@ input {
   visibility: hidden;
   animation: none !important;
   transition: none !important;
-}
-
-.room-app.is-fullscreen-settling .app-topbar,
-.room-app.is-fullscreen-settling .app-grid,
-.room-app.is-fullscreen-settling .now-playing-card,
-.room-app.is-fullscreen-settling .queue-panel {
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
 .party-motion-bg.is-awake {
