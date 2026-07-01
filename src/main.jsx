@@ -197,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.26";
+const APP_VERSION = "2026.06.30.27";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -815,6 +815,7 @@ function App() {
   const [roomId, setRoomId] = useState("");
   const [activeRoomId, setActiveRoomId] = useState("");
   const [room, setRoom] = useState(null);
+  const [playbackDoc, setPlaybackDoc] = useState(null);
   const [songs, setSongs] = useState([]);
   const [members, setMembers] = useState([]);
   const [songMessages, setSongMessages] = useState([]);
@@ -1235,6 +1236,12 @@ function App() {
       setRoomLoading(false);
     }, handleRoomAccessLost);
 
+    const playbackRef = doc(db, "rooms", activeRoomId, "playback", "state");
+    const unsubPlayback = onSnapshot(playbackRef, (snap) => {
+      if (!active) return;
+      setPlaybackDoc(snap.exists() ? snap.data() : null);
+    }, () => setPlaybackDoc(null));
+
     const unsubSongs = onSnapshot(songsRef, (snap) => {
       if (!active) return;
       setSongs(snap.docs.map((item) => ({ id: item.id, ...item.data() })));
@@ -1311,6 +1318,7 @@ function App() {
     return () => {
       active = false;
       unsubRoom();
+      unsubPlayback();
       unsubSongs();
       unsubMembers();
       unsubMessages();
@@ -1456,11 +1464,12 @@ function App() {
   const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
 
   useEffect(() => {
-    if (!activeRoomId || !nowPlayingSong || room?.playbackState !== "playing") return undefined;
+    const pbState = playbackDoc?.playbackState ?? room?.playbackState;
+    if (!activeRoomId || !nowPlayingSong || pbState !== "playing") return undefined;
     setPlaybackClock(Date.now());
     const timer = window.setInterval(() => setPlaybackClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [activeRoomId, nowPlayingSong?.id, room?.playbackState]);
+  }, [activeRoomId, nowPlayingSong?.id, playbackDoc?.playbackState, room?.playbackState]);
 
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
   const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
@@ -1474,14 +1483,15 @@ function App() {
   const replaySong = nowPlayingIndex > 0
     ? [...songs.slice(0, nowPlayingIndex)].reverse().find((song) => !song.unavailable) || null
     : songs.find((song) => song.id === lastPlayedSongId.current && !song.unavailable) || null;
+  const pb = playbackDoc || room;
   const playbackState = {
-    songId: room?.playbackSongId || room?.nowPlayingId || null,
-    seconds: Math.max(0, Number(room?.playbackSeconds) || 0),
-    state: room?.playbackState || "playing",
-    updatedAt: room?.playbackUpdatedAt?.toMillis?.() || 0,
-    command: room?.playbackCommand || "",
-    commandId: room?.playbackCommandId || "",
-    commandAt: room?.playbackCommandAt?.toMillis?.() || 0
+    songId: pb?.playbackSongId || room?.nowPlayingId || null,
+    seconds: Math.max(0, Number(pb?.playbackSeconds) || 0),
+    state: pb?.playbackState || "playing",
+    updatedAt: pb?.playbackUpdatedAt?.toMillis?.() || 0,
+    command: pb?.playbackCommand || "",
+    commandId: pb?.playbackCommandId || "",
+    commandAt: pb?.playbackCommandAt?.toMillis?.() || 0
   };
   const roomVolume = Math.min(100, Math.max(0, Number(room?.roomVolume ?? 80)));
   const displayVolume = pendingVolume ?? roomVolume;
@@ -2289,15 +2299,16 @@ function App() {
       createdAt: serverTimestamp()
     });
     if (!nowPlayingSong) {
-      const roomUpdate = { nowPlayingId: songRef.id };
+      batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: songRef.id });
       if (isActiveDj) {
-        roomUpdate.playbackSongId = songRef.id;
-        roomUpdate.playbackSeconds = 0;
-        roomUpdate.playbackState = "playing";
-        roomUpdate.playbackUpdatedAt = serverTimestamp();
-        roomUpdate.playbackUpdatedBy = user.uid;
+        batch.set(doc(db, "rooms", activeRoomId, "playback", "state"), {
+          playbackSongId: songRef.id,
+          playbackSeconds: 0,
+          playbackState: "playing",
+          playbackUpdatedAt: serverTimestamp(),
+          playbackUpdatedBy: user.uid,
+        }, { merge: true });
       }
-      batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
     }
     batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
     try {
@@ -2743,15 +2754,16 @@ function App() {
       });
 
       if (!nowPlayingSong && firstSongRef) {
-        const roomUpdate = { nowPlayingId: firstSongRef.id };
+        batch.update(doc(db, "rooms", activeRoomId), { nowPlayingId: firstSongRef.id });
         if (isActiveDj) {
-          roomUpdate.playbackSongId = firstSongRef.id;
-          roomUpdate.playbackSeconds = 0;
-          roomUpdate.playbackState = "playing";
-          roomUpdate.playbackUpdatedAt = serverTimestamp();
-          roomUpdate.playbackUpdatedBy = user.uid;
+          batch.set(doc(db, "rooms", activeRoomId, "playback", "state"), {
+            playbackSongId: firstSongRef.id,
+            playbackSeconds: 0,
+            playbackState: "playing",
+            playbackUpdatedAt: serverTimestamp(),
+            playbackUpdatedBy: user.uid,
+          }, { merge: true });
         }
-        batch.update(doc(db, "rooms", activeRoomId), roomUpdate);
       }
       batch.set(doc(db, "rooms", activeRoomId, "members", user.uid), { lastAddedAt: serverTimestamp() }, { merge: true });
       await batch.commit();
@@ -2895,13 +2907,15 @@ function App() {
     });
     batch.update(doc(db, "rooms", activeRoomId), {
       nowPlayingId: null,
+      ...roomActivityUpdate()
+    });
+    batch.set(doc(db, "rooms", activeRoomId, "playback", "state"), {
       playbackSongId: null,
       playbackSeconds: 0,
       playbackState: "stopped",
       playbackUpdatedAt: serverTimestamp(),
       playbackUpdatedBy: user.uid,
-      ...roomActivityUpdate()
-    });
+    }, { merge: true });
     await batch.commit();
     setNowPlayingNotice(null);
     setToast("Playlist cleared.");
@@ -2924,29 +2938,33 @@ function App() {
       setToast("Only admins can control playback.");
       return;
     }
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      nowPlayingId: songId,
-      playbackSongId: songId,
-      playbackSeconds: 0,
-      playbackState: "playing",
-      playbackCommand: isActiveDj ? "" : "select",
-      playbackCommandId: `${deviceId}-${Date.now()}`,
-      playbackCommandAt: serverTimestamp(),
-      playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid,
-      ...roomActivityUpdate()
-    });
+    await Promise.all([
+      updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: songId,
+        ...roomActivityUpdate()
+      }),
+      setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
+        playbackSongId: songId,
+        playbackSeconds: 0,
+        playbackState: "playing",
+        playbackCommand: isActiveDj ? "" : "select",
+        playbackCommandId: `${deviceId}-${Date.now()}`,
+        playbackCommandAt: serverTimestamp(),
+        playbackUpdatedAt: serverTimestamp(),
+        playbackUpdatedBy: user.uid,
+      }, { merge: true })
+    ]);
   }
 
   async function syncPlaybackState({ songId, seconds, state }) {
     if (!isActiveDj || !activeRoomId || !user || !songId || songId !== room?.nowPlayingId) return;
-    await updateDoc(doc(db, "rooms", activeRoomId), {
+    await setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
       playbackSongId: songId,
       playbackSeconds: Math.max(0, Math.floor(Number(seconds) || 0)),
       playbackState: state,
       playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid
-    }).catch(() => undefined);
+      playbackUpdatedBy: user.uid,
+    }, { merge: true }).catch(() => undefined);
   }
 
   async function togglePlayerFullscreen() {
@@ -3110,38 +3128,48 @@ function App() {
       return;
     }
     if (!isActiveDj) {
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        playbackCommand: "next",
-        playbackCommandId: `${deviceId}-${Date.now()}`,
-        playbackCommandAt: serverTimestamp(),
-        playbackUpdatedBy: user.uid,
-        ...roomActivityUpdate()
-      });
+      await Promise.all([
+        updateDoc(doc(db, "rooms", activeRoomId), roomActivityUpdate()),
+        setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
+          playbackCommand: "next",
+          playbackCommandId: `${deviceId}-${Date.now()}`,
+          playbackCommandAt: serverTimestamp(),
+          playbackUpdatedBy: user.uid,
+        }, { merge: true })
+      ]);
       return;
     }
     const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
     if (nextSong) {
-      await updateDoc(doc(db, "rooms", activeRoomId), {
-        nowPlayingId: nextSong.id,
-        playbackSongId: nextSong.id,
-        playbackSeconds: 0,
-        playbackState: "playing",
-        playbackUpdatedAt: serverTimestamp(),
-        playbackUpdatedBy: user.uid,
-        ...roomActivityUpdate()
-      });
+      await Promise.all([
+        updateDoc(doc(db, "rooms", activeRoomId), {
+          nowPlayingId: nextSong.id,
+          ...roomActivityUpdate()
+        }),
+        setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
+          playbackSongId: nextSong.id,
+          playbackSeconds: 0,
+          playbackState: "playing",
+          playbackUpdatedAt: serverTimestamp(),
+          playbackUpdatedBy: user.uid,
+        }, { merge: true })
+      ]);
       return;
     }
 
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      nowPlayingId: null,
-      playbackSongId: null,
-      playbackSeconds: 0,
-      playbackState: "stopped",
-      playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid,
-      ...roomActivityUpdate()
-    });
+    await Promise.all([
+      updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: null,
+        ...roomActivityUpdate()
+      }),
+      setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
+        playbackSongId: null,
+        playbackSeconds: 0,
+        playbackState: "stopped",
+        playbackUpdatedAt: serverTimestamp(),
+        playbackUpdatedBy: user.uid,
+      }, { merge: true })
+    ]);
   }
 
   async function togglePlayback() {
@@ -3150,17 +3178,19 @@ function App() {
       return;
     }
     const nextState = playbackState.state === "playing" ? "paused" : "playing";
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      playbackSongId: nowPlayingSong.id,
-      playbackSeconds: Math.max(0, livePlaybackSeconds),
-      playbackState: nextState,
-      playbackCommand: nextState === "playing" ? "play" : "pause",
-      playbackCommandId: `${deviceId}-${Date.now()}`,
-      playbackCommandAt: serverTimestamp(),
-      playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid,
-      ...roomActivityUpdate()
-    });
+    await Promise.all([
+      updateDoc(doc(db, "rooms", activeRoomId), roomActivityUpdate()),
+      setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
+        playbackSongId: nowPlayingSong.id,
+        playbackSeconds: Math.max(0, livePlaybackSeconds),
+        playbackState: nextState,
+        playbackCommand: nextState === "playing" ? "play" : "pause",
+        playbackCommandId: `${deviceId}-${Date.now()}`,
+        playbackCommandAt: serverTimestamp(),
+        playbackUpdatedAt: serverTimestamp(),
+        playbackUpdatedBy: user.uid,
+      }, { merge: true })
+    ]);
   }
 
   async function handlePlaybackUnavailable(errorCode) {
@@ -3211,17 +3241,19 @@ function App() {
       setToast("Choose a track to restart.");
       return;
     }
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      playbackSongId: room.nowPlayingId,
-      playbackSeconds: 0,
-      playbackState: "playing",
-      playbackUpdatedAt: serverTimestamp(),
-      playbackCommand: "restart",
-      playbackCommandId: `${deviceId}-${Date.now()}`,
-      playbackCommandAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid,
-      ...roomActivityUpdate()
-    });
+    await Promise.all([
+      updateDoc(doc(db, "rooms", activeRoomId), roomActivityUpdate()),
+      setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
+        playbackSongId: room.nowPlayingId,
+        playbackSeconds: 0,
+        playbackState: "playing",
+        playbackUpdatedAt: serverTimestamp(),
+        playbackCommand: "restart",
+        playbackCommandId: `${deviceId}-${Date.now()}`,
+        playbackCommandAt: serverTimestamp(),
+        playbackUpdatedBy: user.uid,
+      }, { merge: true })
+    ]);
     setToast("Track restarted.");
   }
 
@@ -3230,18 +3262,22 @@ function App() {
       setToast("No previous track to replay.");
       return;
     }
-    await updateDoc(doc(db, "rooms", activeRoomId), {
-      nowPlayingId: replaySong.id,
-      playbackSongId: replaySong.id,
-      playbackSeconds: 0,
-      playbackState: "playing",
-      playbackCommand: isActiveDj ? "" : "select",
-      playbackCommandId: `${deviceId}-${Date.now()}`,
-      playbackCommandAt: serverTimestamp(),
-      playbackUpdatedAt: serverTimestamp(),
-      playbackUpdatedBy: user.uid,
-      ...roomActivityUpdate()
-    });
+    await Promise.all([
+      updateDoc(doc(db, "rooms", activeRoomId), {
+        nowPlayingId: replaySong.id,
+        ...roomActivityUpdate()
+      }),
+      setDoc(doc(db, "rooms", activeRoomId, "playback", "state"), {
+        playbackSongId: replaySong.id,
+        playbackSeconds: 0,
+        playbackState: "playing",
+        playbackCommand: isActiveDj ? "" : "select",
+        playbackCommandId: `${deviceId}-${Date.now()}`,
+        playbackCommandAt: serverTimestamp(),
+        playbackUpdatedAt: serverTimestamp(),
+        playbackUpdatedBy: user.uid,
+      }, { merge: true })
+    ]);
     setToast(`Replaying: ${decodeHtmlEntities(replaySong.title || "track")}`);
   }
 
@@ -3683,6 +3719,7 @@ function App() {
     }
     setActiveRoomId("");
     setRoom(null);
+    setPlaybackDoc(null);
     setSongs([]);
     setMembers([]);
     setSongMessages([]);
@@ -3826,11 +3863,15 @@ function App() {
           closedAt: serverTimestamp(),
           closedByUid: leavingUser.uid,
           nowPlayingId: null,
+          [`adminUids.${leavingUser.uid}`]: deleteField()
+        });
+        batch.set(doc(db, "rooms", normalizedRoomId, "playback", "state"), {
           playbackSongId: null,
           playbackSeconds: 0,
           playbackState: "stopped",
-          [`adminUids.${leavingUser.uid}`]: deleteField()
-        });
+          playbackUpdatedAt: serverTimestamp(),
+          playbackUpdatedBy: leavingUser.uid,
+        }, { merge: true });
       } else {
         batch.update(roomRef, {
           [`adminUids.${leavingUser.uid}`]: deleteField(),
@@ -3871,11 +3912,15 @@ function App() {
               closedAt: serverTimestamp(),
               closedByUid: leavingUser.uid,
               nowPlayingId: null,
+              [`adminUids.${leavingUser.uid}`]: deleteField()
+            });
+            batch.set(doc(db, "rooms", leavingRoomId, "playback", "state"), {
               playbackSongId: null,
               playbackSeconds: 0,
               playbackState: "stopped",
-              [`adminUids.${leavingUser.uid}`]: deleteField()
-            });
+              playbackUpdatedAt: serverTimestamp(),
+              playbackUpdatedBy: leavingUser.uid,
+            }, { merge: true });
           } else {
             batch.update(doc(db, "rooms", leavingRoomId), {
               [`adminUids.${leavingUser.uid}`]: deleteField(),
