@@ -198,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.02";
+const APP_VERSION = "2026.07.01.03";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -6479,7 +6479,7 @@ function YouTubePlayer({
       document.removeEventListener("fullscreenchange", scheduleSizing);
       resizeObserver?.disconnect();
     };
-  }, [song?.videoId, visualizerEnabled]);
+  }, [song?.videoId]);
 
   useEffect(() => {
     if (!qrDataUrl || !roomId || !song?.videoId || visualizerEnabled) {
