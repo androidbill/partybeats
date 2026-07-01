@@ -204,7 +204,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.15";
+const APP_VERSION = "2026.06.30.16";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -895,6 +895,7 @@ function App() {
   const [roomShoutOpen, setRoomShoutOpen] = useState(false);
   const [roomShoutDraft, setRoomShoutDraft] = useState("");
   const [roomMoments, setRoomMoments] = useState([]);
+  const [roomMomentsOpen, setRoomMomentsOpen] = useState(false);
   const [themeReactionPickerOpen, setThemeReactionPickerOpen] = useState(false);
   const [themeEffects, setThemeEffects] = useState([]);
   const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
@@ -4341,24 +4342,6 @@ function App() {
         </div>
       </header>
 
-      {roomMoments.length > 0 && (
-        <section className="room-moments-feed" aria-label="Room moments">
-          <div className="room-moments-title">
-            <Wand2 aria-hidden="true" />
-            <span>Moments</span>
-          </div>
-          <div className="room-moments-list">
-            {roomMoments.slice(0, 5).map((moment) => (
-              <div className={`room-moment room-moment-${moment.type || "note"}`} key={moment.id}>
-                <AvatarIdentity member={memberById(moment.uid)} avatarId={fallbackAvatarId(moment.uid)} name={moment.name || "Guest"} />
-                <span className="room-moment-emoji">{moment.emoji || "✨"}</span>
-                <span className="room-moment-copy">{momentText(moment)}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {appNeedsRefresh && dismissedVersionPrompt !== latestRoomVersion && (
         <div className="version-refresh-banner" role="alert">
           <Info aria-hidden="true" />
@@ -4400,6 +4383,31 @@ function App() {
                 </a>
               ) : null}
             </div>
+            {roomMoments.length > 0 && (
+              <div className="now-playing-moments">
+                <button
+                  className={roomMomentsOpen ? "moments-corner-button is-open" : "moments-corner-button"}
+                  onClick={() => setRoomMomentsOpen((open) => !open)}
+                  type="button"
+                  aria-expanded={roomMomentsOpen}
+                >
+                  <Wand2 aria-hidden="true" />
+                  Moments
+                  <span>{roomMoments.length}</span>
+                </button>
+                {roomMomentsOpen && (
+                  <section className="room-moments-panel" aria-label="Room moments">
+                    {roomMoments.slice(0, 20).map((moment) => (
+                      <div className={`room-moment room-moment-${moment.type || "note"}`} key={moment.id}>
+                        <AvatarIdentity member={memberById(moment.uid)} avatarId={fallbackAvatarId(moment.uid)} name={moment.name || "Guest"} />
+                        <span className="room-moment-emoji">{moment.emoji || "✨"}</span>
+                        <span className="room-moment-copy">{momentText(moment)}</span>
+                      </div>
+                    ))}
+                  </section>
+                )}
+              </div>
+            )}
             {isActiveDjPhone && (
               <button
                 className="collapse-player-button"

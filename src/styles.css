@@ -1476,66 +1476,79 @@ input:focus {
   text-transform: uppercase;
 }
 
-.room-moments-feed {
+.now-playing-moments {
   position: relative;
-  z-index: 5;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  width: min(100%, 1180px);
-  margin: 0 auto 10px;
-  padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
-  color: #ffffff;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent),
-    rgba(16, 19, 28, 0.66);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(18px);
-  overflow: hidden;
+  justify-items: end;
 }
 
-.room-moments-title {
+.moments-corner-button {
   display: inline-flex;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
-  color: var(--pb-accent);
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--pb-link), var(--pb-accent-2));
+  font-family: inherit;
   font-size: 0.72rem;
-  font-weight: 950;
-  text-transform: uppercase;
-  white-space: nowrap;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
 }
 
-.room-moments-title svg {
-  width: 17px;
-  height: 17px;
+.moments-corner-button svg {
+  width: 14px;
+  height: 14px;
   stroke-width: 2.7;
 }
 
-.room-moments-list {
-  display: flex;
-  gap: 7px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+.moments-corner-button span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #10131a;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 0.58rem;
+  font-weight: 950;
 }
 
-.room-moments-list::-webkit-scrollbar {
-  display: none;
+.room-moments-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 8;
+  display: grid;
+  gap: 7px;
+  width: min(360px, calc(100vw - 30px));
+  max-height: min(44dvh, 360px);
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent),
+    rgba(16, 19, 28, 0.94);
+  box-shadow: 0 20px 58px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(20px);
+  overflow: auto;
 }
 
 .room-moment {
   display: inline-flex;
-  flex: 0 0 auto;
   gap: 6px;
   align-items: center;
-  max-width: min(360px, 78vw);
+  width: 100%;
   min-height: 38px;
   padding: 4px 9px 4px 5px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.08);
 }
 
