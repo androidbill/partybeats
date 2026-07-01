@@ -198,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.03";
+const APP_VERSION = "2026.07.01.04";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -947,6 +947,8 @@ function App() {
   const djShortcutsRef = useRef({});
   const fullscreenSettleTimerRef = useRef(0);
   const latestSongsRef = useRef([]);
+  const lastFloatingReactionMomentRef = useRef("");
+  const lastSongReactionMomentRef = useRef({});
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
   const [fullscreenSettling, setFullscreenSettling] = useState(false);
   const [pendingVolume, setPendingVolume] = useState(null);
@@ -3467,11 +3469,14 @@ function App() {
         at: Date.now(),
         createdAt: serverTimestamp()
       });
-      createRoomMoment({
-        type: "reaction",
-        emoji,
-        text: `reacted ${emoji}`
-      });
+      if (lastFloatingReactionMomentRef.current !== emoji) {
+        lastFloatingReactionMomentRef.current = emoji;
+        createRoomMoment({
+          type: "reaction",
+          emoji,
+          text: `reacted ${emoji}`
+        });
+      }
     } catch {
       spawnFloatingReaction(emoji);
     }
@@ -3648,13 +3653,16 @@ function App() {
       }
       await updateDoc(songRef, { [path]: emoji });
       spawnEmojiBurst(song, emoji);
-      createRoomMoment({
-        type: "songReaction",
-        emoji,
-        songId: song.id,
-        songTitle: playlistTrackDisplay(song).title || song.title || "this track",
-        text: `reacted to ${playlistTrackDisplay(song).title || "a track"}`
-      });
+      if (lastSongReactionMomentRef.current[song.id] !== emoji) {
+        lastSongReactionMomentRef.current = { ...lastSongReactionMomentRef.current, [song.id]: emoji };
+        createRoomMoment({
+          type: "songReaction",
+          emoji,
+          songId: song.id,
+          songTitle: playlistTrackDisplay(song).title || song.title || "this track",
+          text: `reacted to ${playlistTrackDisplay(song).title || "a track"}`
+        });
+      }
       await touchRoomActivity();
     } catch {
       setToast("Could not save that reaction. Try again.");
