@@ -197,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.31";
+const APP_VERSION = "2026.06.30.32";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1493,7 +1493,6 @@ function App() {
   const roomNeedsFirstTrack = !songsLoading && songs.length === 0 && !room?.nowPlayingId;
   const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
   const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
-  const visibleSongs = nowPlayingIndex >= 0 ? songs.slice(nowPlayingIndex) : songs;
   const replaySong = nowPlayingIndex > 0
     ? [...songs.slice(0, nowPlayingIndex)].reverse().find((song) => !song.unavailable) || null
     : songs.find((song) => song.id === lastPlayedSongId.current && !song.unavailable) || null;
@@ -1721,8 +1720,16 @@ function App() {
   useEffect(() => {
     if (!noticeBaselineReady || songsLoading || !room?.nowPlayingId || !songListRef.current || !queuePanelRef.current) return;
     resetWindowScroll();
-    queuePanelRef.current.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-    songListRef.current.scrollTo?.({ top: 0, left: 0, behavior: "smooth" });
+    const row = songListRef.current.querySelector(`[data-song-id="${room.nowPlayingId}"]`);
+    if (!row) return;
+    const panel = queuePanelRef.current;
+    const panelRect = panel.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    panel.scrollTo({
+      top: Math.max(0, panel.scrollTop + rowRect.top - panelRect.top),
+      left: 0,
+      behavior: "smooth"
+    });
   }, [noticeBaselineReady, songsLoading, room?.nowPlayingId]);
 
   useEffect(() => {
@@ -4581,8 +4588,7 @@ function App() {
               )}
             </div>
           ) : (
-            visibleSongs.map((song, visibleIndex) => {
-              const index = nowPlayingIndex >= 0 ? nowPlayingIndex + visibleIndex : visibleIndex;
+            songs.map((song, index) => {
               const trackDisplay = trackDisplayMap.get(song.id) || playlistTrackDisplay(song);
               const isCurrentSong = song.id === room.nowPlayingId;
               const isPlayedSong = nowPlayingIndex >= 0 && index < nowPlayingIndex;
