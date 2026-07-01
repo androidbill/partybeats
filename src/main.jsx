@@ -138,6 +138,20 @@ const EMOJIS = [
   "🤯",
   "😭"
 ];
+const AVATAR_OPTIONS = [
+  { id: "neon-dj", name: "Neon DJ", icon: "🎧", colors: ["#00e5ff", "#ff2ebd"] },
+  { id: "disco-smile", name: "Disco Smile", icon: "🙂", colors: ["#ffd84d", "#ff4fd8"] },
+  { id: "cassette", name: "Cassette Kid", icon: "📼", colors: ["#8b5cf6", "#22d3ee"] },
+  { id: "lightning", name: "Lightning", icon: "⚡", colors: ["#ffe45c", "#2563eb"] },
+  { id: "vinyl", name: "Vinyl Vibe", icon: "💿", colors: ["#111827", "#38f8c6"] },
+  { id: "mic-drop", name: "Mic Drop", icon: "🎤", colors: ["#fb7185", "#7c3aed"] },
+  { id: "shades", name: "Shades On", icon: "😎", colors: ["#f97316", "#ec4899"] },
+  { id: "alien-dj", name: "Alien DJ", icon: "👽", colors: ["#84cc16", "#06b6d4"] },
+  { id: "superstar", name: "Superstar", icon: "⭐", colors: ["#facc15", "#f43f5e"] },
+  { id: "speaker", name: "Bass Speaker", icon: "🔊", colors: ["#6366f1", "#14b8a6"] },
+  { id: "fire", name: "Fire Vibe", icon: "🔥", colors: ["#ef4444", "#f59e0b"] },
+  { id: "robot", name: "Robot Beat", icon: "🤖", colors: ["#64748b", "#22d3ee"] }
+];
 const COLOR_THEMES = [
   { id: "neon", name: "Neon Rave", note: "Mint, magenta + ultraviolet", base: "dark" },
   { id: "sunset", name: "Sunset Funk", note: "Coral, gold + tropic teal", base: "light" },
@@ -170,7 +184,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.11";
+const APP_VERSION = "2026.06.30.12";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -207,6 +221,22 @@ function normalizeRoomId(value) {
 
 function nicknameFor(user, fallback = "Guest") {
   return user?.displayName || user?.email?.split("@")[0] || fallback;
+}
+
+function avatarForId(avatarId) {
+  return AVATAR_OPTIONS.find((avatar) => avatar.id === avatarId) || AVATAR_OPTIONS[0];
+}
+
+function fallbackAvatarId(seed) {
+  const text = String(seed || "guest");
+  const total = [...text].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return AVATAR_OPTIONS[total % AVATAR_OPTIONS.length].id;
+}
+
+function avatarIdForMember(member, fallbackSeed = "") {
+  return AVATAR_OPTIONS.some((avatar) => avatar.id === member?.avatarId)
+    ? member.avatarId
+    : fallbackAvatarId(member?.id || member?.uid || fallbackSeed);
 }
 
 function hasProfanity(value) {
@@ -825,6 +855,7 @@ function App() {
   const [renameDraft, setRenameDraft] = useState("");
   const [selfRenameOpen, setSelfRenameOpen] = useState(false);
   const [selfRenameDraft, setSelfRenameDraft] = useState("");
+  const [selfAvatarDraft, setSelfAvatarDraft] = useState(AVATAR_OPTIONS[0].id);
   const [nowPlayingNotice, setNowPlayingNotice] = useState(null);
   const [joinNotice, setJoinNotice] = useState(null);
   const [noticeBaselineReady, setNoticeBaselineReady] = useState(false);
@@ -1190,7 +1221,7 @@ function App() {
         reactionSeenIdsRef.current.add(item.id);
         const data = item.data();
         if (!EMOJIS.includes(data.emoji)) return;
-        spawnFloatingReaction(data.emoji);
+        spawnFloatingReaction(data.emoji, data.uid);
       });
     }, handleRoomAccessLost);
     const unsubShouts = onSnapshot(shoutsRef, (snap) => {
@@ -1207,6 +1238,7 @@ function App() {
         if (!data.text || typeof data.text !== "string") return;
         spawnRoomShout({
           id: item.id,
+          uid: data.uid || "",
           name: data.name || "Guest",
           text: data.text,
           isAnonymous: data.isAnonymous === true
@@ -1350,6 +1382,7 @@ function App() {
   }, [addSheetOpen, cooldownEnabled, isAdmin]);
 
   const memberRecord = members.find((member) => member.id === user?.uid);
+  const selfAvatarId = avatarIdForMember(memberRecord, user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
   const cooldownRemaining = Math.max(0, cooldownUntil - cooldownNow);
   const cooldownCountdown = formatCountdown(cooldownRemaining);
@@ -2024,11 +2057,16 @@ function App() {
       }
       const savedMemberName = memberSnap?.exists() ? (memberSnap.data().name || "").trim() : "";
       const roomNickname = (savedMemberName || options.nicknameOverride || activeNickname || nicknameFor(joiningUser, "Guest")).slice(0, 30);
+      const savedAvatarId = memberSnap?.exists() ? memberSnap.data().avatarId : "";
+      const roomAvatarId = AVATAR_OPTIONS.some((avatar) => avatar.id === savedAvatarId)
+        ? savedAvatarId
+        : fallbackAvatarId(joiningUser.uid);
       await setDoc(
         memberRef,
         {
           uid: joiningUser.uid,
           isAnonymous: joiningUser.isAnonymous,
+          avatarId: roomAvatarId,
           ...(memberSnap?.exists() ? {} : { name: roomNickname }),
           ...(memberSnap?.exists() ? {} : { joinedAt: serverTimestamp() })
         },
@@ -2905,6 +2943,7 @@ function App() {
 
   function openSelfRename() {
     setSelfRenameDraft(activeNickname);
+    setSelfAvatarDraft(selfAvatarId);
     setSelfRenameOpen(true);
   }
 
@@ -2916,6 +2955,7 @@ function App() {
       setToast("Nickname blocked for profanity.");
       return;
     }
+    const nextAvatarId = AVATAR_OPTIONS.some((avatar) => avatar.id === selfAvatarDraft) ? selfAvatarDraft : selfAvatarId;
 
     const roomUpdate = {};
     if (room?.adminUid === user.uid) {
@@ -2926,7 +2966,10 @@ function App() {
     }
 
     const batch = writeBatch(db);
-    batch.update(doc(db, "rooms", activeRoomId, "members", user.uid), { name: nextName });
+    batch.update(doc(db, "rooms", activeRoomId, "members", user.uid), {
+      name: nextName,
+      avatarId: nextAvatarId
+    });
     if (Object.keys(roomUpdate).length > 0) {
       batch.update(doc(db, "rooms", activeRoomId), { ...roomUpdate, ...roomActivityUpdate() });
     }
@@ -2934,6 +2977,7 @@ function App() {
     setNickname(nextName);
     setSelfRenameOpen(false);
     setSelfRenameDraft("");
+    setSelfAvatarDraft(nextAvatarId);
     setToast("Nickname updated.");
     await touchRoomActivity();
   }
@@ -3167,10 +3211,11 @@ function App() {
     }, EMOJI_BURST_LIFETIME_MS);
   }
 
-  function spawnFloatingReaction(emoji = floatingReactionEmoji) {
+  function spawnFloatingReaction(emoji = floatingReactionEmoji, uid = user?.uid || "") {
     const reaction = {
       id: `float-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       emoji,
+      uid,
       x: Math.round(12 + Math.random() * 76),
       drift: Math.round((Math.random() - 0.5) * 80),
       scale: Number((0.9 + Math.random() * 0.45).toFixed(2))
@@ -3184,6 +3229,7 @@ function App() {
   function spawnRoomShout(shout) {
     const nextShout = {
       id: shout.id || `shout-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      uid: shout.uid || "",
       name: shout.name || "Guest",
       text: String(shout.text || "").slice(0, 128),
       isAnonymous: shout.isAnonymous === true
@@ -4083,10 +4129,11 @@ function App() {
             <span className="topbar-room-meta">{members.length} people · {activeDjStatus}</span>
             <small className="topbar-version">{APP_VERSION}</small>
           </div>
-        </button>
+          </button>
 
         <div className="topbar-actions">
           <button className="topbar-user-button" onClick={openSelfRename} type="button">
+            <AvatarBadge member={memberRecord} avatarId={selfAvatarId} />
             {!user.isAnonymous && <GoogleBadge />}
             <span>{activeNickname}</span>
             <small>{user.isAnonymous ? "Guest" : "Google"}</small>
@@ -4451,13 +4498,13 @@ function App() {
                       {visibleTrackDisplay.artist && <b>{visibleTrackDisplay.artist}</b>}
                     </span>
                     <span className="uploaded-by">
-                      Uploaded by {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                      Uploaded by <AvatarBadge member={uploader} avatarId={fallbackAvatarId(song.addedByUid)} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
                     </span>
                   </button>
 
                   <div className="reaction-strip">
                     <span className="row-uploader">
-                      {uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
+                      <AvatarBadge member={uploader} avatarId={fallbackAvatarId(song.addedByUid)} />{uploaderIsGoogle && <GoogleBadge />}{uploader?.name || song.addedByName || "Guest"}
                     </span>
                     <span className="track-badges">
                       {isCurrentSong && (
@@ -4475,7 +4522,7 @@ function App() {
                     )}
                     {messagesForSong(song).slice(-2).map((item, messageIndex) => (
                       <span className="song-message" key={`${item.uid || "guest"}-${item.at || messageIndex}`}>
-                        <b>{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
+                        <b><AvatarBadge member={memberById(item.uid)} avatarId={fallbackAvatarId(item.uid)} />{item.isAnonymous === false && <GoogleBadge />}{item.name || "Guest"}:</b> {item.text}
                       </span>
                     ))}
                   </div>
@@ -4768,6 +4815,7 @@ function App() {
                 onClick={() => {
                   setSelfRenameOpen(false);
                   setSelfRenameDraft("");
+                  setSelfAvatarDraft(selfAvatarId);
                 }}
                 title="Close"
                 type="button"
@@ -4776,6 +4824,28 @@ function App() {
               </button>
             </div>
             <form className="nickname-edit-form" onSubmit={saveSelfRename}>
+              <div className="avatar-picker" aria-label="Choose avatar">
+                <div className="avatar-picker-preview">
+                  <AvatarBadge avatarId={selfAvatarDraft} size="lg" />
+                  <div>
+                    <strong>{avatarForId(selfAvatarDraft).name}</strong>
+                    <span>Choose your party avatar</span>
+                  </div>
+                </div>
+                <div className="avatar-picker-grid">
+                  {AVATAR_OPTIONS.map((avatar) => (
+                    <button
+                      className={selfAvatarDraft === avatar.id ? "avatar-choice is-selected" : "avatar-choice"}
+                      key={avatar.id}
+                      onClick={() => setSelfAvatarDraft(avatar.id)}
+                      title={avatar.name}
+                      type="button"
+                    >
+                      <AvatarBadge avatarId={avatar.id} />
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input
                 ref={nicknameInputRef}
                 value={selfRenameDraft}
@@ -5141,7 +5211,7 @@ function App() {
                         </form>
                       ) : (
                         <div className="member-name-cell">
-                          <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name}{isCurrentUser ? " (You)" : ""}</strong>
+                          <strong><AvatarBadge member={member} />{member.isAnonymous === false && <GoogleBadge />}{member.name}{isCurrentUser ? " (You)" : ""}</strong>
                           <span>
                             {member.isAnonymous ? "Guest" : "Google"}
                             {memberIsAdmin ? " · Admin" : ""}
@@ -5365,7 +5435,7 @@ function App() {
                     analyticsPeople.map((member) => (
                       <div className="analytics-person" key={member.id}>
                         <div>
-                          <strong>{member.isAnonymous === false && <GoogleBadge />}{member.name || "Guest"}</strong>
+                          <strong><AvatarBadge member={member} />{member.isAnonymous === false && <GoogleBadge />}{member.name || "Guest"}</strong>
                           <span>{member.isAnonymous ? "Guest" : "Google"}</span>
                         </div>
                         <span>{member.added} adds</span>
@@ -5606,6 +5676,9 @@ function App() {
                 "--float-scale": reaction.scale
               }}
             >
+              {reaction.uid && (
+                <AvatarBadge member={memberById(reaction.uid)} avatarId={fallbackAvatarId(reaction.uid)} />
+              )}
               {reaction.emoji}
             </span>
           ))}
@@ -5622,6 +5695,7 @@ function App() {
               onPointerUp={(event) => finishRoomShoutSwipe(event, shout.id)}
               onPointerCancel={() => { roomShoutSwipeStartRef.current = null; }}
             >
+              <AvatarBadge member={memberById(shout.uid)} avatarId={fallbackAvatarId(shout.uid)} size="md" />
               <div className="room-shout-copy">
                 <strong>{shout.name}</strong>
                 <p>{shout.text}</p>
@@ -6264,6 +6338,23 @@ function SignedIn({ user, nickname, setNickname, onSignOut }) {
         <LogOut aria-hidden="true" />
       </button>
     </div>
+  );
+}
+
+function AvatarBadge({ avatarId, member, size = "sm" }) {
+  const avatar = avatarForId(member ? avatarIdForMember(member) : avatarId);
+  return (
+    <span
+      className={`avatar-badge avatar-${size}`}
+      style={{
+        "--avatar-a": avatar.colors[0],
+        "--avatar-b": avatar.colors[1]
+      }}
+      aria-label={avatar.name}
+      title={avatar.name}
+    >
+      {avatar.icon}
+    </span>
   );
 }
 

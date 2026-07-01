@@ -1461,6 +1461,14 @@ input:focus {
   white-space: nowrap;
 }
 
+.topbar-user-button .avatar-badge {
+  width: 22px;
+  height: 22px;
+  max-width: none;
+  font-size: 0.78rem;
+  overflow: visible;
+}
+
 .topbar-user-button small {
   color: #696c78;
   font-size: 0.62rem;
@@ -2240,6 +2248,87 @@ input:focus {
   font-size: 1.2rem;
   font-weight: 950;
   line-height: 1;
+}
+
+.avatar-badge {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 999px;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.58), transparent 28%),
+    linear-gradient(135deg, var(--avatar-a), var(--avatar-b));
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  font-size: 0.86rem;
+  line-height: 1;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.avatar-md {
+  width: 38px;
+  height: 38px;
+  font-size: 1.22rem;
+}
+
+.avatar-lg {
+  width: 54px;
+  height: 54px;
+  font-size: 1.75rem;
+}
+
+.avatar-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.avatar-picker-preview {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 18px;
+  color: #17181f;
+  background: rgba(23, 24, 31, 0.06);
+}
+
+.avatar-picker-preview div {
+  display: grid;
+  gap: 2px;
+}
+
+.avatar-picker-preview strong {
+  font-size: 1rem;
+}
+
+.avatar-picker-preview span {
+  color: #696c78;
+  font-size: 0.82rem;
+}
+
+.avatar-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.avatar-choice {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.avatar-choice.is-selected {
+  border-color: var(--pb-accent);
+  background: color-mix(in srgb, var(--pb-accent) 24%, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pb-accent) 22%, transparent);
 }
 
 .cooldown-countdown small {
@@ -3236,6 +3325,10 @@ input:focus {
 .nickname-modal .nickname-edit-form {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+}
+
+.nickname-modal .avatar-picker {
+  grid-column: 1 / -1;
 }
 
 .nickname-modal .nickname-edit-form .primary-action {
@@ -7105,12 +7198,21 @@ input,
 .floating-reaction {
   position: absolute;
   bottom: max(78px, calc(env(safe-area-inset-bottom) + 68px));
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
   font-size: clamp(1.9rem, 7vw, 3.2rem);
   line-height: 1;
   opacity: 0;
   filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.28));
   transform: translate(-50%, 0) scale(var(--float-scale, 1));
   animation: floatingReactionRise 2.6s cubic-bezier(0.18, 0.78, 0.22, 1) forwards;
+}
+
+.floating-reaction .avatar-badge {
+  width: clamp(20px, 5vw, 30px);
+  height: clamp(20px, 5vw, 30px);
+  font-size: clamp(0.72rem, 2.5vw, 1rem);
 }
 
 @keyframes floatingReactionRise {
@@ -7150,7 +7252,7 @@ input,
 .room-shout-bubble {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
   padding: 14px 16px;
