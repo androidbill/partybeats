@@ -197,7 +197,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.06.30.28";
+const APP_VERSION = "2026.06.30.29";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -1476,15 +1476,19 @@ function App() {
     ? [...songs.slice(0, nowPlayingIndex)].reverse().find((song) => !song.unavailable) || null
     : songs.find((song) => song.id === lastPlayedSongId.current && !song.unavailable) || null;
   const pb = playbackDoc || room;
-  const playbackState = {
+  const playbackState = useMemo(() => ({
     songId: pb?.playbackSongId || room?.nowPlayingId || null,
     seconds: Math.max(0, Number(pb?.playbackSeconds) || 0),
     state: pb?.playbackState || "playing",
     updatedAt: pb?.playbackUpdatedAt?.toMillis?.() || 0,
     command: pb?.playbackCommand || "",
     commandId: pb?.playbackCommandId || "",
-    commandAt: pb?.playbackCommandAt?.toMillis?.() || 0
-  };
+    commandAt: pb?.playbackCommandAt?.toMillis?.() || 0,
+  }), [
+    pb?.playbackSongId, pb?.playbackSeconds, pb?.playbackState,
+    pb?.playbackUpdatedAt, pb?.playbackCommand, pb?.playbackCommandId,
+    pb?.playbackCommandAt, room?.nowPlayingId,
+  ]);
   const roomVolume = Math.min(100, Math.max(0, Number(room?.roomVolume ?? 80)));
   const displayVolume = pendingVolume ?? roomVolume;
   const roomTagline = String(room?.tagline || "").trim();
@@ -3286,36 +3290,6 @@ function App() {
     await updateDoc(doc(db, "rooms", activeRoomId), { visualizerEnabled: enabled, ...roomActivityUpdate() });
   }
 
-  function renderVisualizerControl() {
-    return (
-      <button
-        className={visualizerEnabled ? "mini-action icon-only-toggle is-on" : "mini-action icon-only-toggle"}
-        type="button"
-        aria-label={visualizerEnabled ? "Hide visualizer" : "Show visualizer"}
-        title={visualizerEnabled ? "Hide visualizer" : "Show visualizer"}
-        onClick={() => updateVisualizerEnabled(!visualizerEnabled)}
-      >
-        <Activity aria-hidden="true" />
-      </button>
-    );
-  }
-
-  function renderVolumeControl() {
-    return (
-      <div className={`room-volume-control${volumeControlOpen ? " is-open" : ""}`}>
-        <button
-          className="mini-action volume-toggle"
-          type="button"
-          aria-label={`Volume ${displayVolume}%`}
-          aria-expanded={volumeControlOpen}
-          onClick={() => setVolumeControlOpen((isOpen) => !isOpen)}
-        >
-          <Volume2 aria-hidden="true" />
-        </button>
-      </div>
-    );
-  }
-
   function renderVolumeOverlay() {
     if (!volumeControlOpen) return null;
     return (
@@ -4493,159 +4467,44 @@ function App() {
         </div>
       )}
 
-      <section
-        ref={playerCardRef}
-        className={[
-          playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card",
-          nowPlayingSong ? "has-track" : "is-idle",
-          partyMotionEnabled && playerFullscreen && visualizerEnabled ? "has-fullscreen-motion" : "",
-          playerCollapsed ? "is-player-collapsed" : ""
-        ].join(" ")}
-      >
-        {(nowPlayingSong || isAdmin) && (
-          <div className="now-playing-corner-actions">
-            <div className="now-playing-corner-row">
-              {nowPlayingSong && (
-                <PlaybackProgress
-                  state={playbackState.state}
-                  seconds={playbackState.seconds}
-                  updatedAt={playbackState.updatedAt}
-                  durationSeconds={Math.max(0, Number(nowPlayingSong.durationSeconds) || 0)}
-                />
-              )}
-              {nowPlayingSong && !isActiveDjPhone ? (
-                <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
-                  <Search aria-hidden="true" />
-                  Lyrics
-                </a>
-              ) : null}
-            </div>
-            {roomMoments.length > 0 && (
-              <div className="now-playing-moments">
-                <button
-                  className={roomMomentsOpen ? "moments-corner-button is-open" : "moments-corner-button"}
-                  onClick={() => setRoomMomentsOpen((open) => !open)}
-                  type="button"
-                  aria-expanded={roomMomentsOpen}
-                >
-                  <Wand2 aria-hidden="true" />
-                  Moments
-                  <span>{roomMoments.length}</span>
-                </button>
-              </div>
-            )}
-            {isActiveDjPhone && (
-              <button
-                className="collapse-player-button"
-                onClick={() => setPlayerCollapsed((collapsed) => !collapsed)}
-                title={playerCollapsed ? "Expand player" : "Collapse player"}
-                type="button"
-              >
-                {playerCollapsed ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
-                {playerCollapsed ? "Expand" : "Collapse"}
-              </button>
-            )}
-          </div>
-        )}
-        <div className="now-playing-copy">
-          <span>
-            {nowPlayingSong && <Equalizer paused={playbackState.state !== "playing"} />}
-            {isActiveDj ? "This device is playing" : "Now playing"}
-          </span>
-          <div className="fullscreen-title-row">
-            <div className="fullscreen-room-brand" aria-label={`PartyBeats room ${activeRoomId}`}>
-              <AppIcon />
-              <div>
-                <strong>PartyBeats</strong>
-                <span>Room {activeRoomId}</span>
-              </div>
-            </div>
-            <h1>{nowPlayingSong ? nowPlayingDisplay?.title || "Untitled" : nowPlayingSyncing ? "Syncing current track" : "Nothing playing yet"}</h1>
-          </div>
-          <p className="track-credit">
-            {nowPlayingSong
-              ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
-              : nowPlayingSyncing
-                ? "Fetching the song that is already playing in this room."
-                : "The Active DJ starts playback from the phone connected to the speaker."}
-          </p>
-          {roomTagline && <p className="room-vibe-line">{roomTagline}</p>}
-        </div>
-        {isActiveDj ? (
-          <>
-            <YouTubePlayer
-              song={nowPlayingSong}
-              onEnded={playNextSong}
-              onCrossfade={playNextSong}
-              onUnavailable={handlePlaybackUnavailable}
-              verifyPlayback={fetchYouTubePlaybackDetails}
-              crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
-              crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
-              volume={roomVolume}
-              visualizerEnabled={visualizerEnabled}
-              displayTrack={nowPlayingDisplay}
-              qrDataUrl={qrDataUrl}
-              roomId={activeRoomId}
-              playbackState={playbackState}
-              onPlaybackUpdate={syncPlaybackState}
-              fullscreenMotion={partyMotionEnabled}
-            />
-            <div className="player-actions dj-control-deck" aria-label="Active DJ controls">
-              <button
-                className="mini-action player-fullscreen-toggle"
-                onClick={togglePlayerFullscreen}
-                type="button"
-              >
-                {playerFullscreen ? <X aria-hidden="true" /> : <ExternalLink aria-hidden="true" />}
-                {playerFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-              </button>
-              <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
-                {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-                {playbackState.state === "playing" ? "Pause" : "Play"}
-              </button>
-              <button className="mini-action" onClick={restartTrack} disabled={!nowPlayingSong} type="button">
-                <RotateCcw aria-hidden="true" />
-                Restart
-              </button>
-              <button className="mini-action" onClick={replayLastSong} disabled={!replaySong} type="button">
-                <History aria-hidden="true" />
-                Replay Last
-              </button>
-              <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
-                <SkipForward aria-hidden="true" />
-                Next
-              </button>
-              {renderVisualizerControl()}
-              {renderVolumeControl()}
-            </div>
-          </>
-        ) : isAdmin ? (
-          <div className="player-actions dj-control-deck">
-            <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
-              {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-              {playbackState.state === "playing" ? "Pause" : "Play"}
-            </button>
-            <button className="mini-action" onClick={restartTrack} disabled={!nowPlayingSong} type="button">
-              <RotateCcw aria-hidden="true" />
-              Restart
-            </button>
-            <button className="mini-action" onClick={replayLastSong} disabled={!replaySong} type="button">
-              <History aria-hidden="true" />
-              Replay Last
-            </button>
-            <button className="mini-action" onClick={playNextSong} disabled={!songs.length} type="button">
-              <SkipForward aria-hidden="true" />
-              Next
-            </button>
-            {renderVisualizerControl()}
-            {renderVolumeControl()}
-            <button className="mini-action" onClick={takeOverDj} type="button">
-              <Crown aria-hidden="true" />
-              Play From This Device
-            </button>
-          </div>
-        ) : null}
-      </section>
+      <NowPlayingCard
+        cardRef={playerCardRef}
+        playerFullscreen={playerFullscreen}
+        nowPlayingSong={nowPlayingSong}
+        isAdmin={isAdmin}
+        isActiveDj={isActiveDj}
+        isActiveDjPhone={isActiveDjPhone}
+        partyMotionEnabled={partyMotionEnabled}
+        visualizerEnabled={visualizerEnabled}
+        playerCollapsed={playerCollapsed}
+        playbackState={playbackState}
+        momentsCount={roomMoments.length}
+        roomMomentsOpen={roomMomentsOpen}
+        nowPlayingDisplay={nowPlayingDisplay}
+        nowPlayingSyncing={nowPlayingSyncing}
+        roomTagline={roomTagline}
+        hasReplaySong={Boolean(replaySong)}
+        hasSongs={songs.length > 0}
+        roomVolume={roomVolume}
+        qrDataUrl={qrDataUrl}
+        effectivePlaybackSettings={effectivePlaybackSettings}
+        activeRoomId={activeRoomId}
+        volumeControlOpen={volumeControlOpen}
+        displayVolume={displayVolume}
+        setRoomMomentsOpen={setRoomMomentsOpen}
+        setPlayerCollapsed={setPlayerCollapsed}
+        togglePlayerFullscreen={togglePlayerFullscreen}
+        togglePlayback={togglePlayback}
+        restartTrack={restartTrack}
+        replayLastSong={replayLastSong}
+        playNextSong={playNextSong}
+        takeOverDj={takeOverDj}
+        onPlaybackUpdate={syncPlaybackState}
+        verifyPlayback={fetchYouTubePlaybackDetails}
+        onUnavailable={handlePlaybackUnavailable}
+        updateVisualizerEnabled={updateVisualizerEnabled}
+        setVolumeControlOpen={setVolumeControlOpen}
+      />
 
       <div
         className="desktop-panel-divider"
@@ -6128,6 +5987,265 @@ const SongRow = React.memo(function SongRow({
   prev.isDragOverBottom === next.isDragOverBottom &&
   prev.isReacting === next.isReacting &&
   prev.playbackIsPlaying === next.playbackIsPlaying
+));
+
+const NowPlayingCard = React.memo(function NowPlayingCard({
+  cardRef,
+  playerFullscreen,
+  nowPlayingSong,
+  isAdmin,
+  isActiveDj,
+  isActiveDjPhone,
+  partyMotionEnabled,
+  visualizerEnabled,
+  playerCollapsed,
+  playbackState,
+  momentsCount,
+  roomMomentsOpen,
+  nowPlayingDisplay,
+  nowPlayingSyncing,
+  roomTagline,
+  hasReplaySong,
+  hasSongs,
+  roomVolume,
+  qrDataUrl,
+  effectivePlaybackSettings,
+  activeRoomId,
+  volumeControlOpen,
+  displayVolume,
+  setRoomMomentsOpen,
+  setPlayerCollapsed,
+  togglePlayerFullscreen,
+  togglePlayback,
+  restartTrack,
+  replayLastSong,
+  playNextSong,
+  takeOverDj,
+  onPlaybackUpdate,
+  verifyPlayback,
+  onUnavailable,
+  updateVisualizerEnabled,
+  setVolumeControlOpen,
+}) {
+  return (
+    <section
+      ref={cardRef}
+      className={[
+        playerFullscreen ? "now-playing-card is-fullscreen-player" : "now-playing-card",
+        nowPlayingSong ? "has-track" : "is-idle",
+        partyMotionEnabled && playerFullscreen && visualizerEnabled ? "has-fullscreen-motion" : "",
+        playerCollapsed ? "is-player-collapsed" : "",
+      ].join(" ")}
+    >
+      {(nowPlayingSong || isAdmin) && (
+        <div className="now-playing-corner-actions">
+          <div className="now-playing-corner-row">
+            {nowPlayingSong && (
+              <PlaybackProgress
+                state={playbackState.state}
+                seconds={playbackState.seconds}
+                updatedAt={playbackState.updatedAt}
+                durationSeconds={Math.max(0, Number(nowPlayingSong.durationSeconds) || 0)}
+              />
+            )}
+            {nowPlayingSong && !isActiveDjPhone ? (
+              <a className="lyrics-corner-button" href={lyricsSearchUrl(nowPlayingSong)} target="_blank" rel="noreferrer">
+                <Search aria-hidden="true" />
+                Lyrics
+              </a>
+            ) : null}
+          </div>
+          {momentsCount > 0 && (
+            <div className="now-playing-moments">
+              <button
+                className={roomMomentsOpen ? "moments-corner-button is-open" : "moments-corner-button"}
+                onClick={() => setRoomMomentsOpen((open) => !open)}
+                type="button"
+                aria-expanded={roomMomentsOpen}
+              >
+                <Wand2 aria-hidden="true" />
+                Moments
+                <span>{momentsCount}</span>
+              </button>
+            </div>
+          )}
+          {isActiveDjPhone && (
+            <button
+              className="collapse-player-button"
+              onClick={() => setPlayerCollapsed((collapsed) => !collapsed)}
+              title={playerCollapsed ? "Expand player" : "Collapse player"}
+              type="button"
+            >
+              {playerCollapsed ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
+              {playerCollapsed ? "Expand" : "Collapse"}
+            </button>
+          )}
+        </div>
+      )}
+      <div className="now-playing-copy">
+        <span>
+          {nowPlayingSong && <Equalizer paused={playbackState.state !== "playing"} />}
+          {isActiveDj ? "This device is playing" : "Now playing"}
+        </span>
+        <div className="fullscreen-title-row">
+          <div className="fullscreen-room-brand" aria-label={`PartyBeats room ${activeRoomId}`}>
+            <AppIcon />
+            <div>
+              <strong>PartyBeats</strong>
+              <span>Room {activeRoomId}</span>
+            </div>
+          </div>
+          <h1>{nowPlayingSong ? nowPlayingDisplay?.title || "Untitled" : nowPlayingSyncing ? "Syncing current track" : "Nothing playing yet"}</h1>
+        </div>
+        <p className="track-credit">
+          {nowPlayingSong
+            ? `${nowPlayingDisplay?.artist || decodeHtmlEntities(nowPlayingSong.artist || "YouTube")} · added by ${nowPlayingSong.addedByName || "Guest"}`
+            : nowPlayingSyncing
+              ? "Fetching the song that is already playing in this room."
+              : "The Active DJ starts playback from the phone connected to the speaker."}
+        </p>
+        {roomTagline && <p className="room-vibe-line">{roomTagline}</p>}
+      </div>
+      {isActiveDj ? (
+        <>
+          <YouTubePlayer
+            song={nowPlayingSong}
+            onEnded={playNextSong}
+            onCrossfade={playNextSong}
+            onUnavailable={onUnavailable}
+            verifyPlayback={verifyPlayback}
+            crossfadeEnabled={effectivePlaybackSettings.crossfadeEnabled}
+            crossfadeSeconds={effectivePlaybackSettings.crossfadeSeconds}
+            volume={roomVolume}
+            visualizerEnabled={visualizerEnabled}
+            displayTrack={nowPlayingDisplay}
+            qrDataUrl={qrDataUrl}
+            roomId={activeRoomId}
+            playbackState={playbackState}
+            onPlaybackUpdate={onPlaybackUpdate}
+            fullscreenMotion={partyMotionEnabled}
+          />
+          <div className="player-actions dj-control-deck" aria-label="Active DJ controls">
+            <button
+              className="mini-action player-fullscreen-toggle"
+              onClick={togglePlayerFullscreen}
+              type="button"
+            >
+              {playerFullscreen ? <X aria-hidden="true" /> : <ExternalLink aria-hidden="true" />}
+              {playerFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            </button>
+            <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
+              {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+              {playbackState.state === "playing" ? "Pause" : "Play"}
+            </button>
+            <button className="mini-action" onClick={restartTrack} disabled={!nowPlayingSong} type="button">
+              <RotateCcw aria-hidden="true" />
+              Restart
+            </button>
+            <button className="mini-action" onClick={replayLastSong} disabled={!hasReplaySong} type="button">
+              <History aria-hidden="true" />
+              Replay Last
+            </button>
+            <button className="mini-action" onClick={playNextSong} disabled={!hasSongs} type="button">
+              <SkipForward aria-hidden="true" />
+              Next
+            </button>
+            <button
+              className={visualizerEnabled ? "mini-action icon-only-toggle is-on" : "mini-action icon-only-toggle"}
+              type="button"
+              aria-label={visualizerEnabled ? "Hide visualizer" : "Show visualizer"}
+              title={visualizerEnabled ? "Hide visualizer" : "Show visualizer"}
+              onClick={() => updateVisualizerEnabled(!visualizerEnabled)}
+            >
+              <Activity aria-hidden="true" />
+            </button>
+            <div className={`room-volume-control${volumeControlOpen ? " is-open" : ""}`}>
+              <button
+                className="mini-action volume-toggle"
+                type="button"
+                aria-label={`Volume ${displayVolume}%`}
+                aria-expanded={volumeControlOpen}
+                onClick={() => setVolumeControlOpen((isOpen) => !isOpen)}
+              >
+                <Volume2 aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </>
+      ) : isAdmin ? (
+        <div className="player-actions dj-control-deck">
+          <button className="mini-action" onClick={togglePlayback} disabled={!nowPlayingSong} type="button">
+            {playbackState.state === "playing" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+            {playbackState.state === "playing" ? "Pause" : "Play"}
+          </button>
+          <button className="mini-action" onClick={restartTrack} disabled={!nowPlayingSong} type="button">
+            <RotateCcw aria-hidden="true" />
+            Restart
+          </button>
+          <button className="mini-action" onClick={replayLastSong} disabled={!hasReplaySong} type="button">
+            <History aria-hidden="true" />
+            Replay Last
+          </button>
+          <button className="mini-action" onClick={playNextSong} disabled={!hasSongs} type="button">
+            <SkipForward aria-hidden="true" />
+            Next
+          </button>
+          <button
+            className={visualizerEnabled ? "mini-action icon-only-toggle is-on" : "mini-action icon-only-toggle"}
+            type="button"
+            aria-label={visualizerEnabled ? "Hide visualizer" : "Show visualizer"}
+            title={visualizerEnabled ? "Hide visualizer" : "Show visualizer"}
+            onClick={() => updateVisualizerEnabled(!visualizerEnabled)}
+          >
+            <Activity aria-hidden="true" />
+          </button>
+          <div className={`room-volume-control${volumeControlOpen ? " is-open" : ""}`}>
+            <button
+              className="mini-action volume-toggle"
+              type="button"
+              aria-label={`Volume ${displayVolume}%`}
+              aria-expanded={volumeControlOpen}
+              onClick={() => setVolumeControlOpen((isOpen) => !isOpen)}
+            >
+              <Volume2 aria-hidden="true" />
+            </button>
+          </div>
+          <button className="mini-action" onClick={takeOverDj} type="button">
+            <Crown aria-hidden="true" />
+            Play From This Device
+          </button>
+        </div>
+      ) : null}
+    </section>
+  );
+}, (prev, next) => (
+  prev.playerFullscreen === next.playerFullscreen &&
+  prev.isAdmin === next.isAdmin &&
+  prev.isActiveDj === next.isActiveDj &&
+  prev.isActiveDjPhone === next.isActiveDjPhone &&
+  prev.partyMotionEnabled === next.partyMotionEnabled &&
+  prev.visualizerEnabled === next.visualizerEnabled &&
+  prev.playerCollapsed === next.playerCollapsed &&
+  prev.playbackState === next.playbackState &&
+  prev.momentsCount === next.momentsCount &&
+  prev.roomMomentsOpen === next.roomMomentsOpen &&
+  prev.nowPlayingSyncing === next.nowPlayingSyncing &&
+  prev.roomTagline === next.roomTagline &&
+  prev.hasReplaySong === next.hasReplaySong &&
+  prev.hasSongs === next.hasSongs &&
+  prev.roomVolume === next.roomVolume &&
+  prev.qrDataUrl === next.qrDataUrl &&
+  prev.effectivePlaybackSettings === next.effectivePlaybackSettings &&
+  prev.activeRoomId === next.activeRoomId &&
+  prev.volumeControlOpen === next.volumeControlOpen &&
+  prev.displayVolume === next.displayVolume &&
+  prev.nowPlayingSong?.id === next.nowPlayingSong?.id &&
+  prev.nowPlayingSong?.title === next.nowPlayingSong?.title &&
+  prev.nowPlayingSong?.artist === next.nowPlayingSong?.artist &&
+  prev.nowPlayingSong?.addedByName === next.nowPlayingSong?.addedByName &&
+  prev.nowPlayingSong?.durationSeconds === next.nowPlayingSong?.durationSeconds &&
+  prev.nowPlayingDisplay?.title === next.nowPlayingDisplay?.title &&
+  prev.nowPlayingDisplay?.artist === next.nowPlayingDisplay?.artist
 ));
 
 const PlaybackProgress = React.memo(function PlaybackProgress({
