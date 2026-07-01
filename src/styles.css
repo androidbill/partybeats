@@ -3091,49 +3091,6 @@ input {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.song-reaction-actions.is-commenting {
-  flex-wrap: wrap;
-  height: auto;
-}
-
-.song-comment-form {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  width: 100%;
-  margin-top: 2px;
-  animation: rowControlsIn 140ms ease both;
-}
-
-.song-comment-form input {
-  flex: 1;
-  min-width: 0;
-  height: 30px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 8px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
-  font-family: inherit;
-  font-size: 0.8rem;
-}
-
-.song-comment-form input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.song-comment-form input:focus {
-  outline: none;
-  border-color: rgba(57, 198, 163, 0.6);
-  background: rgba(57, 198, 163, 0.08);
-}
-
-.song-comment-form .mini-action {
-  flex-shrink: 0;
-  height: 30px;
-  padding: 0 10px;
-  font-size: 0.74rem;
-}
 
 .song-reaction-button svg {
   width: 18px;

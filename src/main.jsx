@@ -198,7 +198,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.06";
+const APP_VERSION = "2026.07.01.07";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -892,8 +892,6 @@ function App() {
   const [roomMoments, setRoomMoments] = useState([]);
   const [roomMomentsOpen, setRoomMomentsOpen] = useState(false);
   const [newMomentsCount, setNewMomentsCount] = useState(0);
-  const [commentSongId, setCommentSongId] = useState("");
-  const [commentDraft, setCommentDraft] = useState("");
   const [themeEffects, setThemeEffects] = useState([]);
   const [songReactionEmojiBySong, setSongReactionEmojiBySong] = useState({});
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
@@ -3681,7 +3679,7 @@ function App() {
   }
 
   async function sendSongComment(song) {
-    const text = commentDraft.trim().slice(0, 50);
+    const text = messageDraft.trim().slice(0, 50);
     if (!user || !activeRoomId || !text) return;
     if (hasProfanity(text)) {
       setToast("Comment blocked for profanity.");
@@ -3694,8 +3692,10 @@ function App() {
       songTitle: playlistTrackDisplay(song).title || song.title || "this track",
       text
     });
-    setCommentDraft("");
-    setCommentSongId("");
+    setMessageDraft("");
+    setMessageSongId("");
+    setEmojiSongId("");
+    setEmojiPickerMode("react");
   }
 
   async function sendSongMessage(song) {
@@ -3774,8 +3774,6 @@ function App() {
     setEmojiPickerMode("react");
     setMessageSongId("");
     setMessageDraft("");
-    setCommentSongId("");
-    setCommentDraft("");
     setNewMomentsCount(0);
     setFloatingReactions([]);
     setRoomShouts([]);
@@ -4704,11 +4702,8 @@ function App() {
                   onPlay={() => setNowPlaying(song.id)}
                   onRemove={() => removeSong(song.id)}
                   onEmojiPicker={openSongEmojiPicker}
-                  isCommenting={commentSongId === song.id}
-                  commentDraft={commentSongId === song.id ? commentDraft : ""}
-                  onCommentIconClick={() => { setCommentSongId(song.id); setCommentDraft(""); }}
-                  onCommentChange={setCommentDraft}
-                  onCommentSubmit={() => sendSongComment(song)}
+                  isCommenting={emojiSongId === song.id && emojiPickerMode === "comment"}
+                  onCommentIconClick={() => { setMessageDraft(""); setMessageSongId(song.id); setEmojiPickerMode("comment"); setEmojiSongId(song.id); }}
                   songSwipeRevealedRef={songSwipeRevealedRef}
                   memberById={memberById}
                   getAvatarId={getAvatarId}
@@ -4861,7 +4856,7 @@ function App() {
           onMouseDown={(event) => event.stopPropagation()}
           onMouseUp={(event) => event.stopPropagation()}
         >
-          {EMOJIS.map((emoji) => (
+          {emojiPickerMode !== "comment" && EMOJIS.map((emoji) => (
             <button
               className={
                 (emojiPickerMode === "choose"
@@ -4883,32 +4878,40 @@ function App() {
               {emoji}
             </button>
           ))}
-          <button
-            className={messageSongId === reactionSong.id ? "selected" : ""}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setEmojiPickerMode("react");
-              setMessageSongId(reactionSong.id);
-            }}
-            type="button"
-            title="Send message"
-          >
-            <MessageCircle aria-hidden="true" />
-          </button>
-          {messageSongId === reactionSong.id && (
-            <form className="reaction-message" onSubmit={(event) => { event.preventDefault(); sendSongMessage(reactionSong); }}>
+          {emojiPickerMode !== "comment" && (
+            <button
+              className={messageSongId === reactionSong.id ? "selected" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setEmojiPickerMode("react");
+                setMessageSongId(reactionSong.id);
+              }}
+              type="button"
+              title="Send message"
+            >
+              <MessageCircle aria-hidden="true" />
+            </button>
+          )}
+          {(messageSongId === reactionSong.id || emojiPickerMode === "comment") && (
+            <form
+              className="reaction-message"
+              onSubmit={(event) => {
+                event.preventDefault();
+                emojiPickerMode === "comment" ? sendSongComment(reactionSong) : sendSongMessage(reactionSong);
+              }}
+            >
               <input
                 value={messageDraft}
-                onChange={(event) => setMessageDraft(event.target.value.slice(0, 90))}
+                onChange={(event) => setMessageDraft(event.target.value.slice(0, emojiPickerMode === "comment" ? 50 : 90))}
                 onFocus={() => window.setTimeout(() => {
                   window.visualViewport?.dispatchEvent?.(new Event("resize"));
                 }, 80)}
-                placeholder="90 character message"
-                maxLength={90}
+                placeholder={emojiPickerMode === "comment" ? "Comment… (50 chars)" : "90 character message"}
+                maxLength={emojiPickerMode === "comment" ? 50 : 90}
               />
               <button className="mini-action" type="submit" disabled={!messageDraft.trim()}>
-                Send
+                {emojiPickerMode === "comment" ? "Post" : "Send"}
               </button>
             </form>
           )}
@@ -5908,7 +5911,7 @@ const SongRow = React.memo(function SongRow({
   onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
   onSelect, onDeleteReveal, onPointerDown, onPointerMove, onPointerUp, onPointerCancel,
   onContextMenu, onDeleteOwn, onMoveUp, onMoveDown, onPlay, onRemove, onEmojiPicker,
-  isCommenting, commentDraft, onCommentIconClick, onCommentChange, onCommentSubmit,
+  isCommenting, onCommentIconClick,
   songSwipeRevealedRef, memberById, getAvatarId
 }) {
   return (
@@ -6030,7 +6033,7 @@ const SongRow = React.memo(function SongRow({
 
       {!isAdmin && isSelected && (
         <div
-          className={isCommenting ? "song-reaction-actions is-commenting" : "song-reaction-actions"}
+          className="song-reaction-actions"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
           onPointerUp={(event) => event.stopPropagation()}
@@ -6065,25 +6068,6 @@ const SongRow = React.memo(function SongRow({
           >
             <MessageCircle aria-hidden="true" />
           </button>
-          {isCommenting && (
-            <form
-              className="song-comment-form"
-              onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); onCommentSubmit(); }}
-              onClick={(event) => event.stopPropagation()}
-              onPointerDown={(event) => event.stopPropagation()}
-            >
-              <input
-                value={commentDraft}
-                onChange={(event) => onCommentChange(event.target.value.slice(0, 50))}
-                placeholder="Comment… (50 chars)"
-                maxLength={50}
-                autoFocus
-              />
-              <button className="mini-action" type="submit" disabled={!commentDraft.trim()}>
-                Post
-              </button>
-            </form>
-          )}
         </div>
       )}
     </article>
@@ -6104,7 +6088,6 @@ const SongRow = React.memo(function SongRow({
   prev.isDragOverBottom === next.isDragOverBottom &&
   prev.isReacting === next.isReacting &&
   prev.isCommenting === next.isCommenting &&
-  prev.commentDraft === next.commentDraft &&
   prev.playbackIsPlaying === next.playbackIsPlaying
 ));
 
