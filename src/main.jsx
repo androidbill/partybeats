@@ -4395,25 +4395,6 @@ function App() {
                   Moments
                   <span>{roomMoments.length}</span>
                 </button>
-                {roomMomentsOpen && (
-                  <button
-                    className="tap-away-layer"
-                    aria-label="Close moments"
-                    onClick={() => setRoomMomentsOpen(false)}
-                    type="button"
-                  />
-                )}
-                {roomMomentsOpen && (
-                  <section className="room-moments-panel" aria-label="Room moments">
-                    {roomMoments.slice(0, 20).map((moment) => (
-                      <div className={`room-moment room-moment-${moment.type || "note"}`} key={moment.id}>
-                        <AvatarIdentity member={memberById(moment.uid)} avatarId={fallbackAvatarId(moment.uid)} name={moment.name || "Guest"} />
-                        <span className="room-moment-emoji">{moment.emoji || "✨"}</span>
-                        <span className="room-moment-copy">{momentText(moment)}</span>
-                      </div>
-                    ))}
-                  </section>
-                )}
               </div>
             )}
             {isActiveDjPhone && (
@@ -5931,6 +5912,26 @@ function App() {
             </div>
           ))}
         </div>
+      )}
+
+      {roomMomentsOpen && (
+        <button
+          className="tap-away-layer"
+          aria-label="Close moments"
+          onClick={() => setRoomMomentsOpen(false)}
+          type="button"
+        />
+      )}
+      {roomMomentsOpen && roomMoments.length > 0 && (
+        <section className="room-moments-panel" aria-label="Room moments">
+          {roomMoments.slice(0, 20).map((moment) => (
+            <div className={`room-moment room-moment-${moment.type || "note"}`} key={moment.id}>
+              <AvatarIdentity member={memberById(moment.uid)} avatarId={fallbackAvatarId(moment.uid)} name={moment.name || "Guest"} />
+              <span className="room-moment-emoji">{moment.emoji || "✨"}</span>
+              <span className="room-moment-copy">{momentText(moment)}</span>
+            </div>
+          ))}
+        </section>
       )}
 
       {(toastEnabled || isImportantToast(toast)) && toast && (
