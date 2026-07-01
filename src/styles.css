@@ -2734,11 +2734,6 @@ input {
 }
 
 .song-row {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 72px;
-}
-
-.song-row {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -6128,10 +6123,6 @@ input:focus {
   align-items: center;
 }
 
-.song-row {
-  will-change: transform, opacity;
-}
-
 .song-row:hover {
   transform: translateY(-1px);
 }
@@ -9231,5 +9222,13 @@ input,
     width: 14px;
     height: 14px;
   }
+}
+
+/* Keep playlist rows painted during fast scrolling. Browser paint skipping caused
+   full pill rows to blink out on mobile and desktop. */
+.room-app .song-row {
+  content-visibility: visible !important;
+  contain-intrinsic-size: auto !important;
+  will-change: auto !important;
 }
 
