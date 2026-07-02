@@ -3154,7 +3154,7 @@ function App() {
       ]);
       return;
     }
-    const nextSong = nextQueuedSong(songs, room?.nowPlayingId);
+    const nextSong = nextQueuedSong(latestSongsRef.current, room?.nowPlayingId);
     if (nextSong) {
       await Promise.all([
         updateDoc(doc(db, "rooms", activeRoomId), {
