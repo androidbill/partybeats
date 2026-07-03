@@ -182,7 +182,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.02.03";
+const APP_VERSION = "2026.07.02.04";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -695,11 +695,17 @@ function PartyMotionCanvas({ className = "" }) {
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
-      dpr = Math.min(1.5, window.devicePixelRatio || 1);
       width = Math.max(1, Math.floor(rect.width));
       height = Math.max(1, Math.floor(rect.height));
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
+      // Cap the canvas buffer so the long edge never exceeds 720px —
+      // CSS stretches the result back to full size at no CPU cost,
+      // and smooth gradients / glows look fine at lower resolution.
+      const rawDpr = Math.min(1.5, window.devicePixelRatio || 1);
+      const MAX_LONG_EDGE = 720;
+      const longEdge = Math.max(width, height) * rawDpr;
+      dpr = longEdge > MAX_LONG_EDGE ? MAX_LONG_EDGE / Math.max(width, height) : rawDpr;
+      canvas.width = Math.max(1, Math.floor(width * dpr));
+      canvas.height = Math.max(1, Math.floor(height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
