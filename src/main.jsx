@@ -182,7 +182,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.02.02";
+const APP_VERSION = "2026.07.02.03";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -665,6 +665,7 @@ function PartyMotionCanvas({ className = "" }) {
 
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     let frame = 0;
+    let lastFrameTime = 0;
     let width = 1;
     let height = 1;
     let dpr = 1;
@@ -694,7 +695,7 @@ function PartyMotionCanvas({ className = "" }) {
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
-      dpr = Math.min(2, window.devicePixelRatio || 1);
+      dpr = Math.min(1.5, window.devicePixelRatio || 1);
       width = Math.max(1, Math.floor(rect.width));
       height = Math.max(1, Math.floor(rect.height));
       canvas.width = Math.floor(width * dpr);
@@ -713,7 +714,14 @@ function PartyMotionCanvas({ className = "" }) {
       ctx.fill();
     };
 
+    const FRAME_INTERVAL = 1000 / 30;
+
     const render = (timestamp = 0) => {
+      frame = window.requestAnimationFrame(render);
+      const elapsed = timestamp - lastFrameTime;
+      if (elapsed < FRAME_INTERVAL) return;
+      lastFrameTime = timestamp - (elapsed % FRAME_INTERVAL);
+
       const t = timestamp / 1000;
       const energy = 1.85;
       const pulse = 1 + Math.sin(t * 2.15) * 0.11;
@@ -737,34 +745,40 @@ function PartyMotionCanvas({ className = "" }) {
       const grid = 64;
       const gridOffset = reducedMotion ? 0 : (t * 42 * energy) % grid;
       ctx.strokeStyle = accent;
+      ctx.beginPath();
       for (let x = -grid + gridOffset; x < width + grid; x += grid) {
-        ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x + height * 0.25, height);
-        ctx.stroke();
       }
+      ctx.stroke();
       ctx.strokeStyle = accent2;
+      ctx.beginPath();
       for (let y = -grid + gridOffset; y < height + grid; y += grid) {
-        ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(width, y - width * 0.18);
-        ctx.stroke();
       }
+      ctx.stroke();
 
       ctx.globalAlpha = 1;
-      particles.forEach((particle, index) => {
-        const speed = reducedMotion ? 0.035 : particle.speed * energy;
-        const y = height - (((t * speed * 112 + particle.seed) % (height + 120)) - 60);
-        const x = width * particle.x + Math.sin(t * 1.55 + particle.seed) * 42 * particle.drift;
-        const color = index % 3 === 0 ? highlight : index % 2 === 0 ? accent : accent2;
+      const highlightParticles = particles.filter((_, i) => i % 3 === 0);
+      const accentParticles = particles.filter((_, i) => i % 3 !== 0 && i % 2 === 0);
+      const accent2Particles = particles.filter((_, i) => i % 3 !== 0 && i % 2 !== 0);
+      for (const [group, color] of [[highlightParticles, highlight], [accentParticles, accent], [accent2Particles, accent2]]) {
         ctx.fillStyle = `${color}9c`;
         ctx.beginPath();
-        ctx.arc(x, y, particle.radius, 0, Math.PI * 2);
+        for (const particle of group) {
+          const speed = reducedMotion ? 0.035 : particle.speed * energy;
+          const y = height - (((t * speed * 112 + particle.seed) % (height + 120)) - 60);
+          const x = width * particle.x + Math.sin(t * 1.55 + particle.seed) * 42 * particle.drift;
+          ctx.moveTo(x + particle.radius, y);
+          ctx.arc(x, y, particle.radius, 0, Math.PI * 2);
+        }
         ctx.fill();
-      });
+      }
 
       if (!reducedMotion) {
         const sweepCount = 5;
+        ctx.lineWidth = 1.5;
         for (let index = 0; index < sweepCount; index += 1) {
           const progress = (t * (0.14 + index * 0.022) * energy + index * 0.21) % 1;
           const y = height * (0.16 + index * 0.18);
@@ -774,15 +788,12 @@ function PartyMotionCanvas({ className = "" }) {
           laser.addColorStop(0.5, index % 2 ? `${accent2}96` : `${highlight}a8`);
           laser.addColorStop(1, "rgba(255,255,255,0)");
           ctx.strokeStyle = laser;
-          ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(x, y);
           ctx.lineTo(x + width * 0.38, y + height * 0.08);
           ctx.stroke();
         }
       }
-
-      frame = window.requestAnimationFrame(render);
     };
 
     resize();
