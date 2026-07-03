@@ -182,7 +182,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.01.17";
+const APP_VERSION = "2026.07.02.02";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -502,7 +502,7 @@ function nextQueuedSong(songs, currentId) {
 
 function nextQueuePosition(songs, offset = 0) {
   const highestPosition = songs.reduce((max, song) => Math.max(max, Number(song.position) || 0), 0);
-  return Math.max(highestPosition + 1, Date.now()) + offset + (Math.random() / 1000);
+  return Math.max(highestPosition + 1, Date.now()) + offset + Math.random();
 }
 
 function browserRegionCode() {
@@ -682,6 +682,16 @@ function PartyMotionCanvas({ className = "" }) {
       return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
     };
 
+    let accent = themeColor("--pb-accent", "#38bdf8");
+    let accent2 = themeColor("--pb-accent-2", "#6366f1");
+    let highlight = themeColor("--pb-highlight", "#7dd3fc");
+    const themeObserver = new MutationObserver(() => {
+      accent = themeColor("--pb-accent", "#38bdf8");
+      accent2 = themeColor("--pb-accent-2", "#6366f1");
+      highlight = themeColor("--pb-highlight", "#7dd3fc");
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-color-theme"] });
+
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -707,9 +717,6 @@ function PartyMotionCanvas({ className = "" }) {
       const t = timestamp / 1000;
       const energy = 1.85;
       const pulse = 1 + Math.sin(t * 2.15) * 0.11;
-      const accent = themeColor("--pb-accent", "#38bdf8");
-      const accent2 = themeColor("--pb-accent-2", "#6366f1");
-      const highlight = themeColor("--pb-highlight", "#7dd3fc");
 
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
@@ -786,11 +793,35 @@ function PartyMotionCanvas({ className = "" }) {
     return () => {
       window.cancelAnimationFrame(frame);
       resizeObserver?.disconnect();
+      themeObserver.disconnect();
       window.removeEventListener("resize", resize);
     };
   }, []);
 
   return <canvas ref={canvasRef} className={["party-motion-canvas", className].filter(Boolean).join(" ")} aria-hidden="true" />;
+}
+
+function CooldownBanner({ cooldownUntil, cooldownEnabled, isAdmin, roomNeedsFirstTrack }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!cooldownEnabled || isAdmin || roomNeedsFirstTrack || !cooldownUntil) return undefined;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil, cooldownEnabled, isAdmin, roomNeedsFirstTrack]);
+  if (isAdmin || !cooldownEnabled || roomNeedsFirstTrack) return null;
+  const remaining = Math.max(0, cooldownUntil - now);
+  return (
+    <div className={remaining > 0 ? "cooldown-countdown is-waiting" : "cooldown-countdown is-ready"} role="status" aria-live="polite">
+      <span>{remaining > 0 ? "Cooldown" : "Ready"}</span>
+      <strong>{remaining > 0 ? formatCountdown(remaining) : "Add now"}</strong>
+      <small>
+        {remaining > 0
+          ? "You can add another song when this reaches 0:00."
+          : "You can add a song now."}
+      </small>
+    </div>
+  );
 }
 
 function App() {
@@ -888,7 +919,6 @@ function App() {
   const [volumeControlOpen, setVolumeControlOpen] = useState(false);
   const [dismissedVersionPrompt, setDismissedVersionPrompt] = useState("");
   const [taglineDraft, setTaglineDraft] = useState("");
-  const [cooldownNow, setCooldownNow] = useState(Date.now());
   const [playerCollapsed, setPlayerCollapsed] = useState(false);
   const roomAppRef = useRef(null);
   const queuePanelRef = useRef(null);
@@ -900,6 +930,7 @@ function App() {
   const nicknameInputRef = useRef(null);
   const playerCardRef = useRef(null);
   const externalYouTubeTabRef = useRef(null);
+  const searchAbortRef = useRef(null);
   const externalClipboardCheckPendingRef = useRef(false);
   const externalSearchLeftAppRef = useRef(false);
   const externalSearchOpenedAtRef = useRef(0);
@@ -932,6 +963,7 @@ function App() {
   const djShortcutsRef = useRef({});
   const fullscreenSettleTimerRef = useRef(0);
   const latestSongsRef = useRef([]);
+  const latestRoomRef = useRef(null);
   const lastFloatingReactionMomentRef = useRef("");
   const lastSongReactionMomentRef = useRef({});
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
@@ -1203,6 +1235,7 @@ function App() {
   useEffect(() => {
     if (!firebaseReady || !activeRoomId) {
       setRoom(null);
+      latestRoomRef.current = null;
       latestSongsRef.current = [];
       setSongs([]);
       setMembers([]);
@@ -1246,6 +1279,7 @@ function App() {
         clearRoomState();
         return;
       }
+      latestRoomRef.current = nextRoom;
       setRoom(nextRoom);
       setRoomLoading(false);
     }, handleRoomAccessLost);
@@ -1468,35 +1502,42 @@ function App() {
     }
   }, [addSheetOpen, internalSearchAvailable, isActiveDjPhone]);
 
-  useEffect(() => {
-    if (!addSheetOpen || !cooldownEnabled || isAdmin) return undefined;
-    setCooldownNow(Date.now());
-    const timer = window.setInterval(() => setCooldownNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [addSheetOpen, cooldownEnabled, isAdmin]);
-
-  const memberRecord = members.find((member) => member.id === user?.uid);
+  const memberRecord = useMemo(
+    () => members.find((m) => m.id === user?.uid) || null,
+    [members, user?.uid]
+  );
   const selfAvatarId = avatarIdForMember(memberRecord, user?.uid);
   const cooldownUntil = cooldownEnabled && memberRecord?.lastAddedAt?.toMillis ? memberRecord.lastAddedAt.toMillis() + cooldownMs : 0;
-  const cooldownRemaining = Math.max(0, cooldownUntil - cooldownNow);
-  const cooldownCountdown = formatCountdown(cooldownRemaining);
-  const nowPlayingSong = songs.find((song) => song.id === room?.nowPlayingId) || null;
+  const nowPlayingSong = useMemo(
+    () => songs.find((song) => song.id === room?.nowPlayingId) || null,
+    [songs, room?.nowPlayingId]
+  );
 
 
   const nowPlayingDisplay = nowPlayingSong ? playlistTrackDisplay(nowPlayingSong) : null;
-  const reactionSong = songs.find((song) => song.id === emojiSongId) || null;
+  const reactionSong = useMemo(
+    () => songs.find((song) => song.id === emojiSongId) || null,
+    [songs, emojiSongId]
+  );
   const roomSyncing = roomLoading || songsLoading || membersLoading;
   const latestRoomVersion = room?.latestAppVersion || room?.appVersion || APP_VERSION;
   const appNeedsRefresh = Boolean(activeRoomId && room && compareAppVersions(APP_VERSION, latestRoomVersion) < 0);
   const nowPlayingSyncing = Boolean(room?.nowPlayingId && !nowPlayingSong && songsLoading);
   const roomNeedsFirstTrack = !songsLoading && songs.length === 0 && !room?.nowPlayingId;
-  const canAddSong = isAdmin || roomNeedsFirstTrack || cooldownRemaining === 0;
-  const nowPlayingIndex = songs.findIndex((song) => song.id === room?.nowPlayingId);
+  const canAddSong = isAdmin || roomNeedsFirstTrack || !cooldownEnabled || Date.now() >= cooldownUntil;
+  const nowPlayingIndex = useMemo(
+    () => songs.findIndex((song) => song.id === room?.nowPlayingId),
+    [songs, room?.nowPlayingId]
+  );
   const replaySong = useMemo(() => (
     nowPlayingIndex > 0
       ? [...songs.slice(0, nowPlayingIndex)].reverse().find((song) => !song.unavailable) || null
       : songs.find((song) => song.id === lastPlayedSongId.current && !song.unavailable) || null
   ), [songs, nowPlayingIndex]);
+  const nextSongId = useMemo(
+    () => nextQueuedSong(songs, room?.nowPlayingId)?.id || "",
+    [songs, room?.nowPlayingId]
+  );
   const pb = playbackDoc || room;
   const playbackState = useMemo(() => ({
     songId: pb?.playbackSongId || room?.nowPlayingId || null,
@@ -1595,7 +1636,10 @@ function App() {
       total + (song?.messages?.length || 0) + (songMessagesMap.get(song.id)?.length || 0), 0),
     [songs, songMessagesMap]
   );
-  const googleMemberCount = members.filter((member) => member.isAnonymous === false).length;
+  const googleMemberCount = useMemo(
+    () => members.filter((member) => member.isAnonymous === false).length,
+    [members]
+  );
   const guestMemberCount = Math.max(0, members.length - googleMemberCount);
   const analyticsPeople = useMemo(() =>
     members
@@ -2257,8 +2301,9 @@ function App() {
     }
     if (addingSongKey === addKey) return false;
     if (!canAddSong) {
-      setToast(cooldownRemaining > 0
-        ? `Cooldown active: ${Math.ceil(cooldownRemaining / 1000)}s left.`
+      const nowRemaining = Math.max(0, cooldownUntil - Date.now());
+      setToast(nowRemaining > 0
+        ? `Cooldown active: ${Math.ceil(nowRemaining / 1000)}s left.`
         : "Song cooldown is on.");
       return false;
     }
@@ -2854,6 +2899,10 @@ function App() {
       return;
     }
 
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+
     setSearching(true);
     try {
       const params = new URLSearchParams({
@@ -2866,7 +2915,7 @@ function App() {
         q: queryText,
         key: YOUTUBE_API_KEY
       });
-      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
+      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`, { signal: controller.signal });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error?.message || "YouTube search failed.");
@@ -2888,7 +2937,7 @@ function App() {
         .filter((result) => result.embeddable && Number(result.durationSeconds) > 0 && Number(result.durationSeconds) <= NON_ADMIN_MAX_SONG_SECONDS);
       setSearchResults(playableResults);
     } catch (error) {
-      setToast(error.message || "YouTube search failed.");
+      if (error.name !== "AbortError") setToast(error.message || "YouTube search failed.");
     } finally {
       setSearching(false);
     }
@@ -2896,15 +2945,19 @@ function App() {
 
   async function removeSong(songId) {
     if (!isAdmin) return;
-    await deleteDoc(doc(db, "rooms", activeRoomId, "songs", songId));
-    await touchRoomActivity();
+    const batch = writeBatch(db);
+    batch.delete(doc(db, "rooms", activeRoomId, "songs", songId));
+    batch.update(doc(db, "rooms", activeRoomId), roomActivityUpdate());
+    await batch.commit();
   }
 
   async function removeOwnSong(song) {
     if (!user || !activeRoomId || !song?.id || song.addedByUid !== user.uid) return;
     try {
-      await deleteDoc(doc(db, "rooms", activeRoomId, "songs", song.id));
-      await touchRoomActivity();
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "rooms", activeRoomId, "songs", song.id));
+      batch.update(doc(db, "rooms", activeRoomId), roomActivityUpdate());
+      await batch.commit();
       setToast("Removed your song.");
     } catch {
       setToast("Could not remove that song. Check room permissions.");
@@ -2944,8 +2997,8 @@ function App() {
     const batch = writeBatch(db);
     batch.update(doc(db, "rooms", activeRoomId, "songs", song.id), { position: swapWith.position });
     batch.update(doc(db, "rooms", activeRoomId, "songs", swapWith.id), { position: song.position });
+    batch.update(doc(db, "rooms", activeRoomId), roomActivityUpdate());
     await batch.commit();
-    await touchRoomActivity();
   }
 
   async function setNowPlaying(songId) {
@@ -3154,7 +3207,7 @@ function App() {
       ]);
       return;
     }
-    const nextSong = nextQueuedSong(latestSongsRef.current, room?.nowPlayingId);
+    const nextSong = nextQueuedSong(latestSongsRef.current, latestRoomRef.current?.nowPlayingId);
     if (nextSong) {
       await Promise.all([
         updateDoc(doc(db, "rooms", activeRoomId), {
@@ -3732,6 +3785,7 @@ function App() {
     }
     setActiveRoomId("");
     setRoom(null);
+    latestRoomRef.current = null;
     setPlaybackDoc(null);
     latestSongsRef.current = [];
     setSongs([]);
@@ -4623,7 +4677,6 @@ function App() {
               )}
             </div>
           ) : (() => {
-            const nextSongId = nextQueuedSong(songs, room.nowPlayingId)?.id || "";
             return songs.map((song, index) => {
               const trackDisplay = trackDisplayMap.get(song.id) || playlistTrackDisplay(song);
               const isCurrentSong = song.id === room.nowPlayingId;
@@ -4635,12 +4688,9 @@ function App() {
               const isDeleteRevealed = deleteRevealSongId === song.id;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
-              const emojiCounts = EMOJIS.map((emoji) => ({
-                emoji,
-                count: Object.values(song.emojiByUser || {}).filter((value) => value === emoji).length
-              })).filter((item) => item.count > 0);
               const songMsgs = songMessagesMap.get(song.id) || [];
-              const songVersion = `${song.id}|${song.title}|${song.position}|${song.unavailable ? 1 : 0}|${JSON.stringify(song.emojiByUser || {})}|${(song.messages?.length || 0) + songMsgs.length}`;
+              const emojiKey = Object.entries(song.emojiByUser || {}).map(([k, v]) => `${k}:${v}`).join(",");
+              const songVersion = `${song.id}|${song.title}|${song.position}|${song.unavailable ? 1 : 0}|${emojiKey}|${(song.messages?.length || 0) + songMsgs.length}|${uploader?.name || ""}|${uploader?.avatarId || ""}`;
               return (
                 <SongRow
                   key={song.id}
@@ -4652,7 +4702,6 @@ function App() {
                   uploader={uploader}
                   uploaderIsGoogle={uploaderIsGoogle}
                   messages={(song?.messages || []).concat(songMsgs)}
-                  emojiCounts={emojiCounts}
                   isCurrentSong={isCurrentSong}
                   isPlayedSong={isPlayedSong}
                   isUpNextSong={isUpNextSong}
@@ -5044,7 +5093,7 @@ function App() {
                       ? "Cooldown is off."
                       : canAddSong
                         ? "You can add a song now."
-                        : `Next add in ${Math.ceil(cooldownRemaining / 1000)}s.`}
+                        : "Cooldown active — timer below."}
                 </p>
               </div>
               <button className="icon-button" onClick={() => setAddSheetOpen(false)} title="Close" type="button">
@@ -5052,17 +5101,12 @@ function App() {
               </button>
             </div>
 
-            {!isAdmin && cooldownEnabled && !roomNeedsFirstTrack && (
-              <div className={cooldownRemaining > 0 ? "cooldown-countdown is-waiting" : "cooldown-countdown is-ready"} role="status" aria-live="polite">
-                <span>{cooldownRemaining > 0 ? "Cooldown" : "Ready"}</span>
-                <strong>{cooldownRemaining > 0 ? cooldownCountdown : "Add now"}</strong>
-                <small>
-                  {cooldownRemaining > 0
-                    ? "You can add another song when this reaches 0:00."
-                    : "You can add a song now."}
-                </small>
-              </div>
-            )}
+            <CooldownBanner
+              cooldownUntil={cooldownUntil}
+              cooldownEnabled={cooldownEnabled}
+              isAdmin={isAdmin}
+              roomNeedsFirstTrack={roomNeedsFirstTrack}
+            />
 
             {internalSearchAvailable && (
               <div className="search-tabs" role="tablist" aria-label="Song search mode">
@@ -5923,7 +5967,7 @@ function App() {
 }
 
 const SongRow = React.memo(function SongRow({
-  song, index, queueLength, trackDisplay, uploader, uploaderIsGoogle, messages, emojiCounts,
+  song, index, queueLength, trackDisplay, uploader, uploaderIsGoogle, messages,
   isCurrentSong, isPlayedSong, isUpNextSong, isRecentlyAdded, isSelected, isDeleteRevealed,
   isAdmin, isDragging, isDragOverTop, isDragOverBottom, isReacting, isUnavailable,
   isDraggable, canDeleteOwn, playbackIsPlaying,
