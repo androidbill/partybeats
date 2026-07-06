@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import {
@@ -30,7 +30,7 @@ import {
   Volume2,
   SkipForward,
   Trash2,
-  UserRound,
+
   Wand2,
   X
 } from "lucide-react";
@@ -182,7 +182,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.02.04";
+const APP_VERSION = "2026.07.02.07";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -822,8 +822,14 @@ function CooldownBanner({ cooldownUntil, cooldownEnabled, isAdmin, roomNeedsFirs
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     if (!cooldownEnabled || isAdmin || roomNeedsFirstTrack || !cooldownUntil) return undefined;
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    const n = Date.now();
+    setNow(n);
+    if (n >= cooldownUntil) return undefined;
+    const timer = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= cooldownUntil) window.clearInterval(timer);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [cooldownUntil, cooldownEnabled, isAdmin, roomNeedsFirstTrack]);
   if (isAdmin || !cooldownEnabled || roomNeedsFirstTrack) return null;
@@ -962,6 +968,7 @@ function App() {
   const joiningRoomRef = useRef(false);
   const floatingReactionPressTimerRef = useRef(0);
   const floatingReactionLongPressRef = useRef(false);
+  const panelResizeRafRef = useRef(0);
   const songSwipeStartRef = useRef(null);
   const songSwipeRevealedRef = useRef(false);
   const roomShoutSwipeStartRef = useRef(null);
@@ -1074,7 +1081,7 @@ function App() {
       document.removeEventListener("visibilitychange", handleExternalSearchReturn);
       clearExternalClipboardCheckTimer();
     };
-  }, [activeRoomId, user?.uid, room?.id, songs.length, members.length, roomLoading, songsLoading, membersLoading]);
+  }, [activeRoomId, user?.uid]);
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -1129,10 +1136,14 @@ function App() {
 
   function resizeDesktopPanels(event) {
     if (window.innerWidth < 980) return;
-    const appRect = roomAppRef.current?.getBoundingClientRect();
-    if (!appRect?.width) return;
-    const nextSplit = Math.min(80, Math.max(45, ((event.clientX - appRect.left) / appRect.width) * 100));
-    setDesktopPlayerSplit(Math.round(nextSplit * 10) / 10);
+    const clientX = event.clientX;
+    cancelAnimationFrame(panelResizeRafRef.current);
+    panelResizeRafRef.current = requestAnimationFrame(() => {
+      const appRect = roomAppRef.current?.getBoundingClientRect();
+      if (!appRect?.width) return;
+      const nextSplit = Math.round(Math.min(80, Math.max(45, ((clientX - appRect.left) / appRect.width) * 100)) * 10) / 10;
+      setDesktopPlayerSplit(nextSplit);
+    });
   }
 
   function startDesktopPanelResize(event) {
@@ -1485,7 +1496,9 @@ function App() {
   const activePlayerDeviceId = room?.activePlayerDeviceId || "";
   const isActiveDjAccount = Boolean(user && activeDjUid === user.uid);
   const isActiveDj = Boolean(isActiveDjAccount && (!activePlayerDeviceId || activePlayerDeviceId === deviceId));
-  djShortcutsRef.current = { isActiveDj, activeRoomId, togglePlayback, playNextSong };
+  useEffect(() => {
+    djShortcutsRef.current = { isActiveDj, activeRoomId, togglePlayback, playNextSong };
+  }, [isActiveDj, activeRoomId, togglePlayback, playNextSong]);
   const isActiveDjPhone = Boolean(isActiveDj && isMobileViewport);
   const cooldownEnabled = room?.cooldownEnabled === true;
   const cooldownMinutes = Math.min(
@@ -1644,10 +1657,27 @@ function App() {
     }
     return map;
   }, [songMessages]);
-  const messagesForSong = (song) => [
-    ...(song?.messages || []),
-    ...(songMessagesMap.get(song?.id) || [])
-  ];
+  const messagesForSongMap = useMemo(() => {
+    const map = new Map();
+    for (const song of songs) {
+      const extra = songMessagesMap.get(song.id);
+      const base = song.messages;
+      if ((base?.length || 0) + (extra?.length || 0) > 0) {
+        map.set(song.id, (base || []).concat(extra || []));
+      }
+    }
+    return map;
+  }, [songs, songMessagesMap]);
+  const emojiKeyMap = useMemo(() => {
+    const map = new Map();
+    for (const song of songs) {
+      const eu = song.emojiByUser;
+      if (eu && Object.keys(eu).length > 0) {
+        map.set(song.id, Object.entries(eu).map(([k, v]) => `${k}:${v}`).join(","));
+      }
+    }
+    return map;
+  }, [songs]);
   const totalMessages = useMemo(
     () => songs.reduce((total, song) =>
       total + (song?.messages?.length || 0) + (songMessagesMap.get(song.id)?.length || 0), 0),
@@ -1658,18 +1688,34 @@ function App() {
     [members]
   );
   const guestMemberCount = Math.max(0, members.length - googleMemberCount);
-  const analyticsPeople = useMemo(() =>
-    members
+  const memberStatsByUid = useMemo(() => {
+    if (!roomPanelOpen) return new Map();
+    const added = new Map();
+    const reactions = new Map();
+    const messages = new Map();
+    const inc = (map, uid) => map.set(uid, (map.get(uid) || 0) + 1);
+    for (const song of songs) {
+      if (song.addedByUid) inc(added, song.addedByUid);
+      for (const uid of Object.keys(song.emojiByUser || {})) inc(reactions, uid);
+    }
+    for (const msgs of messagesForSongMap.values()) {
+      for (const m of msgs) if (m.uid) inc(messages, m.uid);
+    }
+    return { added, reactions, messages };
+  }, [roomPanelOpen, songs, messagesForSongMap]);
+
+  const analyticsPeople = useMemo(() => {
+    if (!roomPanelOpen) return [];
+    const { added = new Map(), reactions = new Map(), messages = new Map() } = memberStatsByUid;
+    return members
       .map((member) => {
-        const added = songs.filter((song) => song.addedByUid === member.id).length;
-        const reactions = songs.reduce((total, song) => total + (song.emojiByUser?.[member.id] ? 1 : 0), 0);
-        const messages = songs.reduce((total, song) =>
-          total + ((song?.messages || []).concat(songMessagesMap.get(song.id) || [])).filter((m) => m.uid === member.id).length, 0);
-        return { ...member, added, reactions, messages, total: added + reactions + messages };
+        const a = added.get(member.id) || 0;
+        const r = reactions.get(member.id) || 0;
+        const m = messages.get(member.id) || 0;
+        return { ...member, added: a, reactions: r, messages: m, total: a + r + m };
       })
-      .sort((a, b) => b.total - a.total || b.added - a.added || (a.name || "").localeCompare(b.name || "")),
-    [members, songs, songMessagesMap]
-  );
+      .sort((a, b) => b.total - a.total || b.added - a.added || (a.name || "").localeCompare(b.name || ""));
+  }, [roomPanelOpen, members, memberStatsByUid]);
   const mostReactedSongs = useMemo(() =>
     songs
       .map((song) => ({
@@ -1684,12 +1730,7 @@ function App() {
     [songs, songMessagesMap, trackDisplayMap]
   );
   const crowdFavoriteSongId = mostReactedSongs[0]?.id || "";
-  const mostMessagedSongId = useMemo(() => {
-    const sorted = [...songs]
-      .map((song) => ({ id: song.id, count: (song?.messages?.length || 0) + (songMessagesMap.get(song.id)?.length || 0) }))
-      .sort((a, b) => b.count - a.count);
-    return sorted[0]?.count > 0 ? sorted[0].id : "";
-  }, [songs, songMessagesMap]);
+
   const activeReactionStreak = useMemo(() =>
     members
       .map((member) => {
@@ -3662,8 +3703,9 @@ function App() {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     const rect = event.currentTarget.getBoundingClientRect();
-    setDragOverHalf(event.clientY < rect.top + rect.height / 2 ? "top" : "bottom");
-    setDragOverSongId(song.id);
+    const half = event.clientY < rect.top + rect.height / 2 ? "top" : "bottom";
+    setDragOverHalf((prev) => prev === half ? prev : half);
+    setDragOverSongId((prev) => prev === song.id ? prev : song.id);
   }
 
   function handleSongDragLeave(song) {
@@ -3703,6 +3745,17 @@ function App() {
     setDragSongId("");
     setDragOverSongId("");
   }
+
+  const handleSongMoveUp = useCallback((song) => moveSong(song, -1), []);
+  const handleSongMoveDown = useCallback((song) => moveSong(song, 1), []);
+  const handleSongPlay = useCallback((songId) => setNowPlaying(songId), []);
+  const handleSongRemove = useCallback((songId) => removeSong(songId), []);
+  const handleCommentIconClick = useCallback((songId) => {
+    setMessageDraft("");
+    setMessageSongId(songId);
+    setEmojiPickerMode("comment");
+    setEmojiSongId(songId);
+  }, []);
 
   async function reactToSong(song, emoji) {
     if (!user || !activeRoomId) return;
@@ -4178,8 +4231,31 @@ function App() {
     setToast("Playlist copied.");
   }
 
+  function computeAnalyticsPeople() {
+    const addedMap = new Map();
+    const reactionsMap = new Map();
+    const messagesMap = new Map();
+    const inc = (map, uid) => map.set(uid, (map.get(uid) || 0) + 1);
+    for (const song of songs) {
+      if (song.addedByUid) inc(addedMap, song.addedByUid);
+      for (const uid of Object.keys(song.emojiByUser || {})) inc(reactionsMap, uid);
+    }
+    for (const msgs of messagesForSongMap.values()) {
+      for (const m of msgs) if (m.uid) inc(messagesMap, m.uid);
+    }
+    return members
+      .map((member) => {
+        const a = addedMap.get(member.id) || 0;
+        const r = reactionsMap.get(member.id) || 0;
+        const m = messagesMap.get(member.id) || 0;
+        return { ...member, added: a, reactions: r, messages: m, total: a + r + m };
+      })
+      .sort((a, b) => b.total - a.total || b.added - a.added || (a.name || "").localeCompare(b.name || ""));
+  }
+
   async function shareAnalytics() {
     setMenuOpen(false);
+    const people = analyticsPeople.length > 0 ? analyticsPeople : computeAnalyticsPeople();
     const lines = [
       "BP PartyBeats Analytics",
       `Room: ${activeRoomId}`,
@@ -4193,7 +4269,7 @@ function App() {
       `Guests: ${guestMemberCount}`,
       "",
       "People",
-      ...analyticsPeople.map((member) => `${member.name || "Guest"} (${member.isAnonymous ? "Guest" : "Google"}): ${member.added} adds, ${member.reactions} reacts, ${member.messages} msgs`),
+      ...people.map((member) => `${member.name || "Guest"} (${member.isAnonymous ? "Guest" : "Google"}): ${member.added} adds, ${member.reactions} reacts, ${member.messages} msgs`),
       "",
       "Top Tracks",
       ...(mostReactedSongs.length
@@ -4216,7 +4292,7 @@ function App() {
   async function sharePartyRecap() {
     setMenuOpen(false);
     const topTrack = mostReactedSongs[0];
-    const topPerson = analyticsPeople[0];
+    const topPerson = (analyticsPeople.length > 0 ? analyticsPeople : computeAnalyticsPeople())[0];
     const lines = [
       "BP PartyBeats Recap",
       `Room: ${activeRoomId}`,
@@ -4705,9 +4781,8 @@ function App() {
               const isDeleteRevealed = deleteRevealSongId === song.id;
               const uploader = memberById(song.addedByUid);
               const uploaderIsGoogle = song.addedByIsAnonymous === false || uploader?.isAnonymous === false;
-              const songMsgs = songMessagesMap.get(song.id) || [];
-              const emojiKey = Object.entries(song.emojiByUser || {}).map(([k, v]) => `${k}:${v}`).join(",");
-              const songVersion = `${song.id}|${song.title}|${song.position}|${song.unavailable ? 1 : 0}|${emojiKey}|${(song.messages?.length || 0) + songMsgs.length}|${uploader?.name || ""}|${uploader?.avatarId || ""}`;
+              const allMsgs = messagesForSongMap.get(song.id) || [];
+              const songVersion = `${song.id}|${song.title}|${song.position}|${song.unavailable ? 1 : 0}|${emojiKeyMap.get(song.id) || ""}|${allMsgs.length}|${uploader?.name || ""}|${uploader?.avatarId || ""}`;
               return (
                 <SongRow
                   key={song.id}
@@ -4718,7 +4793,7 @@ function App() {
                   trackDisplay={trackDisplay}
                   uploader={uploader}
                   uploaderIsGoogle={uploaderIsGoogle}
-                  messages={(song?.messages || []).concat(songMsgs)}
+                  messages={allMsgs}
                   isCurrentSong={isCurrentSong}
                   isPlayedSong={isPlayedSong}
                   isUpNextSong={isUpNextSong}
@@ -4747,13 +4822,13 @@ function App() {
                   onPointerCancel={cancelSongDeleteSwipe}
                   onContextMenu={openSongEmojiPicker}
                   onDeleteOwn={removeOwnSong}
-                  onMoveUp={() => moveSong(song, -1)}
-                  onMoveDown={() => moveSong(song, 1)}
-                  onPlay={() => setNowPlaying(song.id)}
-                  onRemove={() => removeSong(song.id)}
+                  onMoveUp={handleSongMoveUp}
+                  onMoveDown={handleSongMoveDown}
+                  onPlay={handleSongPlay}
+                  onRemove={handleSongRemove}
                   onEmojiPicker={openSongEmojiPicker}
                   isCommenting={emojiSongId === song.id && emojiPickerMode === "comment"}
-                  onCommentIconClick={() => { setMessageDraft(""); setMessageSongId(song.id); setEmojiPickerMode("comment"); setEmojiSongId(song.id); }}
+                  onCommentIconClick={handleCommentIconClick}
                   songSwipeRevealedRef={songSwipeRevealedRef}
                   memberById={memberById}
                   getAvatarId={getAvatarId}
@@ -6107,7 +6182,7 @@ const SongRow = React.memo(function SongRow({
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
-                  onCommentIconClick();
+                  onCommentIconClick(song.id);
                 }}
               >
                 <MessageCircle aria-hidden="true" />
@@ -6115,16 +6190,16 @@ const SongRow = React.memo(function SongRow({
             </>
           ) : (
             <>
-              <button className="icon-button" onClick={onMoveUp} title="Move up" disabled={index <= 0} type="button">
+              <button className="icon-button" onClick={() => onMoveUp(song)} title="Move up" disabled={index <= 0} type="button">
                 <ArrowUp aria-hidden="true" />
               </button>
-              <button className="icon-button" onClick={onMoveDown} title="Move down" disabled={index >= queueLength - 1} type="button">
+              <button className="icon-button" onClick={() => onMoveDown(song)} title="Move down" disabled={index >= queueLength - 1} type="button">
                 <ArrowDown aria-hidden="true" />
               </button>
-              <button className="icon-button" onClick={onPlay} title="Play" type="button">
+              <button className="icon-button" onClick={() => onPlay(song.id)} title="Play" type="button">
                 <Play aria-hidden="true" />
               </button>
-              <button className="icon-button danger" onClick={onRemove} title="Remove song" type="button">
+              <button className="icon-button danger" onClick={() => onRemove(song.id)} title="Remove song" type="button">
                 <Trash2 aria-hidden="true" />
               </button>
             </>
