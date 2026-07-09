@@ -9235,22 +9235,46 @@ input,
 /* Final playlist guard: keep compact pill rows fully visible and keep row
    action buttons above the tap/swipe layer on every viewport. */
 .room-app .song-list {
-  overflow-x: hidden;
+  display: grid !important;
+  gap: 8px !important;
+  width: 100%;
+  max-width: 100%;
+  padding: 4px 6px max(76px, calc(env(safe-area-inset-bottom) + 72px)) !important;
+  overflow-x: visible;
 }
 
 .room-app .song-row,
 .room-app.light-mode .song-row,
 .room-app.dark-mode .song-row,
 .room-app.has-party-motion .song-row,
-.room-app.is-ios.has-party-motion .song-row {
+.room-app.has-party-motion.dark-mode .song-row,
+.room-app.is-ios.has-party-motion .song-row,
+.room-app.is-ios.has-party-motion.dark-mode .song-row,
+.room-app .song-row.is-playing,
+.room-app.dark-mode .song-row.is-playing,
+.room-app.has-party-motion .song-row.is-playing,
+.room-app.has-party-motion.dark-mode .song-row.is-playing,
+.room-app.is-ios.has-party-motion .song-row.is-playing,
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-playing,
+.room-app .song-row.is-up-next:not(.is-playing),
+.room-app.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion .song-row.is-up-next:not(.is-playing),
+.room-app.is-ios.has-party-motion.dark-mode .song-row.is-up-next:not(.is-playing) {
+  box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
+  width: 100% !important;
+  max-width: 100% !important;
   height: auto !important;
-  min-height: 0 !important;
+  min-height: 58px !important;
   max-height: none !important;
-  overflow: visible !important;
+  margin: 0 !important;
+  overflow: hidden !important;
   contain: none !important;
+  border-radius: 999px !important;
 }
 
 .room-app .song-row .song-main,
@@ -9281,5 +9305,21 @@ input,
 .room-app .song-row.is-admin-selected .song-row-actions,
 .room-app .song-row.is-reacting .song-row-actions {
   visibility: visible !important;
+}
+
+@media (max-width: 520px) {
+  .room-app .song-list {
+    padding: 4px 5px max(80px, calc(env(safe-area-inset-bottom) + 76px)) !important;
+  }
+
+  .room-app .song-row,
+  .room-app.light-mode .song-row,
+  .room-app.dark-mode .song-row,
+  .room-app.has-party-motion .song-row,
+  .room-app.has-party-motion.dark-mode .song-row,
+  .room-app.is-ios.has-party-motion .song-row,
+  .room-app.is-ios.has-party-motion.dark-mode .song-row {
+    min-height: 60px !important;
+  }
 }
 
