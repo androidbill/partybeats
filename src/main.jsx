@@ -182,7 +182,7 @@ const DEFAULT_TRACK_NOTICE_SECONDS = 3;
 const DEFAULT_JOIN_NOTICE_SECONDS = 3;
 const NON_ADMIN_MAX_SONG_SECONDS = 10 * 60;
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const APP_VERSION = "2026.07.09.01";
+const APP_VERSION = "2026.07.09.02";
 const DEFAULT_DESKTOP_PLAYER_SPLIT = 65;
 const PLAYBACK_COMMAND_WINDOW_MS = 8000;
 const EXTERNAL_SEARCH_MIN_AWAY_MS = 3500;
@@ -3766,16 +3766,16 @@ function App() {
     setDragOverSongId("");
   }
 
-  const handleSongMoveUp = useCallback((song) => moveSong(song, -1), []);
-  const handleSongMoveDown = useCallback((song) => moveSong(song, 1), []);
-  const handleSongPlay = useCallback((songId) => setNowPlaying(songId), []);
-  const handleSongRemove = useCallback((songId) => removeSong(songId), []);
-  const handleCommentIconClick = useCallback((songId) => {
+  const handleSongMoveUp = (song) => moveSong(song, -1);
+  const handleSongMoveDown = (song) => moveSong(song, 1);
+  const handleSongPlay = (songId) => setNowPlaying(songId);
+  const handleSongRemove = (songId) => removeSong(songId);
+  const handleCommentIconClick = (songId) => {
     setMessageDraft("");
     setMessageSongId(songId);
     setEmojiPickerMode("comment");
     setEmojiSongId(songId);
-  }, []);
+  };
 
   async function reactToSong(song, emoji) {
     if (!user || !activeRoomId) return;
@@ -6089,6 +6089,15 @@ const SongRow = React.memo(function SongRow({
   isCommenting, onCommentIconClick,
   songSwipeRevealedRef, memberById, getAvatarId
 }) {
+  const stopRowPointerEvent = (event) => {
+    event.stopPropagation();
+  };
+  const runRowButtonAction = (event, action) => {
+    event.preventDefault();
+    event.stopPropagation();
+    action();
+  };
+
   return (
     <article
       className={[
@@ -6174,7 +6183,14 @@ const SongRow = React.memo(function SongRow({
           )}
           {isUpNextSong && <em>Up next</em>}
         </span>
-        <div className="song-row-actions" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+        <div
+          className="song-row-actions"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={stopRowPointerEvent}
+          onPointerMove={stopRowPointerEvent}
+          onPointerUp={stopRowPointerEvent}
+          onPointerCancel={stopRowPointerEvent}
+        >
           {!isAdmin ? (
             <>
               <button
@@ -6182,8 +6198,8 @@ const SongRow = React.memo(function SongRow({
                 type="button"
                 aria-label="React to song"
                 title="React to song"
-                onPointerDown={(event) => event.stopPropagation()}
-                onPointerUp={(event) => event.stopPropagation()}
+                onPointerDown={stopRowPointerEvent}
+                onPointerUp={stopRowPointerEvent}
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -6197,8 +6213,8 @@ const SongRow = React.memo(function SongRow({
                 type="button"
                 aria-label="Comment on song"
                 title="Comment on song"
-                onPointerDown={(event) => event.stopPropagation()}
-                onPointerUp={(event) => event.stopPropagation()}
+                onPointerDown={stopRowPointerEvent}
+                onPointerUp={stopRowPointerEvent}
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -6210,16 +6226,46 @@ const SongRow = React.memo(function SongRow({
             </>
           ) : (
             <>
-              <button className="icon-button" onClick={() => onMoveUp(song)} title="Move up" disabled={index <= 0} type="button">
+              <button
+                className="icon-button"
+                onPointerDown={stopRowPointerEvent}
+                onPointerUp={stopRowPointerEvent}
+                onClick={(event) => runRowButtonAction(event, () => onMoveUp(song))}
+                title="Move up"
+                disabled={index <= 0}
+                type="button"
+              >
                 <ArrowUp aria-hidden="true" />
               </button>
-              <button className="icon-button" onClick={() => onMoveDown(song)} title="Move down" disabled={index >= queueLength - 1} type="button">
+              <button
+                className="icon-button"
+                onPointerDown={stopRowPointerEvent}
+                onPointerUp={stopRowPointerEvent}
+                onClick={(event) => runRowButtonAction(event, () => onMoveDown(song))}
+                title="Move down"
+                disabled={index >= queueLength - 1}
+                type="button"
+              >
                 <ArrowDown aria-hidden="true" />
               </button>
-              <button className="icon-button" onClick={() => onPlay(song.id)} title="Play" type="button">
+              <button
+                className="icon-button"
+                onPointerDown={stopRowPointerEvent}
+                onPointerUp={stopRowPointerEvent}
+                onClick={(event) => runRowButtonAction(event, () => onPlay(song.id))}
+                title="Play"
+                type="button"
+              >
                 <Play aria-hidden="true" />
               </button>
-              <button className="icon-button danger" onClick={() => onRemove(song.id)} title="Remove song" type="button">
+              <button
+                className="icon-button danger"
+                onPointerDown={stopRowPointerEvent}
+                onPointerUp={stopRowPointerEvent}
+                onClick={(event) => runRowButtonAction(event, () => onRemove(song.id))}
+                title="Remove song"
+                type="button"
+              >
                 <Trash2 aria-hidden="true" />
               </button>
             </>

@@ -9232,3 +9232,54 @@ input,
   will-change: auto !important;
 }
 
+/* Final playlist guard: keep compact pill rows fully visible and keep row
+   action buttons above the tap/swipe layer on every viewport. */
+.room-app .song-list {
+  overflow-x: hidden;
+}
+
+.room-app .song-row,
+.room-app.light-mode .song-row,
+.room-app.dark-mode .song-row,
+.room-app.has-party-motion .song-row,
+.room-app.is-ios.has-party-motion .song-row {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  contain: none !important;
+}
+
+.room-app .song-row .song-main,
+.room-app .song-row .song-info-row,
+.room-app .song-row .song-reactions-row {
+  max-width: 100%;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.room-app .song-row .track-line,
+.room-app .song-row .track-line strong,
+.room-app .song-row .track-line b {
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+}
+
+.room-app .song-row-actions {
+  position: relative;
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.room-app .song-row.is-selected .song-row-actions,
+.room-app .song-row.is-admin-selected .song-row-actions,
+.room-app .song-row.is-reacting .song-row-actions {
+  visibility: visible !important;
+}
+
